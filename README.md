@@ -207,9 +207,9 @@ Generate personalized loan advice.
 │   FastAPI App   │────│   LangChain     │────│   External APIs  │
 │                 │    │   Agents        │    │   (MinIO, AWS)   │
 │ - Auth & Rate   │    │                 │    │                 │
-│   Limiting      │    │ - RAG Tools     │    │ - Model Storage │
-│ - Input         │    │ - Risk Analysis │    │ - Monitoring    │
-│   Validation    │    │                 │    │                 │
+│   Limiting      │    │ - RAG Tools     │    │ - Risk Analysis │
+│ - Input         │    │                 │    │ - Model Storage │
+│   Validation    │    │                 │    │ - Monitoring    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
