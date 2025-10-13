@@ -183,8 +183,8 @@ jobs:
     needs: [docker-build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
-      name: production
-      url: https://apfa.yourdomain.com
+      name: 'production'
+      url: 'https://apfa.yourdomain.com'
     
     steps:
       - name: Checkout code

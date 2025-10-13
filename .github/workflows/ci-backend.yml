@@ -161,8 +161,8 @@ jobs:
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
-      name: production
-      url: https://apfa.yourdomain.com
+      name: 'production'
+      url: 'https://apfa.yourdomain.com'
     
     steps:
       - name: Checkout code
@@ -199,8 +199,8 @@ jobs:
     needs: [build]
     if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
     environment:
-      name: staging
-      url: https://staging.apfa.yourdomain.com
+      name: 'staging'
+      url: 'https://staging.apfa.yourdomain.com'
     
     steps:
       - name: Checkout code
