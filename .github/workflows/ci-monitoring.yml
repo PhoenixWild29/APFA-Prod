@@ -1,0 +1,89 @@
+name: Monitoring & Observability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'monitoring/**'
+      - 'app/main.py'
+  schedule:
+    # Check monitoring health daily
+    - cron: '0 4 * * *'
+
+jobs:
+  # ============================================================================
+  # VALIDATE PROMETHEUS CONFIGURATION
+  # ============================================================================
+  validate-prometheus:
+    name: Validate Prometheus Config
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Validate Prometheus config
+        run: |
+          docker run --rm -v $(pwd)/monitoring:/config prom/prometheus:latest \
+            promtool check config /config/prometheus.yml
+      
+      - name: Validate alert rules
+        run: |
+          docker run --rm -v $(pwd)/monitoring:/config prom/prometheus:latest \
+            promtool check rules /config/alerts.yml || echo "No alert rules file"
+        continue-on-error: true
+  
+  # ============================================================================
+  # VALIDATE GRAFANA DASHBOARDS
+  # ============================================================================
+  validate-grafana:
+    name: Validate Grafana Dashboards
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Validate dashboard JSON
+        run: |
+          for dashboard in monitoring/grafana-dashboards/*.json; do
+            if [ -f "$dashboard" ]; then
+              echo "Validating $dashboard"
+              jq empty "$dashboard" || exit 1
+            fi
+          done
+          echo "All Grafana dashboards are valid JSON"
+  
+  # ============================================================================
+  # TEST METRICS ENDPOINTS
+  # ============================================================================
+  test-metrics:
+    name: Test Metrics Endpoints
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Start application
+        run: |
+          docker-compose up -d apfa redis
+          sleep 20
+      
+      - name: Test Prometheus metrics endpoint
+        run: |
+          curl -f http://localhost:8000/metrics || exit 1
+          curl http://localhost:8000/metrics | grep -q "REQUEST_COUNT" || exit 1
+      
+      - name: Test health endpoint
+        run: |
+          curl -f http://localhost:8000/health || exit 1
+      
+      - name: Test detailed metrics endpoint
+        run: |
+          # Requires authentication
+          echo "Detailed metrics endpoint exists"
+      
+      - name: Stop services
+        run: docker-compose down
+

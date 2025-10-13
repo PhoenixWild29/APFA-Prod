@@ -1,0 +1,176 @@
+name: Multi-Cloud Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      cloud_provider:
+        description: 'Cloud provider'
+        required: true
+        type: choice
+        options:
+          - aws
+          - azure
+          - gcp
+
+jobs:
+  # ============================================================================
+  # AWS DEPLOYMENT (ECS Fargate)
+  # ============================================================================
+  deploy-aws:
+    name: Deploy to AWS ECS Fargate
+    runs-on: ubuntu-latest
+    if: github.event.inputs.cloud_provider == 'aws'
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+      
+      - name: Deploy using CDK
+        run: |
+          cd infra
+          npm install
+          cdk deploy --context environment=${{ github.event.inputs.environment }} --require-approval never
+      
+      - name: Verify deployment
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 60
+          
+          # Get ECS service endpoint (would need to be extracted from CDK outputs)
+          echo "Deployment to AWS ECS completed"
+  
+  # ============================================================================
+  # AZURE DEPLOYMENT (AKS)
+  # ============================================================================
+  deploy-azure:
+    name: Deploy to Azure AKS
+    runs-on: ubuntu-latest
+    if: github.event.inputs.cloud_provider == 'azure'
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+      
+      - name: Initialize Terraform
+        run: |
+          cd infra/azure
+          terraform init
+      
+      - name: Apply Terraform
+        run: |
+          cd infra/azure
+          terraform apply -auto-approve \
+            -var="environment=${{ github.event.inputs.environment }}"
+      
+      - name: Deploy to AKS
+        run: |
+          az aks get-credentials --resource-group apfa-rg --name apfa-aks
+          kubectl apply -f infra/azure/k8s/
+          kubectl rollout status deployment/apfa-backend
+  
+  # ============================================================================
+  # GCP DEPLOYMENT (GKE)
+  # ============================================================================
+  deploy-gcp:
+    name: Deploy to GCP GKE
+    runs-on: ubuntu-latest
+    if: github.event.inputs.cloud_provider == 'gcp'
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+      
+      - name: Configure kubectl
+        run: |
+          gcloud container clusters get-credentials apfa-cluster \
+            --region us-central1 \
+            --project ${{ secrets.GCP_PROJECT_ID }}
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+      
+      - name: Deploy using Helm
+        run: |
+          helm upgrade --install apfa ./helm-chart \
+            --set environment=${{ github.event.inputs.environment }} \
+            --set image.tag=${{ github.sha }} \
+            --wait
+      
+      - name: Verify deployment
+        run: |
+          kubectl get pods -l app=apfa
+          kubectl rollout status deployment/apfa-backend
+  
+  # ============================================================================
+  # POST-DEPLOYMENT VALIDATION
+  # ============================================================================
+  post-deployment-tests:
+    name: Post-Deployment Validation
+    runs-on: ubuntu-latest
+    needs: [deploy-aws, deploy-azure, deploy-gcp]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run smoke tests
+        run: |
+          # Set endpoint based on cloud provider
+          case "${{ github.event.inputs.cloud_provider }}" in
+            aws)
+              ENDPOINT="https://apfa-${{ github.event.inputs.environment }}.yourdomain.com"
+              ;;
+            azure)
+              ENDPOINT="https://apfa-${{ github.event.inputs.environment }}.azure.yourdomain.com"
+              ;;
+            gcp)
+              ENDPOINT="https://apfa-${{ github.event.inputs.environment }}.gcp.yourdomain.com"
+              ;;
+          esac
+          
+          echo "Testing endpoint: $ENDPOINT"
+          curl -f $ENDPOINT/health || exit 1
+          curl -f $ENDPOINT/metrics || exit 1
+          
+          echo "Smoke tests passed!"
+

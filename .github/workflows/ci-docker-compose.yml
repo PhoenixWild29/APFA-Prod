@@ -1,0 +1,88 @@
+name: Docker Compose Integration
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docker-compose.yml'
+      - 'Dockerfile'
+      - 'monitoring/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ============================================================================
+  # DOCKER COMPOSE VALIDATION
+  # ============================================================================
+  docker-compose-test:
+    name: Test Docker Compose Stack
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Validate docker-compose.yml
+        run: docker-compose config
+      
+      - name: Build services
+        run: docker-compose build
+      
+      - name: Start all services
+        run: |
+          docker-compose up -d
+          sleep 30
+      
+      - name: Check service health
+        run: |
+          docker-compose ps
+          
+          # Check backend health
+          curl -f http://localhost:8000/health || exit 1
+          
+          # Check Prometheus
+          curl -f http://localhost:9090/-/healthy || exit 1
+          
+          # Check Redis
+          docker-compose exec -T redis redis-cli ping || exit 1
+          
+          echo "All services are healthy"
+      
+      - name: View service logs
+        if: failure()
+        run: docker-compose logs
+      
+      - name: Stop services
+        run: docker-compose down -v
+  
+  # ============================================================================
+  # MONITORING STACK VALIDATION
+  # ============================================================================
+  monitoring-validation:
+    name: Validate Monitoring Stack
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Start monitoring services
+        run: |
+          docker-compose up -d prometheus grafana
+          sleep 20
+      
+      - name: Validate Prometheus config
+        run: |
+          curl -f http://localhost:9090/-/healthy || exit 1
+          curl http://localhost:9090/api/v1/targets | jq
+      
+      - name: Validate Grafana
+        run: |
+          curl -f http://localhost:3000/api/health || exit 1
+      
+      - name: Stop services
+        run: docker-compose down
+

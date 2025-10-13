@@ -1,0 +1,148 @@
+name: Integration & E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run integration tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  # ============================================================================
+  # END-TO-END TESTING
+  # ============================================================================
+  e2e-tests:
+    name: End-to-End Integration Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+      
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: apfa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Install Node dependencies
+        run: npm ci
+      
+      - name: Start backend server
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+        env:
+          REDIS_URL: redis://localhost:6379
+          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/apfa_test
+      
+      - name: Run integration tests
+        run: |
+          pytest tests/test_comprehensive.py -v
+          pytest tests/test_phase_validation.py -v
+      
+      - name: Run API endpoint tests
+        run: |
+          curl -f http://localhost:8000/health || exit 1
+          curl -f http://localhost:8000/metrics || exit 1
+          echo "All endpoint smoke tests passed"
+  
+  # ============================================================================
+  # PERFORMANCE TESTING
+  # ============================================================================
+  performance-tests:
+    name: Performance & Load Tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install locust
+      
+      - name: Start application
+        run: |
+          docker-compose up -d
+          sleep 30
+      
+      - name: Run load tests
+        run: |
+          locust -f tests/locustfile.py --headless -u 100 -r 10 -t 60s --host http://localhost:8000
+        continue-on-error: true
+      
+      - name: Stop services
+        run: docker-compose down
+  
+  # ============================================================================
+  # SECURITY SCANNING
+  # ============================================================================
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'APFA'
+          path: '.'
+          format: 'HTML'
+        continue-on-error: true
+
