@@ -1,0 +1,884 @@
+openapi: 3.0.3
+info:
+  title: APFA - Agentic Personalized Financial Advisor API
+  version: 1.0.0
+  description: |
+    Production-ready API for AI-powered financial advisory system with multi-agent architecture,
+    RAG (Retrieval-Augmented Generation), and background job processing.
+    
+    ## Features
+    - JWT-based authentication
+    - Real-time task monitoring via WebSocket
+    - Background job processing with Celery
+    - FAISS vector search for document retrieval
+    - LLM-powered advice generation
+    
+    ## Rate Limits
+    - Global: 10 requests/minute per IP
+    - Authentication: 10 login attempts/minute per IP
+    - Advice generation: 10 requests/minute per authenticated user
+    
+  contact:
+    name: APFA Backend Team
+    email: apfa-backend@company.com
+  license:
+    name: Proprietary
+    url: https://apfa.io/license
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://staging-api.apfa.io
+    description: Staging environment
+  - url: https://api.apfa.io
+    description: Production environment
+
+tags:
+  - name: Health
+    description: Health check and monitoring endpoints
+  - name: Authentication
+    description: JWT token-based authentication
+  - name: Advice
+    description: AI-powered loan advice generation
+  - name: Admin - Celery
+    description: Admin endpoints for Celery task management
+  - name: Admin - Index
+    description: Admin endpoints for FAISS index management
+  - name: Admin - Metrics
+    description: Admin endpoints for system metrics
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns service health status
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics
+      description: Exposes metrics in Prometheus format
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP apfa_requests_total Total number of requests
+                # TYPE apfa_requests_total counter
+                apfa_requests_total{method="POST",endpoint="/generate-advice",status="200"} 1234
+
+  /token:
+    post:
+      tags:
+        - Authentication
+      summary: OAuth2 token login
+      description: Authenticate and obtain JWT access token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  format: password
+                  example: admin123
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Incorrect username or password
+
+  /generate-advice:
+    post:
+      tags:
+        - Advice
+      summary: Generate loan advice
+      description: |
+        Generate personalized loan advice using AI agents with RAG and LLM.
+        
+        **Processing Pipeline:**
+        1. Input validation
+        2. Cache check (80% hit rate)
+        3. RAG retrieval (FAISS vector search)
+        4. LLM inference (Llama-3-8B)
+        5. Bias detection
+        6. Response generation
+        
+        **Performance:**
+        - Cached: <500ms (P95)
+        - Uncached: <3s (P95)
+        - Timeout: 30s
+      operationId: generateAdvice
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanQuery'
+            examples:
+              home_loan:
+                summary: Home loan query
+                value:
+                  query: What loan options are available for a $200,000 home purchase?
+              personal_loan:
+                summary: Personal loan query
+                value:
+                  query: I need a $10,000 personal loan with low interest rates
+      responses:
+        '200':
+          description: Advice generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdviceResponse'
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    advice: |
+                      Based on current market conditions and your query about a $200,000 home purchase,
+                      here are your loan options:
+                      
+                      1. Conventional Loan: 20% down, 6.5% APR, 30-year fixed
+                      2. FHA Loan: 3.5% down, 6.8% APR, 30-year fixed
+                      3. VA Loan (if eligible): 0% down, 6.2% APR, 30-year fixed
+                    user: admin
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Invalid API key
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: Rate limit exceeded. Try again later.
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: External service error (LLM, RAG)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/admin/celery/tasks:
+    get:
+      tags:
+        - Admin - Celery
+      summary: Get Celery tasks
+      description: Retrieve list of Celery tasks with optional filters
+      operationId: getCeleryTasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: queue
+          in: query
+          description: Filter by queue name
+          schema:
+            type: string
+            enum: [embedding, indexing, maintenance]
+        - name: state
+          in: query
+          description: Filter by task state
+          schema:
+            type: string
+            enum: [PENDING, STARTED, RETRY, FAILURE, SUCCESS]
+        - name: worker
+          in: query
+          description: Filter by worker name
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of tasks to return
+          schema:
+            type: integer
+            default: 1000
+            maximum: 10000
+      responses:
+        '200':
+          description: Task list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CeleryTask'
+        '401':
+          description: Unauthorized (admin access required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/admin/celery/tasks/{taskId}/revoke:
+    post:
+      tags:
+        - Admin - Celery
+      summary: Revoke task
+      description: Revoke a running or pending Celery task
+      operationId: revokeTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: Task ID to revoke
+          schema:
+            type: string
+            format: uuid
+        - name: terminate
+          in: query
+          description: Terminate task forcefully (SIGKILL)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Task revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: revoked
+                  task_id:
+                    type: string
+                    example: 123e4567-e89b-12d3-a456-426614174000
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/admin/celery/jobs/embed-all:
+    post:
+      tags:
+        - Admin - Celery
+      summary: Trigger embedding job
+      description: |
+        Trigger full document embedding job
+        
+        **Duration:** 10-60 minutes (depending on document count)
+        **Impact:** No user-facing impact (background processing)
+      operationId: triggerEmbeddingJob
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                delta_table_path:
+                  type: string
+                  description: Override default Delta Lake path
+                  example: s3a://custom-bucket/profiles
+      responses:
+        '200':
+          description: Job submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                    example: 123e4567-e89b-12d3-a456-426614174000
+                  status:
+                    type: string
+                    example: submitted
+                  estimated_duration:
+                    type: string
+                    example: 30 minutes
+
+  /api/admin/celery/queues/stats:
+    get:
+      tags:
+        - Admin - Celery
+      summary: Get queue statistics
+      description: Get real-time statistics for all Celery queues
+      operationId: getQueueStats
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Queue statistics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  embedding:
+                    $ref: '#/components/schemas/QueueStats'
+                  indexing:
+                    $ref: '#/components/schemas/QueueStats'
+                  maintenance:
+                    $ref: '#/components/schemas/QueueStats'
+
+  /api/admin/celery/workers:
+    get:
+      tags:
+        - Admin - Celery
+      summary: Get worker status
+      description: Get health and statistics for all Celery workers
+      operationId: getWorkers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Worker list retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CeleryWorker'
+
+  /api/admin/celery/jobs/{jobId}/wait:
+    get:
+      tags:
+        - Admin - Celery
+      summary: Long polling for job completion
+      description: |
+        Wait for job completion using long polling
+        
+        **Behavior:**
+        - Server holds connection until job completes or timeout
+        - Timeout: 60 seconds (default)
+        - Auto-retry on timeout with new long poll
+      operationId: waitForJob
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: timeout
+          in: query
+          description: Timeout in seconds
+          schema:
+            type: integer
+            default: 60
+            maximum: 300
+      responses:
+        '200':
+          description: Job status (completed, failed, or still running)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJob'
+
+  /api/admin/index:
+    get:
+      tags:
+        - Admin - Index
+      summary: Get FAISS indexes
+      description: Get list of all FAISS indexes with metadata
+      operationId: getIndexes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Index list retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FAISSIndex'
+
+  /api/admin/index/rebuild:
+    post:
+      tags:
+        - Admin - Index
+      summary: Rebuild FAISS index
+      description: |
+        Trigger full FAISS index rebuild
+        
+        **Duration:** 10-30 minutes for 100K vectors
+        **Impact:** No downtime (hot-swap on completion)
+      operationId: rebuildIndex
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Index rebuild triggered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: building
+
+  /api/admin/index/{version}/activate:
+    post:
+      tags:
+        - Admin - Index
+      summary: Activate index version
+      description: |
+        Hot-swap to specified index version
+        
+        **Duration:** <100ms
+        **Impact:** Zero downtime
+      operationId: activateIndex
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+          example: abc12345
+      responses:
+        '200':
+          description: Index activated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: active
+                  version:
+                    type: string
+                    example: abc12345
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /token endpoint
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key (deprecated, use JWT)
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          example: healthy
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+      properties:
+        access_token:
+          type: string
+          example: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+        token_type:
+          type: string
+          example: bearer
+
+    LoanQuery:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 5
+          maxLength: 500
+          pattern: '^[a-zA-Z0-9\s\?\.\,\!\-\+\=\$\%\(\)]+$'
+          description: |
+            Financial query about loans, credit, or finance
+            
+            **Validation Rules:**
+            - Length: 5-500 characters
+            - Must contain financial keywords (loan, credit, finance, etc.)
+            - No profanity
+            - No HTML/script content
+            - Reasonable amounts ($0-$10M)
+            - Reasonable rates (0-50%)
+          example: What loan options are available for a $200,000 home purchase?
+
+    AdviceResponse:
+      type: object
+      required:
+        - advice
+        - user
+      properties:
+        advice:
+          type: string
+          description: AI-generated loan advice
+          example: Based on current market conditions...
+        user:
+          type: string
+          description: Username of authenticated user
+          example: admin
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: Invalid API key
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                example: [body, query]
+              msg:
+                type: string
+                example: Query must be related to financial or loan topics
+              type:
+                type: string
+                example: value_error
+
+    CeleryTask:
+      type: object
+      required:
+        - id
+        - name
+        - state
+        - queue
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        name:
+          type: string
+          example: app.tasks.embed_document_batch
+        state:
+          type: string
+          enum: [PENDING, STARTED, RETRY, FAILURE, SUCCESS, REVOKED]
+          example: SUCCESS
+        queue:
+          type: string
+          enum: [embedding, indexing, maintenance]
+          example: embedding
+        worker:
+          type: string
+          example: celery@worker1
+        timestamp:
+          type: string
+          format: date-time
+          example: 2025-10-11T12:34:56Z
+        runtime:
+          type: number
+          format: float
+          description: Execution time in seconds
+          example: 0.85
+        retries:
+          type: integer
+          minimum: 0
+          example: 0
+        args:
+          type: array
+          items: {}
+          description: Task arguments
+        kwargs:
+          type: object
+          description: Task keyword arguments
+        exception:
+          type: string
+          description: Exception message (if failed)
+          nullable: true
+        result:
+          type: object
+          description: Task result (if successful)
+          nullable: true
+
+    QueueStats:
+      type: object
+      required:
+        - depth
+        - workers
+        - rate
+      properties:
+        depth:
+          type: integer
+          minimum: 0
+          description: Number of pending tasks
+          example: 5
+        workers:
+          type: integer
+          minimum: 0
+          description: Number of active workers
+          example: 4
+        rate:
+          type: number
+          format: float
+          description: Processing rate (tasks/sec)
+          example: 12.5
+
+    CeleryWorker:
+      type: object
+      required:
+        - name
+        - status
+        - queue
+      properties:
+        name:
+          type: string
+          example: celery@worker1
+        status:
+          type: string
+          enum: [online, offline]
+          example: online
+        queue:
+          type: string
+          enum: [embedding, indexing, maintenance]
+          example: embedding
+        active_tasks:
+          type: integer
+          minimum: 0
+          example: 2
+        cpu:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: CPU usage percentage
+          example: 78.5
+        memory:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Memory usage percentage
+          example: 65.2
+        uptime:
+          type: integer
+          description: Uptime in seconds
+          example: 86400
+
+    BatchJob:
+      type: object
+      required:
+        - jobId
+        - taskId
+        - totalBatches
+        - completedBatches
+        - status
+      properties:
+        jobId:
+          type: string
+          example: embed_job_123
+        taskId:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        totalBatches:
+          type: integer
+          minimum: 1
+          example: 100
+        completedBatches:
+          type: integer
+          minimum: 0
+          example: 75
+        failedBatches:
+          type: integer
+          minimum: 0
+          example: 2
+        status:
+          type: string
+          enum: [running, completed, failed, paused]
+          example: running
+        startTime:
+          type: string
+          format: date-time
+          example: 2025-10-11T12:00:00Z
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        estimatedTimeRemaining:
+          type: integer
+          description: Estimated seconds remaining
+          nullable: true
+          example: 300
+        throughput:
+          type: number
+          format: float
+          description: Documents per second
+          nullable: true
+          example: 1250.5
+        errors:
+          type: array
+          items:
+            type: string
+          example:
+            - "MinIO connection timeout for batch_0042"
+            - "Embedding generation failed for batch_0058"
+
+    FAISSIndex:
+      type: object
+      required:
+        - version
+        - vectorCount
+        - dimensions
+        - indexType
+        - isActive
+      properties:
+        version:
+          type: string
+          description: SHA256 hash (first 8 chars)
+          example: abc12345
+        vectorCount:
+          type: integer
+          minimum: 0
+          example: 100000
+        dimensions:
+          type: integer
+          example: 384
+        indexType:
+          type: string
+          enum: [IndexFlatIP, IndexIVFFlat, IndexIVFPQ]
+          example: IndexFlatIP
+        memoryMB:
+          type: number
+          format: float
+          description: Memory usage in MB
+          example: 153.6
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-10-11T12:00:00Z
+        isActive:
+          type: boolean
+          description: Whether this is the currently active index
+          example: true
+        buildDuration:
+          type: number
+          format: float
+          description: Time to build index in seconds
+          nullable: true
+          example: 5.2
+        migrationUrgency:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: |
+            Migration urgency score (0-100)
+            < 70: No action
+            70-90: Plan migration
+            > 90: Migrate immediately
+          example: 45.2
+
+  examples:
+    homeL oan:
+      summary: Home loan query
+      value:
+        query: What loan options are available for a $200,000 home purchase?
+    
+    personalLoan:
+      summary: Personal loan query
+      value:
+        query: I need a $10,000 personal loan with low interest rates
+
+security:
+  - bearerAuth: []
+

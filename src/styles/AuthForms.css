@@ -1,0 +1,179 @@
+/**
+ * Authentication Forms Styles
+ * 
+ * Provides consistent styling for login, registration, and password reset forms
+ * with WCAG 2.1 AA compliance (contrast ratios, focus indicators, etc.)
+ */
+
+/* Form container */
+.auth-form {
+  @apply space-y-6;
+}
+
+/* Form fields */
+.auth-form-field {
+  @apply space-y-2;
+}
+
+.auth-form-label {
+  @apply block text-sm font-medium text-foreground;
+}
+
+.auth-form-input {
+  @apply w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background;
+  @apply placeholder:text-muted-foreground;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  @apply disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Error messages */
+.auth-form-error {
+  @apply mt-1 flex items-center gap-1 text-sm text-destructive;
+}
+
+.auth-form-error-icon {
+  @apply h-4 w-4;
+}
+
+/* Success messages */
+.auth-form-success {
+  @apply flex items-center gap-2 rounded-md border border-green-500/50 bg-green-50 p-3 text-sm text-green-700;
+}
+
+/* Loading state */
+.auth-form-loading {
+  @apply flex items-center justify-center gap-2 text-sm text-muted-foreground;
+}
+
+/* Password strength indicator */
+.password-strength {
+  @apply mt-2 space-y-1;
+}
+
+.password-strength-bar {
+  @apply flex gap-1;
+}
+
+.password-strength-segment {
+  @apply h-1 flex-1 rounded;
+}
+
+.password-strength-segment.weak {
+  @apply bg-destructive;
+}
+
+.password-strength-segment.medium {
+  @apply bg-yellow-500;
+}
+
+.password-strength-segment.strong {
+  @apply bg-green-500;
+}
+
+.password-strength-segment.empty {
+  @apply bg-gray-200;
+}
+
+.password-strength-feedback {
+  @apply text-xs text-muted-foreground;
+}
+
+/* Accessibility improvements */
+
+/* Focus visible styles for keyboard navigation */
+*:focus-visible {
+  @apply outline-none ring-2 ring-ring ring-offset-2;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .auth-form-input {
+    @apply border-2;
+  }
+  
+  .auth-form-error {
+    @apply font-semibold;
+  }
+}
+
+/* Reduced motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Screen reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Color contrast ratios (WCAG 2.1 AA) */
+/* Light mode - minimum 4.5:1 for normal text */
+:root {
+  --auth-text-primary: #000000;
+  --auth-text-secondary: #666666;
+  --auth-error: #d32f2f;
+  --auth-success: #2e7d32;
+  --auth-link: #1976d2;
+}
+
+/* Dark mode - maintain contrast ratios */
+.dark {
+  --auth-text-primary: #ffffff;
+  --auth-text-secondary: #b3b3b3;
+  --auth-error: #f44336;
+  --auth-success: #4caf50;
+  --auth-link: #64b5f6;
+}
+
+/* Form button styles */
+.auth-form-button {
+  @apply w-full rounded-md px-4 py-2 font-medium transition-colors;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+}
+
+.auth-form-button-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  @apply disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.auth-form-button-secondary {
+  @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground;
+}
+
+/* Link styles */
+.auth-form-link {
+  @apply text-sm font-medium text-primary hover:underline;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+}
+
+/* Checkbox styles */
+.auth-form-checkbox {
+  @apply h-4 w-4 rounded border-gray-300 text-primary;
+  @apply focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  @apply disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Ensure minimum touch target size of 44x44px for mobile (WCAG 2.1) */
+@media (max-width: 768px) {
+  .auth-form-button,
+  .auth-form-input {
+    @apply min-h-[44px];
+  }
+  
+  .auth-form-checkbox {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
+

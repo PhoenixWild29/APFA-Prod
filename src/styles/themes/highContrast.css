@@ -1,0 +1,135 @@
+/**
+ * High Contrast Theme
+ * 
+ * WCAG 2.1 AA compliant high contrast mode for
+ * users with visual impairments
+ */
+
+:root.high-contrast {
+  /* Background colors */
+  --bg-primary: #000000;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #2d2d2d;
+  
+  /* Text colors */
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-muted: #b0b0b0;
+  
+  /* Border colors */
+  --border-primary: #ffffff;
+  --border-secondary: #808080;
+  
+  /* Interactive colors */
+  --color-primary: #00ff00;
+  --color-secondary: #00ccff;
+  --color-danger: #ff0000;
+  --color-warning: #ffff00;
+  --color-success: #00ff00;
+  --color-info: #00ccff;
+  
+  /* Focus indicator */
+  --focus-outline: 3px solid #00ff00;
+  
+  /* Shadows (disabled in high contrast) */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+}
+
+.high-contrast {
+  /* Global styles */
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.high-contrast a {
+  color: var(--color-secondary);
+  text-decoration: underline;
+}
+
+.high-contrast a:hover,
+.high-contrast a:focus {
+  color: var(--color-primary);
+  text-decoration: underline;
+  outline: var(--focus-outline);
+}
+
+.high-contrast button {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 2px solid var(--border-primary);
+}
+
+.high-contrast button:hover,
+.high-contrast button:focus {
+  background-color: var(--color-primary);
+  color: var(--bg-primary);
+  outline: var(--focus-outline);
+}
+
+.high-contrast input,
+.high-contrast select,
+.high-contrast textarea {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 2px solid var(--border-primary);
+}
+
+.high-contrast input:focus,
+.high-contrast select:focus,
+.high-contrast textarea:focus {
+  outline: var(--focus-outline);
+  border-color: var(--color-primary);
+}
+
+.high-contrast .card,
+.high-contrast .panel {
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border-primary);
+}
+
+/* Alert styles */
+.high-contrast .alert-danger {
+  background-color: var(--bg-primary);
+  color: var(--color-danger);
+  border: 2px solid var(--color-danger);
+}
+
+.high-contrast .alert-warning {
+  background-color: var(--bg-primary);
+  color: var(--color-warning);
+  border: 2px solid var(--color-warning);
+}
+
+.high-contrast .alert-success {
+  background-color: var(--bg-primary);
+  color: var(--color-success);
+  border: 2px solid var(--color-success);
+}
+
+.high-contrast .alert-info {
+  background-color: var(--bg-primary);
+  color: var(--color-info);
+  border: 2px solid var(--color-info);
+}
+
+/* Ensure adequate contrast ratios (WCAG 2.1 AA: 4.5:1 for normal text, 3:1 for large text) */
+.high-contrast * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Screen reader only class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+

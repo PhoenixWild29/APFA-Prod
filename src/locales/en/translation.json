@@ -1,0 +1,45 @@
+{
+  "app": {
+    "title": "Agentic Personalized Financial Advisor",
+    "subtitle": "AI-Powered Loan Advisory Platform"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "documents": "Documents",
+    "search": "Search",
+    "admin": "Administration",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "loginSuccess": "Login successful",
+    "loginError": "Invalid credentials"
+  },
+  "dashboard": {
+    "welcome": "Welcome, {{username}}",
+    "overview": "System Overview",
+    "performance": "Performance Metrics",
+    "alerts": "Active Alerts"
+  },
+  "documents": {
+    "upload": "Upload Document",
+    "uploadSuccess": "Document uploaded successfully",
+    "uploadError": "Upload failed",
+    "search": "Search Documents",
+    "noResults": "No documents found"
+  },
+  "accessibility": {
+    "skipToMain": "Skip to main content",
+    "toggleHighContrast": "Toggle high contrast mode",
+    "languageSelector": "Select language",
+    "loading": "Loading, please wait",
+    "error": "An error occurred"
+  }
+}
+

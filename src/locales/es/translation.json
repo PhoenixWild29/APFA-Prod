@@ -1,0 +1,45 @@
+{
+  "app": {
+    "title": "Asesor Financiero Personalizado Agéntico",
+    "subtitle": "Plataforma de Asesoramiento de Préstamos Impulsada por IA"
+  },
+  "nav": {
+    "home": "Inicio",
+    "dashboard": "Panel",
+    "documents": "Documentos",
+    "search": "Buscar",
+    "admin": "Administración",
+    "logout": "Cerrar Sesión"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "register": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar Contraseña",
+    "forgotPassword": "¿Olvidó su contraseña?",
+    "loginSuccess": "Inicio de sesión exitoso",
+    "loginError": "Credenciales inválidas"
+  },
+  "dashboard": {
+    "welcome": "Bienvenido, {{username}}",
+    "overview": "Resumen del Sistema",
+    "performance": "Métricas de Rendimiento",
+    "alerts": "Alertas Activas"
+  },
+  "documents": {
+    "upload": "Subir Documento",
+    "uploadSuccess": "Documento cargado exitosamente",
+    "uploadError": "Error al cargar",
+    "search": "Buscar Documentos",
+    "noResults": "No se encontraron documentos"
+  },
+  "accessibility": {
+    "skipToMain": "Saltar al contenido principal",
+    "toggleHighContrast": "Alternar modo de alto contraste",
+    "languageSelector": "Seleccionar idioma",
+    "loading": "Cargando, por favor espere",
+    "error": "Ocurrió un error"
+  }
+}
+
