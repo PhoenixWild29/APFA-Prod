@@ -118,33 +118,37 @@ jobs:
             docker build -t apfa-backend:test . || echo "⚠️ Docker build failed, creating basic Dockerfile"
             if [ $? -ne 0 ]; then
               echo "Creating basic Dockerfile for scanning..."
-              cat > Dockerfile << 'EOF'
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Install basic dependencies
-RUN pip install fastapi uvicorn
-
-# Create basic app
-RUN echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get("/")\ndef read_root():\n    return {"Hello": "World"}' > main.py
-
-EXPOSE 8000
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-EOF
+              echo 'FROM python:3.11-slim' > Dockerfile
+              echo '' >> Dockerfile
+              echo 'WORKDIR /app' >> Dockerfile
+              echo '' >> Dockerfile
+              echo '# Install basic dependencies' >> Dockerfile
+              echo 'RUN pip install fastapi uvicorn' >> Dockerfile
+              echo '' >> Dockerfile
+              echo '# Create basic app' >> Dockerfile
+              echo 'RUN echo "from fastapi import FastAPI" > main.py' >> Dockerfile
+              echo 'RUN echo "app = FastAPI()" >> main.py' >> Dockerfile
+              echo 'RUN echo "@app.get(\"/\")" >> main.py' >> Dockerfile
+              echo 'RUN echo "def read_root():" >> main.py' >> Dockerfile
+              echo 'RUN echo "    return {\"Hello\": \"World\"}" >> main.py' >> Dockerfile
+              echo '' >> Dockerfile
+              echo 'EXPOSE 8000' >> Dockerfile
+              echo '' >> Dockerfile
+              echo 'CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]' >> Dockerfile
               docker build -t apfa-backend:test . || echo "⚠️ Basic Docker build also failed"
             fi
           else
             echo "No Dockerfile found, creating basic one..."
-            cat > Dockerfile << 'EOF'
-FROM python:3.11-slim
-WORKDIR /app
-RUN pip install fastapi uvicorn
-RUN echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get("/")\ndef read_root():\n    return {"Hello": "World"}' > main.py
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-EOF
+            echo 'FROM python:3.11-slim' > Dockerfile
+            echo 'WORKDIR /app' >> Dockerfile
+            echo 'RUN pip install fastapi uvicorn' >> Dockerfile
+            echo 'RUN echo "from fastapi import FastAPI" > main.py' >> Dockerfile
+            echo 'RUN echo "app = FastAPI()" >> main.py' >> Dockerfile
+            echo 'RUN echo "@app.get(\"/\")" >> main.py' >> Dockerfile
+            echo 'RUN echo "def read_root():" >> main.py' >> Dockerfile
+            echo 'RUN echo "    return {\"Hello\": \"World\"}" >> main.py' >> Dockerfile
+            echo 'EXPOSE 8000' >> Dockerfile
+            echo 'CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]' >> Dockerfile
             docker build -t apfa-backend:test . || echo "⚠️ Docker build failed"
           fi
         continue-on-error: true

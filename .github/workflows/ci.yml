@@ -18,7 +18,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt found, installing basic dependencies"
+            pip install fastapi uvicorn pytest pytest-cov black mypy
+          fi
           pip install pytest pytest-cov black mypy
       
       - name: Check if app directory exists

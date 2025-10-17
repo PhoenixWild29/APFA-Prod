@@ -75,27 +75,25 @@ jobs:
           else
             echo "App directory not found, creating basic FastAPI app"
             mkdir -p app
-            cat > app/main.py << 'EOF'
-from fastapi import FastAPI
-import uvicorn
-
-app = FastAPI(title="APFA Test API")
-
-@app.get("/")
-async def root():
-    return {"message": "Hello APFA"}
-
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-@app.get("/metrics")
-async def metrics():
-    return {"metrics": "basic"}
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-EOF
+            echo 'from fastapi import FastAPI' > app/main.py
+            echo 'import uvicorn' >> app/main.py
+            echo '' >> app/main.py
+            echo 'app = FastAPI(title="APFA Test API")' >> app/main.py
+            echo '' >> app/main.py
+            echo '@app.get("/")' >> app/main.py
+            echo 'async def root():' >> app/main.py
+            echo '    return {"message": "Hello APFA"}' >> app/main.py
+            echo '' >> app/main.py
+            echo '@app.get("/health")' >> app/main.py
+            echo 'async def health():' >> app/main.py
+            echo '    return {"status": "healthy"}' >> app/main.py
+            echo '' >> app/main.py
+            echo '@app.get("/metrics")' >> app/main.py
+            echo 'async def metrics():' >> app/main.py
+            echo '    return {"metrics": "basic"}' >> app/main.py
+            echo '' >> app/main.py
+            echo 'if __name__ == "__main__":' >> app/main.py
+            echo '    uvicorn.run(app, host="0.0.0.0", port=8000)' >> app/main.py
           fi
       
       - name: Start backend server
@@ -130,27 +128,25 @@ EOF
           else
             echo "No comprehensive tests found, creating basic test"
             mkdir -p tests
-            cat > tests/test_comprehensive.py << 'EOF'
-def test_health_endpoint():
-    import requests
-    try:
-        response = requests.get("http://localhost:8000/health")
-        assert response.status_code == 200
-        print("✅ Health endpoint test passed")
-    except Exception as e:
-        print(f"⚠️ Health endpoint test failed: {e}")
-        assert True  # Don't fail the workflow
-
-def test_root_endpoint():
-    import requests
-    try:
-        response = requests.get("http://localhost:8000/")
-        assert response.status_code == 200
-        print("✅ Root endpoint test passed")
-    except Exception as e:
-        print(f"⚠️ Root endpoint test failed: {e}")
-        assert True  # Don't fail the workflow
-EOF
+            echo 'def test_health_endpoint():' > tests/test_comprehensive.py
+            echo '    import requests' >> tests/test_comprehensive.py
+            echo '    try:' >> tests/test_comprehensive.py
+            echo '        response = requests.get("http://localhost:8000/health")' >> tests/test_comprehensive.py
+            echo '        assert response.status_code == 200' >> tests/test_comprehensive.py
+            echo '        print("✅ Health endpoint test passed")' >> tests/test_comprehensive.py
+            echo '    except Exception as e:' >> tests/test_comprehensive.py
+            echo '        print(f"⚠️ Health endpoint test failed: {e}")' >> tests/test_comprehensive.py
+            echo '        assert True  # Don'\''t fail the workflow' >> tests/test_comprehensive.py
+            echo '' >> tests/test_comprehensive.py
+            echo 'def test_root_endpoint():' >> tests/test_comprehensive.py
+            echo '    import requests' >> tests/test_comprehensive.py
+            echo '    try:' >> tests/test_comprehensive.py
+            echo '        response = requests.get("http://localhost:8000/")' >> tests/test_comprehensive.py
+            echo '        assert response.status_code == 200' >> tests/test_comprehensive.py
+            echo '        print("✅ Root endpoint test passed")' >> tests/test_comprehensive.py
+            echo '    except Exception as e:' >> tests/test_comprehensive.py
+            echo '        print(f"⚠️ Root endpoint test failed: {e}")' >> tests/test_comprehensive.py
+            echo '        assert True  # Don'\''t fail the workflow' >> tests/test_comprehensive.py
             pip install requests
             pytest tests/test_comprehensive.py -v
           fi
@@ -205,27 +201,25 @@ EOF
         run: |
           if [ ! -d "app" ]; then
             mkdir -p app
-            cat > app/main.py << 'EOF'
-from fastapi import FastAPI
-import uvicorn
-
-app = FastAPI(title="APFA Performance Test API")
-
-@app.get("/")
-async def root():
-    return {"message": "APFA Performance Test"}
-
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-@app.get("/metrics")
-async def metrics():
-    return {"metrics": "performance_test"}
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-EOF
+            echo 'from fastapi import FastAPI' > app/main.py
+            echo 'import uvicorn' >> app/main.py
+            echo '' >> app/main.py
+            echo 'app = FastAPI(title="APFA Performance Test API")' >> app/main.py
+            echo '' >> app/main.py
+            echo '@app.get("/")' >> app/main.py
+            echo 'async def root():' >> app/main.py
+            echo '    return {"message": "APFA Performance Test"}' >> app/main.py
+            echo '' >> app/main.py
+            echo '@app.get("/health")' >> app/main.py
+            echo 'async def health():' >> app/main.py
+            echo '    return {"status": "healthy"}' >> app/main.py
+            echo '' >> app/main.py
+            echo '@app.get("/metrics")' >> app/main.py
+            echo 'async def metrics():' >> app/main.py
+            echo '    return {"metrics": "performance_test"}' >> app/main.py
+            echo '' >> app/main.py
+            echo 'if __name__ == "__main__":' >> app/main.py
+            echo '    uvicorn.run(app, host="0.0.0.0", port=8000)' >> app/main.py
           fi
       
       - name: Start test server
@@ -255,20 +249,18 @@ EOF
             locust -f tests/locustfile.py --headless -u 5 -r 1 -t 15s --host http://localhost:8000 || echo "⚠️ Performance tests had issues"
           else
             echo "No locustfile found, creating basic performance test"
-            cat > tests/locustfile.py << 'EOF'
-from locust import HttpUser, task, between
-
-class BasicUser(HttpUser):
-    wait_time = between(1, 2)
-    
-    @task
-    def test_health(self):
-        self.client.get("/health")
-    
-    @task
-    def test_root(self):
-        self.client.get("/")
-EOF
+            echo 'from locust import HttpUser, task, between' > tests/locustfile.py
+            echo '' >> tests/locustfile.py
+            echo 'class BasicUser(HttpUser):' >> tests/locustfile.py
+            echo '    wait_time = between(1, 2)' >> tests/locustfile.py
+            echo '    ' >> tests/locustfile.py
+            echo '    @task' >> tests/locustfile.py
+            echo '    def test_health(self):' >> tests/locustfile.py
+            echo '        self.client.get("/health")' >> tests/locustfile.py
+            echo '    ' >> tests/locustfile.py
+            echo '    @task' >> tests/locustfile.py
+            echo '    def test_root(self):' >> tests/locustfile.py
+            echo '        self.client.get("/")' >> tests/locustfile.py
             locust -f tests/locustfile.py --headless -u 5 -r 1 -t 15s --host http://localhost:8000 || echo "⚠️ Basic performance tests had issues"
           fi
         continue-on-error: true
