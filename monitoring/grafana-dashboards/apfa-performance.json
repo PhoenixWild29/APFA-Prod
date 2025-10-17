@@ -1,0 +1,280 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "apfa-performance",
+    "title": "APFA Performance Metrics",
+    "tags": ["apfa", "performance", "monitoring"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 2
+        },
+        "type": "row",
+        "title": "API Performance"
+      },
+      {
+        "id": 2,
+        "gridPos": {
+          "x": 0,
+          "y": 2,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "API Response Times by Endpoint",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) by (endpoint)",
+            "legendFormat": "{{endpoint}} (p95)",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Response Time"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": {
+          "x": 12,
+          "y": 2,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Throughput by Endpoint",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m]) by (endpoint)",
+            "legendFormat": "{{endpoint}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "reqps",
+            "label": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "gridPos": {
+          "x": 0,
+          "y": 10,
+          "w": 24,
+          "h": 2
+        },
+        "type": "row",
+        "title": "Database Performance"
+      },
+      {
+        "id": 5,
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Database Query Duration",
+        "targets": [
+          {
+            "expr": "rate(db_query_duration_seconds_sum[5m]) / rate(db_query_duration_seconds_count[5m])",
+            "legendFormat": "Avg Query Time",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Duration"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Database Connections",
+        "targets": [
+          {
+            "expr": "db_connection_pool_active",
+            "legendFormat": "Active Connections",
+            "refId": "A"
+          },
+          {
+            "expr": "db_connection_pool_idle",
+            "legendFormat": "Idle Connections",
+            "refId": "B"
+          },
+          {
+            "expr": "db_connection_pool_max",
+            "legendFormat": "Max Connections",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 24,
+          "h": 2
+        },
+        "type": "row",
+        "title": "Celery Background Jobs"
+      },
+      {
+        "id": 8,
+        "gridPos": {
+          "x": 0,
+          "y": 22,
+          "w": 8,
+          "h": 6
+        },
+        "type": "stat",
+        "title": "Task Queue Length",
+        "targets": [
+          {
+            "expr": "celery_queue_length",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 50,
+                  "color": "yellow"
+                },
+                {
+                  "value": 100,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": {
+          "x": 8,
+          "y": 22,
+          "w": 8,
+          "h": 6
+        },
+        "type": "graph",
+        "title": "Task Processing Rate",
+        "targets": [
+          {
+            "expr": "rate(celery_task_total[5m])",
+            "legendFormat": "Tasks/sec",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "gridPos": {
+          "x": 16,
+          "y": 22,
+          "w": 8,
+          "h": 6
+        },
+        "type": "graph",
+        "title": "Task Success vs Failure Rate",
+        "targets": [
+          {
+            "expr": "rate(celery_task_succeeded_total[5m])",
+            "legendFormat": "Succeeded",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(celery_task_failed_total[5m])",
+            "legendFormat": "Failed",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 24,
+          "h": 2
+        },
+        "type": "row",
+        "title": "Document Processing"
+      },
+      {
+        "id": 12,
+        "gridPos": {
+          "x": 0,
+          "y": 30,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Document Processing Rate",
+        "targets": [
+          {
+            "expr": "rate(documents_processed_total[5m])",
+            "legendFormat": "Documents/sec",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "gridPos": {
+          "x": 12,
+          "y": 30,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "FAISS Index Operations",
+        "targets": [
+          {
+            "expr": "rate(faiss_search_total[5m])",
+            "legendFormat": "Searches/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(faiss_index_updates_total[5m])",
+            "legendFormat": "Updates/sec",
+            "refId": "B"
+          }
+        ]
+      }
+    ]
+  }
+}
+

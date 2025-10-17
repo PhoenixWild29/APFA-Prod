@@ -1,0 +1,288 @@
+groups:
+  - name: apfa_alerts
+    interval: 30s
+    rules:
+      # ============================================================================
+      # APPLICATION HEALTH ALERTS
+      # ============================================================================
+      - alert: ApplicationDown
+        expr: up{job="apfa"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "APFA Application is down"
+          description: "The APFA application has been down for more than 2 minutes. Instance: {{ $labels.instance }}"
+          
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for the last 5 minutes. Current rate: {{ $value }}"
+          
+      - alert: SlowResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "Slow response time detected"
+          description: "95th percentile response time is above 1 second. Current: {{ $value }}s"
+
+      # ============================================================================
+      # RESOURCE UTILIZATION ALERTS
+      # ============================================================================
+      - alert: HighMemoryUsage
+        expr: (process_resident_memory_bytes / 1024 / 1024 / 1024) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High memory usage"
+          description: "Application is using more than 2GB of memory. Current: {{ $value }}GB"
+          
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for 10 minutes. Current: {{ $value }}"
+
+      # ============================================================================
+      # REDIS ALERTS
+      # ============================================================================
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis server is not responding"
+          
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis is using more than 90% of available memory"
+          
+      - alert: RedisConnectionLimit
+        expr: redis_connected_clients / redis_config_maxclients > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis connection limit approaching"
+          description: "Redis has used more than 80% of max connections"
+
+      # ============================================================================
+      # DATABASE ALERTS
+      # ============================================================================
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db_connection_pool_usage > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "More than 90% of database connections are in use"
+          
+      - alert: SlowDatabaseQueries
+        expr: rate(db_query_duration_seconds_sum[5m]) / rate(db_query_duration_seconds_count[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query time is above 500ms"
+
+      # ============================================================================
+      # API RATE LIMITING ALERTS
+      # ============================================================================
+      - alert: HighRateLimitHits
+        expr: rate(rate_limit_exceeded_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High rate limit violations"
+          description: "More than 10 rate limit violations per second detected"
+          
+      - alert: APIQuotaExceeded
+        expr: api_quota_usage_percent > 90
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "API quota nearly exceeded"
+          description: "API quota usage is above 90%"
+
+      # ============================================================================
+      # AUTHENTICATION & SECURITY ALERTS
+      # ============================================================================
+      - alert: HighFailedLoginAttempts
+        expr: rate(failed_login_attempts_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High number of failed login attempts"
+          description: "More than 5 failed login attempts per second. Possible brute force attack."
+          
+      - alert: UnauthorizedAccessAttempts
+        expr: rate(unauthorized_access_attempts_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High number of unauthorized access attempts"
+          description: "Detected elevated unauthorized access attempts"
+
+      # ============================================================================
+      # CELERY/BACKGROUND JOBS ALERTS
+      # ============================================================================
+      - alert: CeleryWorkerDown
+        expr: celery_worker_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: celery
+        annotations:
+          summary: "Celery worker is down"
+          description: "Background job worker is not responding"
+          
+      - alert: HighTaskQueueBacklog
+        expr: celery_queue_length > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: celery
+        annotations:
+          summary: "High task queue backlog"
+          description: "More than 100 tasks waiting in queue. Current: {{ $value }}"
+          
+      - alert: TaskFailureRateHigh
+        expr: rate(celery_task_failed_total[5m]) / rate(celery_task_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: celery
+        annotations:
+          summary: "High task failure rate"
+          description: "More than 10% of background tasks are failing"
+
+      # ============================================================================
+      # DOCUMENT PROCESSING ALERTS
+      # ============================================================================
+      - alert: DocumentProcessingFailed
+        expr: rate(document_processing_failed_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: document_processing
+        annotations:
+          summary: "Document processing failures detected"
+          description: "Document processing is experiencing failures"
+          
+      - alert: FAISSIndexOutOfSync
+        expr: time() - faiss_index_last_updated_timestamp > 3600
+        for: 10m
+        labels:
+          severity: warning
+          component: faiss
+        annotations:
+          summary: "FAISS index not updated recently"
+          description: "FAISS index hasn't been updated in over 1 hour"
+
+      # ============================================================================
+      # DISK & STORAGE ALERTS
+      # ============================================================================
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: storage
+        annotations:
+          summary: "Low disk space"
+          description: "Less than 10% disk space remaining on {{ $labels.device }}"
+          
+      - alert: CriticalDiskSpace
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.05
+        for: 1m
+        labels:
+          severity: critical
+          component: storage
+        annotations:
+          summary: "Critical disk space"
+          description: "Less than 5% disk space remaining on {{ $labels.device }}"
+
+      # ============================================================================
+      # NETWORK ALERTS
+      # ============================================================================
+      - alert: HighNetworkErrors
+        expr: rate(node_network_receive_errs_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: network
+        annotations:
+          summary: "High network error rate"
+          description: "Network interface is experiencing errors"
+
+      # ============================================================================
+      # MONITORING SYSTEM ALERTS
+      # ============================================================================
+      - alert: PrometheusScrapeFailing
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Prometheus scrape failing"
+          description: "Prometheus cannot scrape metrics from {{ $labels.job }}"
+          
+      - alert: PrometheusTargetDown
+        expr: 100 * (count(up == 0) / count(up)) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Multiple Prometheus targets down"
+          description: "More than 10% of Prometheus targets are down"
+
+# ============================================================================
+# ALERTING BEST PRACTICES
+# ============================================================================
+# 1. Use appropriate 'for' durations to avoid alert flapping
+# 2. Set meaningful severity levels (critical, warning, info)
+# 3. Include actionable annotations
+# 4. Group related alerts together
+# 5. Test alerts regularly to ensure they fire correctly
+# 6. Document expected alert thresholds
+# 7. Review and tune alerts based on operational experience
+

@@ -1,0 +1,223 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "apfa-security",
+    "title": "APFA Security Monitoring",
+    "tags": ["apfa", "security", "authentication"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "1m",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 8,
+          "h": 6
+        },
+        "type": "stat",
+        "title": "Failed Login Attempts (Last 5min)",
+        "targets": [
+          {
+            "expr": "increase(failed_login_attempts_total[5m])",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 10,
+                  "color": "yellow"
+                },
+                {
+                  "value": 50,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {
+          "x": 8,
+          "y": 0,
+          "w": 8,
+          "h": 6
+        },
+        "type": "stat",
+        "title": "Unauthorized Access Attempts",
+        "targets": [
+          {
+            "expr": "increase(unauthorized_access_attempts_total[5m])",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 20,
+                  "color": "yellow"
+                },
+                {
+                  "value": 100,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {
+          "x": 16,
+          "y": 0,
+          "w": 8,
+          "h": 6
+        },
+        "type": "stat",
+        "title": "Active Sessions",
+        "targets": [
+          {
+            "expr": "active_sessions_total",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "gridPos": {
+          "x": 0,
+          "y": 6,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Authentication Events Over Time",
+        "targets": [
+          {
+            "expr": "rate(successful_login_total[5m])",
+            "legendFormat": "Successful Logins",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(failed_login_attempts_total[5m])",
+            "legendFormat": "Failed Logins",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(logout_total[5m])",
+            "legendFormat": "Logouts",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "gridPos": {
+          "x": 12,
+          "y": 6,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "Rate Limiting Events",
+        "targets": [
+          {
+            "expr": "rate(rate_limit_exceeded_total[5m])",
+            "legendFormat": "Rate Limit Hits",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "gridPos": {
+          "x": 0,
+          "y": 14,
+          "w": 24,
+          "h": 8
+        },
+        "type": "table",
+        "title": "Recent Security Events",
+        "targets": [
+          {
+            "expr": "security_events",
+            "refId": "A",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "gridPos": {
+          "x": 0,
+          "y": 22,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "JWT Token Operations",
+        "targets": [
+          {
+            "expr": "rate(jwt_tokens_issued_total[5m])",
+            "legendFormat": "Tokens Issued",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(jwt_tokens_refreshed_total[5m])",
+            "legendFormat": "Tokens Refreshed",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(jwt_tokens_revoked_total[5m])",
+            "legendFormat": "Tokens Revoked",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "gridPos": {
+          "x": 12,
+          "y": 22,
+          "w": 12,
+          "h": 8
+        },
+        "type": "graph",
+        "title": "RBAC Access Checks",
+        "targets": [
+          {
+            "expr": "rate(rbac_access_allowed_total[5m])",
+            "legendFormat": "Access Granted",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(rbac_access_denied_total[5m])",
+            "legendFormat": "Access Denied",
+            "refId": "B"
+          }
+        ]
+      }
+    ]
+  }
+}
+
