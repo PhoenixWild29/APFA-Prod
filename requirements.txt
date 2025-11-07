@@ -1,7 +1,7 @@
-langchain==0.1.0
+langchain==0.2.5
 langgraph==0.1.9
 pyautogen==0.2.7
-transformers==4.43.4
+transformers==4.53.0
 sentence-transformers==3.0.1
 faiss-cpu==1.8.0.104
 deltalake==0.18.2
@@ -27,7 +27,7 @@ prometheus-client==0.19.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 textblob==0.18.0
-aiohttp==3.9.1
+aiohttp==3.12.14
 aioredis==2.0.1
 profanity-check==2.0.0
 celery==5.3.4
