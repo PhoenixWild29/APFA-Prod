@@ -3,6 +3,7 @@ Phase-by-Phase Validation Test Suite
 
 Validates deliverables for each of the 11 phases
 """
+
 import os
 import json
 
@@ -113,6 +114,7 @@ def test_phase11_ux_accessibility():
 # FILE STRUCTURE VALIDATION
 # ============================================================================
 
+
 def test_project_structure():
     """Validate complete project structure"""
     required_dirs = [
@@ -128,12 +130,12 @@ def test_project_structure():
         "src/pages",
         "src/utils",
         "tests",
-        "docs"
+        "docs",
     ]
-    
+
     for dir_path in required_dirs:
         assert os.path.exists(dir_path), f"Missing directory: {dir_path}"
-    
+
     print("✅ Project structure validated")
 
 
@@ -141,20 +143,32 @@ def test_project_structure():
 # DATA MODEL VALIDATION
 # ============================================================================
 
+
 def test_all_pydantic_models_importable():
     """Test that all Pydantic models can be imported"""
     try:
         from app.models import (
-            LoginEvent, AuthenticationEvent, UserProfile,
-            UserRegistrationRequest, UserLoginRequest,
-            DocumentProcessingEvent, Document,
-            Role, Permission,
-            CachedAdviceResponse, ResponseMetrics,
-            OptimizedAdviceResponse, BiasDetectionResults,
-            SystemMetricsEvent, PerformanceSnapshot,
-            AlertRule, AlertEvent,
-            CachePerformanceMetrics, CacheEvent
+            LoginEvent,
+            AuthenticationEvent,
+            UserProfile,
+            UserRegistrationRequest,
+            UserLoginRequest,
+            DocumentProcessingEvent,
+            Document,
+            Role,
+            Permission,
+            CachedAdviceResponse,
+            ResponseMetrics,
+            OptimizedAdviceResponse,
+            BiasDetectionResults,
+            SystemMetricsEvent,
+            PerformanceSnapshot,
+            AlertRule,
+            AlertEvent,
+            CachePerformanceMetrics,
+            CacheEvent,
         )
+
         print("✅ All Pydantic models successfully imported")
         return True
     except Exception as e:
@@ -167,10 +181,10 @@ def test_all_pydantic_models_importable():
 # ============================================================================
 
 if __name__ == "__main__":
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("📋 PHASE-BY-PHASE VALIDATION - ALL 11 PHASES")
-    print("="*80 + "\n")
-    
+    print("=" * 80 + "\n")
+
     test_phase1_foundation()
     test_phase2_authentication()
     test_phase3_document_management()
@@ -184,8 +198,7 @@ if __name__ == "__main__":
     test_phase11_ux_accessibility()
     test_project_structure()
     test_all_pydantic_models_importable()
-    
-    print("\n" + "="*80)
-    print("✅ ALL PHASE VALIDATIONS PASSED")
-    print("="*80 + "\n")
 
+    print("\n" + "=" * 80)
+    print("✅ ALL PHASE VALIDATIONS PASSED")
+    print("=" * 80 + "\n")

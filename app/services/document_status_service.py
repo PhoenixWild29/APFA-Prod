@@ -1,6 +1,7 @@
 """
 Document processing status service
 """
+
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 from app.schemas.document_status import DocumentStatus, PerformanceMetrics, ErrorDetails
@@ -23,12 +24,12 @@ document_statuses = {
             "throughput_bytes_per_second": 34133.0,
             "extraction_time_ms": 8500.0,
             "embedding_time_ms": 9200.0,
-            "indexing_time_ms": 4800.0
+            "indexing_time_ms": 4800.0,
         },
         "error_details": None,
         "filename": "financial_report.pdf",
         "file_size_bytes": 1024000,
-        "content_type": "application/pdf"
+        "content_type": "application/pdf",
     }
 }
 
@@ -36,30 +37,25 @@ document_statuses = {
 def get_document_status(document_id: str) -> Optional[DocumentStatus]:
     """
     Retrieve document processing status
-    
+
     Args:
         document_id: Document identifier
-    
+
     Returns:
         DocumentStatus or None if not found
     """
     status_data = document_statuses.get(document_id)
-    
+
     if not status_data:
         return None
-    
+
     return DocumentStatus(**status_data)
 
 
-def update_document_status(
-    document_id: str,
-    stage: str,
-    progress: float,
-    **kwargs
-):
+def update_document_status(document_id: str, stage: str, progress: float, **kwargs):
     """
     Update document processing status
-    
+
     Args:
         document_id: Document identifier
         stage: Processing stage
@@ -74,25 +70,20 @@ def update_document_status(
             "upload_time": datetime.now(timezone.utc).isoformat(),
             "filename": kwargs.get("filename", "unknown"),
             "file_size_bytes": kwargs.get("file_size_bytes", 0),
-            "content_type": kwargs.get("content_type", "unknown")
+            "content_type": kwargs.get("content_type", "unknown"),
         }
     else:
-        document_statuses[document_id].update({
-            "processing_stage": stage,
-            "progress_percentage": progress,
-            **kwargs
-        })
+        document_statuses[document_id].update(
+            {"processing_stage": stage, "progress_percentage": progress, **kwargs}
+        )
 
 
 def create_document_status(
-    document_id: str,
-    filename: str,
-    file_size_bytes: int,
-    content_type: str
+    document_id: str, filename: str, file_size_bytes: int, content_type: str
 ):
     """
     Create initial document status
-    
+
     Args:
         document_id: Document identifier
         filename: Original filename
@@ -115,6 +106,5 @@ def create_document_status(
         "error_details": None,
         "filename": filename,
         "file_size_bytes": file_size_bytes,
-        "content_type": content_type
+        "content_type": content_type,
     }
-

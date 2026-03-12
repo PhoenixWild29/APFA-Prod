@@ -13,6 +13,7 @@ Tests all major components and integrations:
 - Phase 10: Admin Dashboards & Monitoring
 - Phase 11: UX & Accessibility
 """
+
 import pytest
 import asyncio
 from fastapi.testclient import TestClient
@@ -25,6 +26,7 @@ client = TestClient(app)
 # ============================================================================
 # PHASE 1-2: AUTHENTICATION & SECURITY TESTS
 # ============================================================================
+
 
 def test_health_endpoint():
     """Test enhanced health check endpoint"""
@@ -47,10 +49,9 @@ def test_metrics_endpoint():
 
 def test_token_endpoint():
     """Test JWT token generation"""
-    response = client.post("/token", data={
-        "username": "testuser",
-        "password": "testpass123"
-    })
+    response = client.post(
+        "/token", data={"username": "testuser", "password": "testpass123"}
+    )
     # May return 401 if user doesn't exist (expected)
     assert response.status_code in [200, 401]
     print("✅ Token endpoint working")
@@ -60,11 +61,13 @@ def test_token_endpoint():
 # PHASE 7: QUERY & AGENT INTELLIGENCE TESTS
 # ============================================================================
 
+
 def test_query_validation():
     """Test query validation endpoint"""
-    response = client.post("/query/validate", json={
-        "query": "What are the best mortgage rates for a $300k home loan?"
-    })
+    response = client.post(
+        "/query/validate",
+        json={"query": "What are the best mortgage rates for a $300k home loan?"},
+    )
     assert response.status_code == 200
     data = response.json()
     assert "is_valid" in data
@@ -75,9 +78,10 @@ def test_query_validation():
 
 def test_query_preprocessing():
     """Test query preprocessing endpoint"""
-    response = client.post("/query/preprocess", json={
-        "query": "I need a $200k mortgage at 3.5% for 30 years"
-    })
+    response = client.post(
+        "/query/preprocess",
+        json={"query": "I need a $200k mortgage at 3.5% for 30 years"},
+    )
     assert response.status_code == 200
     data = response.json()
     assert "normalized_query" in data
@@ -99,6 +103,7 @@ def test_query_suggestions():
 # ============================================================================
 # PHASE 7: AGENT MONITORING TESTS
 # ============================================================================
+
 
 def test_retriever_status():
     """Test retriever agent status"""
@@ -126,6 +131,7 @@ def test_multi_agent_status():
 # PHASE 8: PERFORMANCE & CACHING TESTS
 # ============================================================================
 
+
 def test_semantic_search():
     """Test advanced semantic search (requires auth)"""
     # This would need authentication token in production
@@ -143,6 +149,7 @@ def test_performance_analysis():
 # PHASE 9: ASYNC PROCESSING TESTS
 # ============================================================================
 
+
 def test_async_advice_generation():
     """Test async advice generation initiation"""
     # Would require authentication
@@ -152,6 +159,7 @@ def test_async_advice_generation():
 # ============================================================================
 # PHASE 10: MONITORING & ALERTS TESTS
 # ============================================================================
+
 
 def test_metrics_stream():
     """Test metrics streaming endpoint (requires auth)"""
@@ -169,12 +177,16 @@ def test_detailed_metrics():
 # PYDANTIC MODEL VALIDATION TESTS
 # ============================================================================
 
+
 def test_performance_tracking_models():
     """Test performance tracking Pydantic models"""
     from app.models.performance_tracking import (
-        ResponseMetrics, CacheMetadata, CacheInteraction, AgentExecutionStep
+        ResponseMetrics,
+        CacheMetadata,
+        CacheInteraction,
+        AgentExecutionStep,
     )
-    
+
     # Test ResponseMetrics
     metrics = ResponseMetrics(
         total_latency_ms=185.5,
@@ -183,7 +195,7 @@ def test_performance_tracking_models():
         cache_lookup_ms=2.5,
         agent_coordination_ms=12.8,
         was_cached=False,
-        cache_hit_rate=0.75
+        cache_hit_rate=0.75,
     )
     assert metrics.total_latency_ms == 185.5
     assert metrics.cache_hit_rate == 0.75
@@ -193,7 +205,7 @@ def test_performance_tracking_models():
 def test_alert_models():
     """Test alert management models"""
     from app.models.alert_models import AlertRule, AlertEvent
-    
+
     rule = AlertRule(
         rule_id="test_rule",
         name="Test Alert",
@@ -202,7 +214,7 @@ def test_alert_models():
         severity="warning",
         enabled=True,
         notification_channels=["email"],
-        cooldown_seconds=300
+        cooldown_seconds=300,
     )
     assert rule.severity == "warning"
     assert rule.threshold == 80.0
@@ -212,7 +224,7 @@ def test_alert_models():
 def test_cache_performance_models():
     """Test cache performance models"""
     from app.models.cache_performance import CachePerformanceMetrics, CacheEvent
-    
+
     metrics = CachePerformanceMetrics(
         cache_level="memory",
         hit_rate_percent=75.5,
@@ -220,15 +232,12 @@ def test_cache_performance_models():
         ttl_effectiveness_percent=85.0,
         average_lookup_time_ms=2.5,
         memory_usage_mb=150.5,
-        eviction_count=42
+        eviction_count=42,
     )
     assert metrics.hit_rate_percent == 75.5
-    
+
     event = CacheEvent(
-        event_type="hit",
-        cache_level="memory",
-        key="test_key",
-        latency_ms=1.5
+        event_type="hit", cache_level="memory", key="test_key", latency_ms=1.5
     )
     assert event.event_type == "hit"
     print("✅ Cache performance models validated")
@@ -237,13 +246,13 @@ def test_cache_performance_models():
 def test_monitoring_event_models():
     """Test monitoring event models"""
     from app.models.monitoring_events import SystemMetricsEvent, WebSocketMetricsMessage
-    
+
     event = SystemMetricsEvent(
         event_type="performance_update",
         metrics={"cpu_percent": 65.0},
         component="api",
         severity="info",
-        alert_rules_triggered=[]
+        alert_rules_triggered=[],
     )
     assert event.severity == "info"
     print("✅ Monitoring event models validated")
@@ -253,22 +262,23 @@ def test_monitoring_event_models():
 # INTEGRATION TESTS
 # ============================================================================
 
+
 def test_end_to_end_query_processing():
     """Test complete query processing pipeline"""
     query_text = "What are the best loan options for home purchase?"
-    
+
     # 1. Validate query
     validation = client.post("/query/validate", json={"query": query_text})
     assert validation.status_code == 200
-    
+
     # 2. Preprocess query
     preprocessing = client.post("/query/preprocess", json={"query": query_text})
     assert preprocessing.status_code == 200
-    
+
     # 3. Get suggestions
     suggestions = client.get(f"/query/suggestions?partial_query={query_text[:10]}")
     assert suggestions.status_code == 200
-    
+
     print("✅ End-to-end query processing validated")
 
 
@@ -277,10 +287,10 @@ def test_end_to_end_query_processing():
 # ============================================================================
 
 if __name__ == "__main__":
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🧪 COMPREHENSIVE TEST SUITE - ALL 11 PHASES")
-    print("="*80 + "\n")
-    
+    print("=" * 80 + "\n")
+
     # Run all tests
     test_health_endpoint()
     test_metrics_endpoint()
@@ -300,8 +310,7 @@ if __name__ == "__main__":
     test_cache_performance_models()
     test_monitoring_event_models()
     test_end_to_end_query_processing()
-    
-    print("\n" + "="*80)
-    print("✅ ALL TESTS PASSED - SYSTEM VALIDATED")
-    print("="*80 + "\n")
 
+    print("\n" + "=" * 80)
+    print("✅ ALL TESTS PASSED - SYSTEM VALIDATED")
+    print("=" * 80 + "\n")

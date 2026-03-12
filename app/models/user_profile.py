@@ -7,6 +7,7 @@ These models support:
 - Detailed session tracking
 - Multi-session management
 """
+
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, EmailStr, field_validator
@@ -16,6 +17,7 @@ import uuid
 
 class UserRole(str, Enum):
     """User role types for RBAC"""
+
     STANDARD = "standard"
     ADVISOR = "advisor"
     ADMIN = "admin"
@@ -24,9 +26,9 @@ class UserRole(str, Enum):
 class UserProfile(BaseModel):
     """
     Enhanced user profile data model
-    
+
     Supports role-based access control, user preferences, and security settings.
-    
+
     Attributes:
         user_id: Unique user identifier
         username: Username for authentication
@@ -37,7 +39,7 @@ class UserProfile(BaseModel):
         last_login: UTC timestamp of last login (timezone-aware, optional)
         security_settings: Extensible security configuration
         preferences: User preferences for personalization
-    
+
     Example:
         >>> profile = UserProfile(
         ...     user_id="user_12345",
@@ -48,63 +50,58 @@ class UserProfile(BaseModel):
         ...     security_settings={"mfa_enabled": True, "password_expires": 90}
         ... )
     """
+
     user_id: str = Field(
-        ...,
-        description="Unique user identifier",
-        min_length=1,
-        max_length=255
+        ..., description="Unique user identifier", min_length=1, max_length=255
     )
     username: str = Field(
         ...,
         description="Username for authentication",
         min_length=3,
         max_length=50,
-        pattern=r"^[a-zA-Z0-9_-]+$"
+        pattern=r"^[a-zA-Z0-9_-]+$",
     )
-    email: EmailStr = Field(
-        ...,
-        description="User email address (validated format)"
-    )
-    role: UserRole = Field(
-        ...,
-        description="User role for RBAC"
-    )
+    email: EmailStr = Field(..., description="User email address (validated format)")
+    role: UserRole = Field(..., description="User role for RBAC")
     permissions: List[str] = Field(
         default_factory=list,
         description="Specific permissions granted to user",
-        examples=[["view_reports", "generate_advice", "manage_users"]]
+        examples=[["view_reports", "generate_advice", "manage_users"]],
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        description="UTC timestamp when user was created"
+        description="UTC timestamp when user was created",
     )
     last_login: Optional[datetime] = Field(
-        None,
-        description="UTC timestamp of last login"
+        None, description="UTC timestamp of last login"
     )
     security_settings: Dict[str, Any] = Field(
         default_factory=dict,
         description="Extensible security configuration",
-        examples=[{
-            "mfa_enabled": True,
-            "password_expires_days": 90,
-            "allowed_ip_ranges": ["192.168.1.0/24"],
-            "require_password_change": False
-        }]
+        examples=[
+            {
+                "mfa_enabled": True,
+                "password_expires_days": 90,
+                "allowed_ip_ranges": ["192.168.1.0/24"],
+                "require_password_change": False,
+            }
+        ],
     )
     preferences: Dict[str, Any] = Field(
         default_factory=dict,
         description="User preferences for personalization",
-        examples=[{
-            "theme": "dark",
-            "language": "en",
-            "timezone": "America/New_York",
-            "notifications_enabled": True,
-            "dashboard_layout": "compact"
-        }]
+        examples=[
+            {
+                "theme": "dark",
+                "language": "en",
+                "timezone": "America/New_York",
+                "notifications_enabled": True,
+                "dashboard_layout": "compact",
+            }
+        ],
     )
-    
-    @field_validator('created_at', 'last_login')
+
+    @field_validator("created_at", "last_login")
     @classmethod
     def validate_timezone_aware(cls, v: Optional[datetime]) -> Optional[datetime]:
         """Ensure datetime fields are timezone-aware"""
@@ -114,18 +111,18 @@ class UserProfile(BaseModel):
             # If naive, assume UTC and make aware
             return v.replace(tzinfo=timezone.utc)
         return v
-    
-    @field_validator('username')
+
+    @field_validator("username")
     @classmethod
     def validate_username_format(cls, v: str) -> str:
         """Additional username validation"""
-        if v.startswith('-') or v.startswith('_'):
+        if v.startswith("-") or v.startswith("_"):
             raise ValueError("Username cannot start with - or _")
-        if v.endswith('-') or v.endswith('_'):
+        if v.endswith("-") or v.endswith("_"):
             raise ValueError("Username cannot end with - or _")
         return v
-    
-    @field_validator('permissions')
+
+    @field_validator("permissions")
     @classmethod
     def validate_permissions_unique(cls, v: List[str]) -> List[str]:
         """Ensure permissions list has no duplicates"""
@@ -139,7 +136,7 @@ class UserProfile(BaseModel):
                     unique_perms.append(perm)
             return unique_perms
         return v
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -154,14 +151,14 @@ class UserProfile(BaseModel):
                     "mfa_enabled": True,
                     "password_expires_days": 90,
                     "session_timeout_minutes": 30,
-                    "allowed_ip_ranges": []
+                    "allowed_ip_ranges": [],
                 },
                 "preferences": {
                     "theme": "dark",
                     "language": "en",
                     "timezone": "America/New_York",
-                    "notifications_enabled": True
-                }
+                    "notifications_enabled": True,
+                },
             }
         }
 
@@ -169,9 +166,9 @@ class UserProfile(BaseModel):
 class SessionMetadata(BaseModel):
     """
     Session metadata data model for tracking active sessions
-    
+
     Supports multi-session management, security monitoring, and session lifecycle tracking.
-    
+
     Attributes:
         session_id: Unique session identifier (UUID format)
         user_id: User identifier associated with this session
@@ -181,7 +178,7 @@ class SessionMetadata(BaseModel):
         user_agent: Browser/client user agent string
         is_active: Whether session is currently active
         security_flags: List of security markers (e.g., "suspicious", "vpn_detected")
-    
+
     Example:
         >>> session = SessionMetadata(
         ...     session_id="550e8400-e29b-41d4-a716-446655440000",
@@ -192,46 +189,44 @@ class SessionMetadata(BaseModel):
         ...     security_flags=["verified", "trusted_device"]
         ... )
     """
+
     session_id: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique session identifier (UUID format)",
-        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     )
     user_id: str = Field(
         ...,
         description="User identifier associated with this session",
         min_length=1,
-        max_length=255
+        max_length=255,
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        description="UTC timestamp when session was created"
+        description="UTC timestamp when session was created",
     )
     last_activity: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        description="UTC timestamp of last session activity"
+        description="UTC timestamp of last session activity",
     )
     ip_address: str = Field(
         ...,
         description="IP address of the session (IPv4 or IPv6)",
-        pattern=r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$"
+        pattern=r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$",
     )
     user_agent: str = Field(
-        ...,
-        description="Browser/client user agent string",
-        max_length=500
+        ..., description="Browser/client user agent string", max_length=500
     )
     is_active: bool = Field(
-        default=True,
-        description="Whether session is currently active"
+        default=True, description="Whether session is currently active"
     )
     security_flags: List[str] = Field(
         default_factory=list,
         description="Security markers (e.g., suspicious, vpn_detected, trusted_device)",
-        examples=[["verified", "trusted_device", "mfa_authenticated"]]
+        examples=[["verified", "trusted_device", "mfa_authenticated"]],
     )
-    
-    @field_validator('created_at', 'last_activity')
+
+    @field_validator("created_at", "last_activity")
     @classmethod
     def validate_timezone_aware(cls, v: datetime) -> datetime:
         """Ensure datetime fields are timezone-aware"""
@@ -239,19 +234,20 @@ class SessionMetadata(BaseModel):
             # If naive, assume UTC and make aware
             return v.replace(tzinfo=timezone.utc)
         return v
-    
-    @field_validator('ip_address')
+
+    @field_validator("ip_address")
     @classmethod
     def validate_ip_format(cls, v: str) -> str:
         """Validate IP address format using ipaddress module"""
         import ipaddress
+
         try:
             ipaddress.ip_address(v)
             return v
         except ValueError:
             raise ValueError(f"Invalid IP address format: {v}")
-    
-    @field_validator('session_id')
+
+    @field_validator("session_id")
     @classmethod
     def validate_session_id_format(cls, v: str) -> str:
         """Validate session_id is a valid UUID format"""
@@ -260,8 +256,8 @@ class SessionMetadata(BaseModel):
             return v
         except ValueError:
             raise ValueError(f"Invalid UUID format for session_id: {v}")
-    
-    @field_validator('last_activity')
+
+    @field_validator("last_activity")
     @classmethod
     def validate_last_activity_not_future(cls, v: datetime) -> datetime:
         """Ensure last_activity is not in the future"""
@@ -269,7 +265,7 @@ class SessionMetadata(BaseModel):
         if v > now:
             raise ValueError("last_activity cannot be in the future")
         return v
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -280,7 +276,6 @@ class SessionMetadata(BaseModel):
                 "ip_address": "192.168.1.100",
                 "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/118.0",
                 "is_active": True,
-                "security_flags": ["verified", "trusted_device", "mfa_authenticated"]
+                "security_flags": ["verified", "trusted_device", "mfa_authenticated"],
             }
         }
-

@@ -2,13 +2,14 @@
 Test file for authentication event models
 Run with: python -m pytest app/models/test_auth_events.py
 """
+
 from datetime import datetime, timezone
 from app.models.auth_events import (
     AuthenticationEvent,
     WebSocketAuthMessage,
     AuthEventType,
     MessageType,
-    Severity
+    Severity,
 )
 
 
@@ -20,12 +21,9 @@ def test_authentication_event_creation():
         ip_address="192.168.1.100",
         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         success=True,
-        security_metadata={
-            "session_id": "sess_abc123",
-            "mfa_used": True
-        }
+        security_metadata={"session_id": "sess_abc123", "mfa_used": True},
     )
-    
+
     assert event.event_type == AuthEventType.LOGIN
     assert event.user_id == "user_12345"
     assert event.success is True
@@ -40,9 +38,9 @@ def test_authentication_event_ipv6():
         user_id="user_456",
         ip_address="2001:0db8:85a3:0000:0000:8a2e:0370:7334",
         user_agent="Mozilla/5.0",
-        success=True
+        success=True,
     )
-    
+
     assert event.ip_address == "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
     print("✅ IPv6 address validation test passed")
 
@@ -56,12 +54,9 @@ def test_authentication_event_failure():
         user_agent="curl/7.68.0",
         success=False,
         error_message="Invalid JWT token signature",
-        security_metadata={
-            "token_expired": False,
-            "signature_invalid": True
-        }
+        security_metadata={"token_expired": False, "signature_invalid": True},
     )
-    
+
     assert event.success is False
     assert event.error_message == "Invalid JWT token signature"
     assert event.security_metadata["signature_invalid"] is True
@@ -75,16 +70,16 @@ def test_websocket_auth_message_creation():
         user_id="user_111",
         ip_address="192.168.1.1",
         user_agent="Mozilla/5.0",
-        success=True
+        success=True,
     )
-    
+
     message = WebSocketAuthMessage(
         message_type=MessageType.AUTH_EVENT,
         event_data=auth_event,
         severity=Severity.INFO,
-        requires_action=False
+        requires_action=False,
     )
-    
+
     assert message.message_type == MessageType.AUTH_EVENT
     assert message.severity == Severity.INFO
     assert message.event_data.user_id == "user_111"
@@ -104,17 +99,17 @@ def test_security_alert_message():
         security_metadata={
             "attempts_count": 10,
             "time_window": "5_minutes",
-            "suspected_brute_force": True
-        }
+            "suspected_brute_force": True,
+        },
     )
-    
+
     alert_message = WebSocketAuthMessage(
         message_type=MessageType.SECURITY_ALERT,
         event_data=suspicious_event,
         severity=Severity.CRITICAL,
-        requires_action=True
+        requires_action=True,
     )
-    
+
     assert alert_message.message_type == MessageType.SECURITY_ALERT
     assert alert_message.severity == Severity.CRITICAL
     assert alert_message.requires_action is True
@@ -132,9 +127,9 @@ def test_timezone_aware_timestamp():
         timestamp=naive_time,
         ip_address="192.168.1.50",
         user_agent="Mozilla/5.0",
-        success=True
+        success=True,
     )
-    
+
     # Should be converted to timezone-aware
     assert event.timestamp.tzinfo is not None
     assert event.timestamp.tzinfo == timezone.utc
@@ -149,16 +144,16 @@ def test_json_serialization():
         ip_address="10.0.0.1",
         user_agent="TestAgent/1.0",
         success=True,
-        security_metadata={"test": "data"}
+        security_metadata={"test": "data"},
     )
-    
+
     message = WebSocketAuthMessage(
         message_type=MessageType.SESSION_UPDATE,
         event_data=event,
         severity=Severity.INFO,
-        requires_action=False
+        requires_action=False,
     )
-    
+
     # Test serialization
     json_str = message.model_dump_json(indent=2)
     assert "session_update" in json_str
@@ -178,4 +173,3 @@ if __name__ == "__main__":
     test_timezone_aware_timestamp()
     test_json_serialization()
     print("\n✅ All tests passed!")
-
