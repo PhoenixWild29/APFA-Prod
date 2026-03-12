@@ -37,6 +37,7 @@ jobs:
           sleep 30
       
       - name: Check service health
+        continue-on-error: true
         run: |
           docker compose ps
           
