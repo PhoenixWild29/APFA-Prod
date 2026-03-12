@@ -8,11 +8,12 @@ Supports:
 - Security monitoring for registration attempts
 """
 
-from datetime import datetime, timezone
-from typing import List, Optional
-from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator
-from enum import Enum
 import re
+from datetime import datetime, timezone
+from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class RegistrationStatus(str, Enum):

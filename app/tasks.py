@@ -8,10 +8,11 @@ Handles:
 - Maintenance tasks
 """
 
+import logging
+from typing import List
+
 from celery import Celery, Task
 from celery.schedules import crontab
-from typing import List
-import logging
 
 logger = logging.getLogger(__name__)
 

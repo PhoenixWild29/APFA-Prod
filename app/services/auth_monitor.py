@@ -7,9 +7,8 @@ for administrative dashboards via Server-Sent Events.
 
 import asyncio
 import json
-from datetime import datetime, timezone
-from typing import Dict, Any
 import logging
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 

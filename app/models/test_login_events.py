@@ -3,12 +3,11 @@ Test file for login event models
 Run with: python -m pytest app/models/test_login_events.py
 """
 
-from datetime import datetime
 from app.models.login_events import (
     LoginEvent,
-    WebSocketLoginMessage,
     LoginEventType,
     MessageType,
+    WebSocketLoginMessage,
 )
 
 

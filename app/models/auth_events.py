@@ -9,9 +9,10 @@ These models track authentication activities and support:
 """
 
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator
 from enum import Enum
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class AuthEventType(str, Enum):

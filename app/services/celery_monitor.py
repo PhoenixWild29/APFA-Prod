@@ -4,8 +4,8 @@ Celery monitoring service
 Provides health checks and status monitoring for Celery workers
 """
 
-from typing import Dict, List, Any
 import logging
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 

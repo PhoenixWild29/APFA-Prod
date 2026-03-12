@@ -4,95 +4,71 @@ Production-ready Agentic Personalized Financial Advisor (APFA) backend
 - FastAPI, observability, error handling, and security best practices
 """
 
-import os
+import asyncio
 import logging
+import os
+import re
+import signal
+import time
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+
+import aioredis
+import boto3
+import faiss
+import numpy as np
+from aiohttp import ClientSession, TCPConnector
+from cachetools import TTLCache
+from deltalake import DeltaTable
 from fastapi import (
-    FastAPI,
-    HTTPException,
+    BackgroundTasks,
     Depends,
+    FastAPI,
+    File,
+    HTTPException,
     Request,
     Response,
     UploadFile,
-    File,
-    BackgroundTasks,
     WebSocket,
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import (
     APIKeyHeader,
     OAuth2PasswordBearer,
     OAuth2PasswordRequestForm,
 )
-from pydantic import BaseModel, Field
+from jose import JWTError, jwt
 from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain.prompts import ChatPromptTemplate
-from langchain_core.tools import tool
-from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolExecutor
-from transformers import pipeline, AutoModelForCausalLM, AutoTokenizer
-from sentence_transformers import SentenceTransformer
-import faiss
-from deltalake import DeltaTable
-from minio import Minio
-import boto3
-from trl import PPOTrainer
-from aif360.datasets import BinaryLabelDataset
-from opentelemetry import trace
-from tenacity import retry, stop_after_attempt, wait_exponential, circuit_breaker
-import time
-from cachetools import TTLCache
-from config import settings
 from langchain.llms import HuggingFacePipeline
+from langchain.prompts import ChatPromptTemplate
+from langchain.tools import Tool
+from langgraph.graph import END, StateGraph
+from langgraph.prebuilt import ToolExecutor
+from minio import Minio
+from opentelemetry import trace
+from passlib.context import CryptContext
+from profanity_check import predict_prob
+from prometheus_client import Counter, Gauge, Histogram, generate_latest
+from pydantic import BaseModel, Field, field_validator
+from sentence_transformers import SentenceTransformer
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-import numpy as np
-from langchain.tools import Tool
-from prometheus_client import Counter, Histogram, Gauge, generate_latest
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-import signal
-from contextlib import asynccontextmanager
-from textblob import TextBlob
-import asyncio
-from aiohttp import ClientSession, TCPConnector
-import aioredis
-from fastapi.responses import JSONResponse, StreamingResponse
-import gzip
-from profanity_check import predict_prob
-import re
-from pydantic import field_validator
+from tenacity import circuit_breaker, retry, stop_after_attempt, wait_exponential
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+
+from app.models.user_login import LoginResponse, UserLoginRequest
 
 # Import data models
-from app.models.login_events import LoginEvent, WebSocketLoginMessage
-from app.models.auth_events import AuthenticationEvent, WebSocketAuthMessage
-from app.models.user_profile import UserProfile, SessionMetadata, UserRole
+from app.models.user_profile import SessionMetadata, UserProfile, UserRole
 from app.models.user_registration import (
-    UserRegistrationRequest,
     RegistrationResponse,
-    RegistrationEvent,
-    WebSocketRegistrationMessage,
+    UserRegistrationRequest,
 )
-from app.models.user_login import UserLoginRequest, LoginResponse
-from app.models.token_models import (
-    TokenRefreshRequest,
-    TokenRefreshResponse,
-    TokenRevocationRequest,
-    TokenEvent,
-    WebSocketTokenMessage,
-    TokenMetadata,
-    TokenValidationResult,
-)
-from app.models.document_processing import (
-    DocumentProcessingEvent,
-    WebSocketDocumentMessage,
-)
-from app.models.document_management import Document, BatchProgress, DocumentBatch
-from app.models.faiss_models import IndexPerformanceMetrics, FAISSIndexMetadata
+from config import settings
 
 # Import schemas
-from app.schemas.auth import User, Token, TokenPayload
 
 # Setup logging
 logging.basicConfig(
@@ -227,7 +203,7 @@ llm = HuggingFacePipeline(pipeline=llm_pipeline)
 
 # Multi-Agent Graph (LangGraph)
 import typing
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 
 class AgentState(typing.TypedDict):
@@ -1472,8 +1448,8 @@ async def upload_document(
                 "message": "Document uploaded successfully and queued for processing"
             }
     """
-    import uuid
     import mimetypes
+    import uuid
 
     try:
         # Generate unique document ID
@@ -1516,7 +1492,7 @@ async def upload_document(
         # TODO: Save file or generate S3 presigned URL
 
         # Trigger background processing via Celery
-        from app.tasks import celery_app, process_document
+        from app.tasks import process_document
 
         task = process_document.apply_async(
             args=[
@@ -1596,8 +1572,8 @@ async def upload_documents_batch(
                 "upload_results": [...]
             }
     """
-    import uuid
     import mimetypes
+    import uuid
 
     try:
         # Validate batch size
@@ -1817,9 +1793,9 @@ async def search_documents(
     start_time = time.time()
 
     from app.schemas.document_search import (
+        DocumentMetadata,
         DocumentSearchResponse,
         SearchResult,
-        DocumentMetadata,
     )
 
     try:
@@ -1925,9 +1901,9 @@ async def get_similar_documents(
             }
     """
     from app.schemas.document_search import (
-        SimilarDocumentsResponse,
-        SearchResult,
         DocumentMetadata,
+        SearchResult,
+        SimilarDocumentsResponse,
     )
 
     try:
@@ -2172,12 +2148,12 @@ async def get_knowledge_base_statistics(admin: dict = Depends(require_admin)):
             }
     """
     from app.schemas.kb_statistics import (
-        KnowledgeBaseStatsResponse,
-        DocumentStatistics,
-        ProcessingMetrics,
-        IndexPerformance,
-        StorageUtilization,
         DailyAggregation,
+        DocumentStatistics,
+        IndexPerformance,
+        KnowledgeBaseStatsResponse,
+        ProcessingMetrics,
+        StorageUtilization,
     )
 
     # In production, query actual statistics from database/monitoring
@@ -2469,8 +2445,8 @@ async def validate_query_endpoint(request: QueryValidationRequest):
 
 # Query Preprocessing API
 from app.schemas.query_preprocessing import (
-    QueryPreprocessingRequest,
     PreprocessedQueryResponse,
+    QueryPreprocessingRequest,
 )
 from app.services.query_preprocessing_service import preprocess_query
 
@@ -2525,7 +2501,7 @@ async def preprocess_query_endpoint(request: QueryPreprocessingRequest):
 
 
 # Retriever Agent Monitoring
-from app.schemas.agent_monitoring import RetrieverStatus, RetrieverPerformance
+from app.schemas.agent_monitoring import RetrieverPerformance, RetrieverStatus
 
 
 @app.get("/agents/retriever/status", response_model=RetrieverStatus)
@@ -2685,12 +2661,12 @@ async def get_retriever_agent_performance():
 
 # Multi-Agent System Status and Testing
 from app.schemas.multi_agent_monitoring import (
-    MultiAgentStatusResponse,
-    AgentStatusInfo,
     AgentPerformanceMetrics,
+    AgentStatusInfo,
     AgentTestRequest,
     AgentTestResponse,
     AgentTestResult,
+    MultiAgentStatusResponse,
 )
 
 # Global agent status tracking
@@ -3088,11 +3064,11 @@ async def multi_agent_monitoring_sse():
 
 # Advanced Agent Performance Analysis and Configuration
 from app.schemas.agent_configuration import (
-    AgentPerformanceAnalysis,
-    HistoricalTrend,
-    ErrorPattern,
     AgentConfigurationUpdate,
+    AgentPerformanceAnalysis,
     ConfigurationUpdateResponse,
+    ErrorPattern,
+    HistoricalTrend,
 )
 
 # Global agent configurations
@@ -3388,11 +3364,11 @@ async def rollback_agent_configuration(
 
 # Retriever Agent Testing and Validation
 from app.schemas.agent_testing import (
+    DiagnosticInfo,
+    PerformanceBenchmark,
+    RetrievalQualityMetrics,
     RetrieverTestRequest,
     RetrieverTestResult,
-    RetrievalQualityMetrics,
-    PerformanceBenchmark,
-    DiagnosticInfo,
 )
 
 
@@ -3682,19 +3658,19 @@ async def analyze_query_endpoint(
         raise HTTPException(status_code=500, detail="Query analysis failed")
 
 
-# Enhanced Health and Metrics
-from app.schemas.health_metrics import (
-    EnhancedHealthResponse,
-    ComponentHealthStatus,
-    DetailedMetricsResponse,
-)
-
 # Advanced Document Retrieval
 from app.schemas.advanced_retrieval import (
+    AuditTrailEntry,
+    AuditTrailResponse,
     SemanticSearchQuery,
     SemanticSearchResult,
-    AuditTrailResponse,
-    AuditTrailEntry,
+)
+
+# Enhanced Health and Metrics
+from app.schemas.health_metrics import (
+    ComponentHealthStatus,
+    DetailedMetricsResponse,
+    EnhancedHealthResponse,
 )
 
 # Global audit trail storage (in production, use database)
@@ -3839,8 +3815,8 @@ async def get_document_audit_trail(
 from app.schemas.cache_management import (
     CacheWarmRequest,
     CacheWarmResponse,
-    PerformanceReport,
     PerformanceBottleneck,
+    PerformanceReport,
 )
 
 
@@ -3893,7 +3869,7 @@ async def warm_cache(request: CacheWarmRequest, admin: dict = Depends(require_ad
         for query in request.queries:
             try:
                 # Generate embedding and cache result
-                query_hash = str(hash(query))
+                str(hash(query))
 
                 # In production, would execute query and cache result
                 # For now, simulate caching
@@ -4017,9 +3993,10 @@ async def get_performance_analysis(
         raise HTTPException(status_code=500, detail="Performance analysis failed")
 
 
+import uuid
+
 # Async Processing and Status Tracking
 from app.schemas.async_processing import AdviceStatusResponse, AsyncAdviceRequest
-import uuid
 
 # Global request status storage (in production, use Redis)
 request_status_db: Dict[str, Dict[str, Any]] = {}
@@ -4766,13 +4743,13 @@ async def upload_progress_websocket(
 # Role Management API Endpoints
 from app.crud.roles import (
     create_role,
+    delete_role,
     get_all_roles,
     get_role_by_id,
     update_role,
-    delete_role,
 )
-from app.schemas.roles import RoleCreate, RoleUpdate, RoleResponse
 from app.dependencies import require_admin
+from app.schemas.roles import RoleCreate, RoleResponse, RoleUpdate
 
 
 @app.post("/roles", response_model=RoleResponse, status_code=201)
@@ -4839,10 +4816,10 @@ async def delete_role_endpoint(role_id: str, admin: dict = Depends(require_admin
 
 # Permission Management API Endpoints
 from app.crud.permissions import (
+    assign_permissions_to_role,
     create_permission,
     get_all_permissions,
     get_permission_by_id,
-    assign_permissions_to_role,
     get_role_permissions,
     remove_permission_from_role,
 )
@@ -4935,12 +4912,12 @@ async def remove_permission_endpoint(
 from app.crud.user_roles import (
     assign_roles_to_user,
     get_user_roles,
+    get_users_with_role,
     remove_role_from_user,
     replace_user_roles,
-    get_users_with_role,
 )
+from app.schemas.user_roles import UserRoleAssignment as RoleAssignmentRequest
 from app.schemas.user_roles import (
-    UserRoleAssignment as RoleAssignmentRequest,
     UserRolesResponse,
 )
 
@@ -5040,12 +5017,13 @@ async def replace_user_roles_endpoint(
     return {"user_id": user_id, "roles": roles}
 
 
+from app.api.admin_dashboard import router as admin_dashboard_router
+
 # Include admin routers
 from app.api.admin_docs import router as admin_docs_router
 from app.api.admin_faiss import router as admin_faiss_router
 from app.api.admin_jobs import router as admin_jobs_router
 from app.api.admin_recovery import router as admin_recovery_router
-from app.api.admin_dashboard import router as admin_dashboard_router
 
 app.include_router(admin_docs_router)
 app.include_router(admin_faiss_router)
@@ -5169,7 +5147,7 @@ async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current
     validation_start = request_start
 
     # Validation (already done by Pydantic)
-    validation_time_ms = (time.time() - validation_start) * 1000
+    (time.time() - validation_start) * 1000
 
     api_key = api_key_header
     if not api_key or api_key != settings.api_key:
@@ -5188,11 +5166,9 @@ async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current
         cached_result = await get_cache(cache_key)
         cache_lookup_time_ms = (time.time() - cache_lookup_start) * 1000
 
-        was_cached = False
         if cached_result:
             logger.info(f"Returning cached advice for user {current_user['username']}")
             CACHE_HITS.inc()
-            was_cached = True
 
             # Return cached response
             total_time_ms = (time.time() - request_start) * 1000
@@ -5219,7 +5195,7 @@ async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current
             generate_loan_advice, q, rag_df, embedder, model, tokenizer
         )
 
-        agent_processing_time_ms = (time.time() - agent_processing_start) * 1000
+        (time.time() - agent_processing_start) * 1000
 
         # Response generation
         response_gen_start = time.time()
@@ -5275,7 +5251,7 @@ async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current
             / max(CACHE_HITS._value.get() + CACHE_MISSES._value.get(), 1),
         )
 
-        response_gen_time_ms = (time.time() - response_gen_start) * 1000
+        (time.time() - response_gen_start) * 1000
 
         # Build optimized response
         optimized_response = OptimizedAdviceResponse(

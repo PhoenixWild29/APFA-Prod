@@ -9,7 +9,8 @@ Supports:
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Literal
+from typing import Any, Dict, List, Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 

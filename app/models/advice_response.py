@@ -8,13 +8,13 @@ Provides comprehensive response structures with:
 - Transparency and monitoring support
 """
 
-from datetime import datetime, timezone
-from typing import List, Dict, Any
-from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Dict, List
+
+from pydantic import BaseModel, Field
+
 from app.models.performance_tracking import (
-    ResponseMetrics,
-    CacheInteraction,
     AgentExecutionStep,
+    ResponseMetrics,
 )
 
 

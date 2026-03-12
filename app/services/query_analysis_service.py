@@ -2,9 +2,10 @@
 Query analysis service with linguistic processing
 """
 
-import time
 import re
-from typing import Dict, Any, List
+import time
+from typing import Any, Dict, List
+
 from textblob import TextBlob
 
 

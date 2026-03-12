@@ -10,8 +10,7 @@ Enhances raw queries through:
 
 import re
 import time
-from typing import List, Dict, Any
-
+from typing import Any, Dict, List
 
 # Loan type patterns
 LOAN_TYPES = {

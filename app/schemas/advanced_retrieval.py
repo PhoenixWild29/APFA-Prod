@@ -2,9 +2,9 @@
 Advanced document retrieval schemas
 """
 
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 
 
 class SemanticSearchQuery(BaseModel):

@@ -5,12 +5,12 @@ Provides robust CSRF protection for all state-changing requests
 using double-submit cookie pattern with additional security measures.
 """
 
-from fastapi import Request, HTTPException
-from fastapi.responses import Response
-from starlette.middleware.base import BaseHTTPMiddleware
-import secrets
 import hashlib
+import secrets
 import time
+
+from fastapi import HTTPException, Request
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):

@@ -2,20 +2,21 @@
 Admin API endpoints for job management and monitoring
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.dependencies import require_admin
 from app.schemas.job_management import (
+    BottleneckAnalysis,
+    ErrorReport,
     JobScheduleResponse,
-    ScheduledJob,
     JobTriggerRequest,
     JobTriggerResponse,
     PipelinePerformanceMetrics,
-    BottleneckAnalysis,
     RecentErrorsResponse,
-    ErrorReport,
+    ScheduledJob,
 )
-from app.dependencies import require_admin
 from app.tasks import celery_app
 
 router = APIRouter(prefix="/admin", tags=["admin-jobs"])

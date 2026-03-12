@@ -2,8 +2,9 @@
 Query validation schemas
 """
 
+from typing import List
+
 from pydantic import BaseModel, Field
-from typing import List, Optional
 
 
 class QueryValidationRequest(BaseModel):

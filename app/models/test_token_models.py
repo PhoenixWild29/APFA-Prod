@@ -3,19 +3,20 @@ Test file for advanced JWT token management models
 Run with: python -m pytest app/models/test_token_models.py
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 from app.models.token_models import (
+    TokenEvent,
+    TokenEventType,
+    TokenMessageType,
+    TokenMetadata,
     TokenRefreshRequest,
     TokenRefreshResponse,
     TokenRevocationRequest,
-    TokenEvent,
-    WebSocketTokenMessage,
-    TokenMetadata,
-    TokenValidationResult,
-    TokenTypeHint,
-    TokenEventType,
     TokenType,
-    TokenMessageType,
+    TokenTypeHint,
+    TokenValidationResult,
+    WebSocketTokenMessage,
 )
 
 

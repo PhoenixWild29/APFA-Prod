@@ -2,8 +2,9 @@
 Health check and detailed metrics schemas
 """
 
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional
 
 
 class ComponentHealthStatus(BaseModel):

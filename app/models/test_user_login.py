@@ -3,9 +3,8 @@ Test file for user login models
 Run with: python -m pytest app/models/test_user_login.py
 """
 
-from datetime import datetime, timezone
-from app.models.user_login import UserLoginRequest, LoginResponse
-from app.models.user_profile import UserProfile, SessionMetadata, UserRole
+from app.models.user_login import LoginResponse, UserLoginRequest
+from app.models.user_profile import SessionMetadata, UserProfile, UserRole
 
 
 def test_user_login_request_basic():

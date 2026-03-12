@@ -4,8 +4,7 @@ Query suggestions service
 Provides intelligent query completions and financial terminology assistance
 """
 
-from typing import List, Dict, Any
-
+from typing import Any, Dict, List
 
 # Financial terminology database
 FINANCIAL_TERMS = {

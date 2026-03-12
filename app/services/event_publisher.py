@@ -6,7 +6,8 @@ Publishes events to Redis Pub/Sub for real-time WebSocket broadcasting
 
 import json
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
+
 import aioredis
 
 logger = logging.getLogger(__name__)

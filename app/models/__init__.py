@@ -8,35 +8,11 @@ This package contains Pydantic data models for:
 - User registration and verification
 """
 
-from app.models.login_events import LoginEvent, WebSocketLoginMessage
+from app.models.access_control import AccessDecision, AccessRequest
+from app.models.advice_response import BiasDetectionResults, OptimizedAdviceResponse
+from app.models.alert_models import AlertEvent, AlertRule
 from app.models.auth_events import AuthenticationEvent, WebSocketAuthMessage
-from app.models.user_profile import UserProfile, SessionMetadata
-from app.models.user_registration import (
-    UserRegistrationRequest,
-    RegistrationResponse,
-    RegistrationEvent,
-    WebSocketRegistrationMessage,
-)
-from app.models.user_login import UserLoginRequest, LoginResponse
-from app.models.token_models import (
-    TokenRefreshRequest,
-    TokenRefreshResponse,
-    TokenRevocationRequest,
-    TokenEvent,
-    WebSocketTokenMessage,
-    TokenMetadata,
-    TokenValidationResult,
-)
-from app.models.document_processing import (
-    DocumentProcessingEvent,
-    WebSocketDocumentMessage,
-)
-from app.models.document_management import Document, BatchProgress, DocumentBatch
-from app.models.faiss_models import IndexPerformanceMetrics, FAISSIndexMetadata
-from app.models.document_upload import DocumentMetadata, UploadStatus, UploadState
-from app.models.rbac import Role, Permission, UserRoleAssignment
-from app.models.rbac_events import RBACEvent, WebSocketRBACMessage
-from app.models.access_control import AccessRequest, AccessDecision
+from app.models.cache_performance import CacheEvent, CachePerformanceMetrics
 from app.models.celery_tasks import (
     EmbeddingBatchTask,
     IndexBuildTask,
@@ -44,19 +20,43 @@ from app.models.celery_tasks import (
     TaskStatusEnum,
 )
 from app.models.document_batch import DocumentBatch, ProcessingOptions
-from app.models.embedding_models import EmbeddingBatch, VectorEmbedding
-from app.models.performance_tracking import (
-    CachedAdviceResponse,
-    ResponseMetrics,
-    CacheMetadata,
-    CacheInteraction,
-    AgentExecutionStep,
+from app.models.document_management import BatchProgress, Document, DocumentBatch
+from app.models.document_processing import (
+    DocumentProcessingEvent,
+    WebSocketDocumentMessage,
 )
-from app.models.advice_response import OptimizedAdviceResponse, BiasDetectionResults
+from app.models.document_upload import DocumentMetadata, UploadState, UploadStatus
+from app.models.embedding_models import EmbeddingBatch, VectorEmbedding
+from app.models.faiss_models import FAISSIndexMetadata, IndexPerformanceMetrics
+from app.models.login_events import LoginEvent, WebSocketLoginMessage
 from app.models.monitoring_events import SystemMetricsEvent, WebSocketMetricsMessage
 from app.models.performance_snapshot import PerformanceSnapshot, SystemResourceMetrics
-from app.models.alert_models import AlertRule, AlertEvent
-from app.models.cache_performance import CachePerformanceMetrics, CacheEvent
+from app.models.performance_tracking import (
+    AgentExecutionStep,
+    CachedAdviceResponse,
+    CacheInteraction,
+    CacheMetadata,
+    ResponseMetrics,
+)
+from app.models.rbac import Permission, Role, UserRoleAssignment
+from app.models.rbac_events import RBACEvent, WebSocketRBACMessage
+from app.models.token_models import (
+    TokenEvent,
+    TokenMetadata,
+    TokenRefreshRequest,
+    TokenRefreshResponse,
+    TokenRevocationRequest,
+    TokenValidationResult,
+    WebSocketTokenMessage,
+)
+from app.models.user_login import LoginResponse, UserLoginRequest
+from app.models.user_profile import SessionMetadata, UserProfile
+from app.models.user_registration import (
+    RegistrationEvent,
+    RegistrationResponse,
+    UserRegistrationRequest,
+    WebSocketRegistrationMessage,
+)
 
 __all__ = [
     "LoginEvent",

@@ -3,7 +3,6 @@ Metrics streaming schemas for SSE endpoints
 """
 
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List
 
 
 class AgentExecutionMetrics(BaseModel):

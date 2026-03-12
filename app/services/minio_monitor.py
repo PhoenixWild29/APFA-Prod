@@ -4,8 +4,8 @@ MinIO monitoring service
 Provides health checks and status monitoring for MinIO storage
 """
 
-from typing import Dict, Any
 import logging
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 

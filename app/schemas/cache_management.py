@@ -2,8 +2,9 @@
 Cache management and performance optimization schemas
 """
 
+from typing import Any, Dict, List
+
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any
 
 
 class CacheWarmRequest(BaseModel):

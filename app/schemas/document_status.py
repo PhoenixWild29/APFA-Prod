@@ -2,9 +2,9 @@
 Document processing status schemas
 """
 
+from typing import Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
-from datetime import datetime
 
 
 class PerformanceMetrics(BaseModel):

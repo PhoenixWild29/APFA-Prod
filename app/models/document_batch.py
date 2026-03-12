@@ -5,7 +5,8 @@ Provides input validation for document batches before
 processing through the embedding pipeline.
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from pydantic import BaseModel, Field, field_validator
 
 

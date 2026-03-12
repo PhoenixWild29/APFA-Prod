@@ -2,8 +2,9 @@
 Multi-agent system monitoring schemas
 """
 
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional, Literal
 
 
 class AgentPerformanceMetrics(BaseModel):

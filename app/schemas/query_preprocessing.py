@@ -2,8 +2,9 @@
 Query preprocessing schemas
 """
 
+from typing import List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
 
 
 class QueryPreprocessingRequest(BaseModel):

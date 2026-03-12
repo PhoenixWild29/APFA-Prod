@@ -3,15 +3,14 @@ Test file for user registration models
 Run with: python -m pytest app/models/test_user_registration.py
 """
 
-from datetime import datetime, timezone
 from app.models.user_registration import (
-    UserRegistrationRequest,
-    RegistrationResponse,
     RegistrationEvent,
-    WebSocketRegistrationMessage,
-    RegistrationStatus,
     RegistrationEventType,
     RegistrationMessageType,
+    RegistrationResponse,
+    RegistrationStatus,
+    UserRegistrationRequest,
+    WebSocketRegistrationMessage,
 )
 
 

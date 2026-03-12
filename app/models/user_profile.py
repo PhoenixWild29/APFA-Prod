@@ -8,11 +8,12 @@ These models support:
 - Multi-session management
 """
 
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field, EmailStr, field_validator
-from enum import Enum
 import uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserRole(str, Enum):

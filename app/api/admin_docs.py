@@ -2,18 +2,19 @@
 Admin API endpoints for batch document processing
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List
 import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Dict
 
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.dependencies import require_admin
 from app.schemas.batch_processing import (
-    ProcessBatchRequest,
-    ProcessBatchResponse,
     BatchStatusResponse,
     ProcessAllResponse,
+    ProcessBatchRequest,
+    ProcessBatchResponse,
 )
-from app.dependencies import require_admin
 from app.tasks import celery_app
 
 router = APIRouter(prefix="/admin/documents", tags=["admin-documents"])
@@ -62,7 +63,6 @@ async def process_batch(
     batch_id = f"batch_{uuid.uuid4()}"
 
     # Trigger Celery task
-    from app.tasks import process_document
 
     # In production, would call embed_document_batch
     task = celery_app.send_task(

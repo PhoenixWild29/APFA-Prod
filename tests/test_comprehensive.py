@@ -14,10 +14,8 @@ Tests all major components and integrations:
 - Phase 11: UX & Accessibility
 """
 
-import pytest
-import asyncio
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone
+
 from app.main import app
 
 client = TestClient(app)
@@ -182,9 +180,6 @@ def test_performance_tracking_models():
     """Test performance tracking Pydantic models"""
     from app.models.performance_tracking import (
         ResponseMetrics,
-        CacheMetadata,
-        CacheInteraction,
-        AgentExecutionStep,
     )
 
     # Test ResponseMetrics
@@ -204,7 +199,7 @@ def test_performance_tracking_models():
 
 def test_alert_models():
     """Test alert management models"""
-    from app.models.alert_models import AlertRule, AlertEvent
+    from app.models.alert_models import AlertRule
 
     rule = AlertRule(
         rule_id="test_rule",
@@ -223,7 +218,7 @@ def test_alert_models():
 
 def test_cache_performance_models():
     """Test cache performance models"""
-    from app.models.cache_performance import CachePerformanceMetrics, CacheEvent
+    from app.models.cache_performance import CacheEvent, CachePerformanceMetrics
 
     metrics = CachePerformanceMetrics(
         cache_level="memory",
@@ -245,7 +240,7 @@ def test_cache_performance_models():
 
 def test_monitoring_event_models():
     """Test monitoring event models"""
-    from app.models.monitoring_events import SystemMetricsEvent, WebSocketMetricsMessage
+    from app.models.monitoring_events import SystemMetricsEvent
 
     event = SystemMetricsEvent(
         event_type="performance_update",

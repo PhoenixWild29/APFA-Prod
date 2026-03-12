@@ -2,9 +2,9 @@
 CRUD operations for role management
 """
 
-from typing import Dict, List, Optional
-from datetime import datetime, timezone
 import uuid
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
 # In-memory role storage (in production, use database)
 roles_db: Dict[str, dict] = {

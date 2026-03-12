@@ -3,9 +3,10 @@ Test file for user profile and session models
 Run with: python -m pytest app/models/test_user_profile.py
 """
 
-from datetime import datetime, timezone, timedelta
-from app.models.user_profile import UserProfile, SessionMetadata, UserRole
 import uuid
+from datetime import datetime, timedelta, timezone
+
+from app.models.user_profile import SessionMetadata, UserProfile, UserRole
 
 
 def test_user_profile_creation():

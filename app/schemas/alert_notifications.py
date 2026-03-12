@@ -2,9 +2,9 @@
 Alert notification schemas for WebSocket delivery
 """
 
+from typing import Any, Dict, Literal
+
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Literal
-from datetime import datetime
 
 
 class AlertMessage(BaseModel):

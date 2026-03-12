@@ -2,18 +2,18 @@
 Admin API endpoints for recovery and integration monitoring
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime, timezone
 import uuid
 
+from fastapi import APIRouter, Depends
+
+from app.dependencies import require_admin
 from app.schemas.recovery_integration import (
+    CeleryStatusResponse,
+    CeleryWorkerStatus,
+    MinIOStatusResponse,
     RetryFailedRequest,
     RetryFailedResponse,
-    CeleryStatusResponse,
-    MinIOStatusResponse,
-    CeleryWorkerStatus,
 )
-from app.dependencies import require_admin
 from app.services.celery_monitor import get_celery_status
 from app.services.minio_monitor import get_minio_status
 
@@ -55,7 +55,7 @@ async def retry_failed_documents(
                 "failure_analysis": {...}
             }
     """
-    from app.tasks import celery_app, process_document
+    from app.tasks import process_document
 
     retry_batch_id = f"retry_{uuid.uuid4()}"
     task_ids = []
@@ -79,7 +79,7 @@ async def retry_failed_documents(
             )
             task_ids.append(str(task.id))
             queued_count += 1
-        except Exception as e:
+        except Exception:
             skipped_count += 1
 
     # Failure analysis

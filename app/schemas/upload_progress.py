@@ -2,8 +2,9 @@
 Upload progress WebSocket message schemas
 """
 
+from typing import List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
 
 
 class UploadProgressMessage(BaseModel):

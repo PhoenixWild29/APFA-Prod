@@ -2,9 +2,9 @@
 Async processing and status tracking schemas
 """
 
+from typing import Any, Dict, Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, Literal
-from datetime import datetime
 
 
 class AdviceStatusResponse(BaseModel):

@@ -2,20 +2,20 @@
 Admin API endpoints for FAISS index management
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime, timezone
 import uuid
 
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.dependencies import require_admin
 from app.schemas.faiss_management import (
     IndexBuildRequest,
     IndexBuildResponse,
     IndexHotSwapRequest,
     IndexHotSwapResponse,
     IndexStatusResponse,
-    PerformanceMetrics,
     MigrationStatus,
+    PerformanceMetrics,
 )
-from app.dependencies import require_admin
 from app.tasks import celery_app
 
 router = APIRouter(prefix="/admin/index", tags=["admin-faiss"])

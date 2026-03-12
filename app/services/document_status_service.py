@@ -2,9 +2,10 @@
 Document processing status service
 """
 
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from datetime import datetime, timezone, timedelta
-from app.schemas.document_status import DocumentStatus, PerformanceMetrics, ErrorDetails
+
+from app.schemas.document_status import DocumentStatus
 
 # In-memory document status storage (in production, use database)
 document_statuses = {

@@ -2,8 +2,8 @@
 Monitoring event schemas for real-time dashboards
 """
 
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field
 
 

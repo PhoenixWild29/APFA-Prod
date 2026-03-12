@@ -9,10 +9,10 @@ Provides comprehensive query validation including:
 """
 
 import re
-from typing import Dict, Any, List
-from profanity_check import predict_prob
 import time
+from typing import Any, Dict
 
+from profanity_check import predict_prob
 
 # Financial keywords for relevance scoring
 FINANCIAL_KEYWORDS = {

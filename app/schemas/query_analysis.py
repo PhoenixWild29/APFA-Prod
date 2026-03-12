@@ -2,8 +2,9 @@
 Query analysis schemas with linguistic processing
 """
 
+from typing import Dict, List, Literal
+
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Literal
 
 
 class LinguisticAnalysis(BaseModel):

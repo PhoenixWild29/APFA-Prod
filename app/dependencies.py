@@ -5,11 +5,13 @@ Provides reusable dependencies for authentication, authorization,
 and request validation.
 """
 
-from fastapi import Request, HTTPException, Depends, Cookie
-from typing import Optional
-from jose import JWTError, jwt
-from app.config import settings
 import logging
+from typing import Optional
+
+from fastapi import Cookie, Depends, HTTPException, Request
+from jose import JWTError, jwt
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +79,7 @@ async def get_current_user_from_header(authorization: Optional[str] = None):
     Raises:
         HTTPException: 401 if token is invalid or missing
     """
-    from app.main import oauth2_scheme, get_current_user
+    from app.main import get_current_user
 
     # Use existing header-based authentication
     return await get_current_user(authorization)

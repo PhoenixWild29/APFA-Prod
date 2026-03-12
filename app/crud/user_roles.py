@@ -2,9 +2,8 @@
 CRUD operations for user role assignments
 """
 
-from typing import Dict, List, Optional
 from datetime import datetime, timezone
-import uuid
+from typing import Dict, List
 
 # In-memory user-role assignment storage
 user_roles_db: Dict[str, List[str]] = {

@@ -10,9 +10,10 @@ Provides structured models for:
 """
 
 from datetime import datetime, timezone
-from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import List
+
 import numpy as np
+from pydantic import BaseModel, Field, field_validator
 
 
 class EmbeddingBatch(BaseModel):

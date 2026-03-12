@@ -9,9 +9,11 @@ Supports:
 - Client metadata capture
 """
 
-from typing import Optional, Dict, List, Any
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
-from app.models.user_profile import UserProfile, SessionMetadata
+
+from app.models.user_profile import SessionMetadata, UserProfile
 
 
 class UserLoginRequest(BaseModel):

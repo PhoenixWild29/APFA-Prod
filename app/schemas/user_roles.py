@@ -2,8 +2,9 @@
 User role assignment schemas
 """
 
-from pydantic import BaseModel, Field
 from typing import List
+
+from pydantic import BaseModel, Field
 
 
 class UserRoleAssignment(BaseModel):

@@ -4,12 +4,13 @@ Run with: python -m pytest app/models/test_auth_events.py
 """
 
 from datetime import datetime, timezone
+
 from app.models.auth_events import (
     AuthenticationEvent,
-    WebSocketAuthMessage,
     AuthEventType,
     MessageType,
     Severity,
+    WebSocketAuthMessage,
 )
 
 

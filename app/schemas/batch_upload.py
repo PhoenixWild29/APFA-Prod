@@ -4,9 +4,10 @@ Batch document upload schemas
 Provides request/response models for batch upload operations.
 """
 
-from typing import List, Optional
-from pydantic import BaseModel, Field
 from datetime import datetime, timezone
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class FileUploadResult(BaseModel):

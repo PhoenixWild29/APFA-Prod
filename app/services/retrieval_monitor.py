@@ -6,9 +6,8 @@ Provides real-time metrics for search performance and system health
 
 import asyncio
 import json
-from datetime import datetime, timezone
-from typing import Dict, Any
 import logging
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 

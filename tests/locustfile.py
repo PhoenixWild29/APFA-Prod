@@ -3,8 +3,9 @@ Locust Performance Testing Configuration
 Simulates user load on the APFA application
 """
 
-from locust import HttpUser, task, between
 import random
+
+from locust import HttpUser, between, task
 
 
 class APFAUser(HttpUser):

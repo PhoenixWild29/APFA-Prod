@@ -2,8 +2,9 @@
 Role management schemas
 """
 
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class RoleCreate(BaseModel):

@@ -8,7 +8,7 @@ Aggregates metrics from various system components:
 - System health indicators
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def collect_agent_metrics() -> Dict[str, Any]:

@@ -2,8 +2,9 @@
 FAISS index management schemas
 """
 
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
 
 
 class IndexOptimizationOptions(BaseModel):

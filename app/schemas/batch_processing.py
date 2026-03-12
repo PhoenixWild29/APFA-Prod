@@ -2,9 +2,9 @@
 Batch document processing schemas
 """
 
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
-from datetime import datetime
 
 
 class ProcessBatchRequest(BaseModel):

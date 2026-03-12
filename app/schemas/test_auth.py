@@ -3,9 +3,10 @@ Test file for authentication schemas
 Run with: python -m pytest app/schemas/test_auth.py
 """
 
-from datetime import datetime, timezone, timedelta
-from app.schemas.auth import User, Token, TokenPayload, ALLOWED_PERMISSIONS
 import uuid
+from datetime import datetime, timedelta, timezone
+
+from app.schemas.auth import Token, TokenPayload, User
 
 
 def test_user_creation():

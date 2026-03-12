@@ -5,11 +5,11 @@ Provides formal, validated data structures for authentication components
 to ensure type safety and data integrity.
 """
 
+import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
-import uuid
 
+from pydantic import BaseModel, Field, field_validator
 
 # Allowed permissions for validation
 ALLOWED_PERMISSIONS = {
