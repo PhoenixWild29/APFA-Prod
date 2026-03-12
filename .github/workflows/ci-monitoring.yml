@@ -67,7 +67,7 @@ jobs:
       
       - name: Start application
         run: |
-          docker-compose up -d apfa redis
+          docker compose up -d apfa redis
           sleep 20
       
       - name: Test Prometheus metrics endpoint
@@ -85,5 +85,5 @@ jobs:
           echo "Detailed metrics endpoint exists"
       
       - name: Stop services
-        run: docker-compose down
+        run: docker compose down
 
