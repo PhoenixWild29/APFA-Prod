@@ -16,6 +16,10 @@ on:
       - 'tests/**'
       - 'requirements.txt'
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   PYTHON_VERSION: '3.11'
   DOCKER_REGISTRY: ghcr.io
@@ -235,4 +239,3 @@ jobs:
         run: |
           cd infra
           cdk deploy --context environment=staging --require-approval never
-
