@@ -86,5 +86,5 @@ def get_worker_count() -> int:
         inspect = celery_app.control.inspect()
         active_workers = inspect.active() or {}
         return len(active_workers)
-    except:
+    except Exception:
         return 0

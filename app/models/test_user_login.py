@@ -147,8 +147,8 @@ def test_mfa_token_validation():
     # Too short
     try:
         UserLoginRequest(
-            username="user", password="Pass123!", mfa_token="123"  # Only 3 digits
-        )
+            username="user", password="Pass123!", mfa_token="123"
+        )  # Only 3 digits
         assert False, "Should have raised validation error"
     except Exception:
         pass  # Expected
@@ -156,8 +156,8 @@ def test_mfa_token_validation():
     # Too long
     try:
         UserLoginRequest(
-            username="user", password="Pass123!", mfa_token="12345678901"  # 11 digits
-        )
+            username="user", password="Pass123!", mfa_token="12345678901"
+        )  # 11 digits
         assert False, "Should have raised validation error"
     except Exception:
         pass  # Expected

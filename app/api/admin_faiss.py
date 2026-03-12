@@ -153,7 +153,7 @@ async def hot_swap_index(
     }
 
     # Trigger Celery task for hot-swap
-    task = celery_app.send_task(
+    celery_app.send_task(
         "hot_swap_index",
         args=[request.new_index_version, swap_id],
         kwargs={

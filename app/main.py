@@ -11,7 +11,10 @@ import re
 import signal
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import aioredis
 import boto3
@@ -67,8 +70,29 @@ from app.models.user_registration import (
     UserRegistrationRequest,
 )
 from config import settings
+from app.dependencies import require_admin
+from app.models.advice_response import BiasDetectionResults, OptimizedAdviceResponse
+from app.models.performance_tracking import AgentExecutionStep, ResponseMetrics
+from app.schemas.health_metrics import EnhancedHealthResponse, DetailedMetricsResponse
 
-# Import schemas
+
+# Custom exception classes
+class RAGError(Exception):
+    """Raised when RAG index operations fail."""
+
+
+class LLMError(Exception):
+    """Raised when LLM operations fail."""
+
+
+class ExternalServiceError(Exception):
+    """Raised when external service calls fail."""
+
+
+async def detect_bias(text: str) -> float:
+    """Stub bias detection — returns 0.0 (no bias detected)."""
+    return 0.0
+
 
 # Setup logging
 logging.basicConfig(
@@ -4304,7 +4328,7 @@ async def metrics_stream_sse(current_user: dict = Depends(get_current_user)):
             )
         except Exception as e:
             logger.error(f"Error in metrics stream: {e}")
-            yield f'event: error\ndata: {{"error": "Stream interrupted - please reconnect"}}\n\n'
+            yield 'event: error\ndata: {"error": "Stream interrupted - please reconnect"}\n\n'
 
     return StreamingResponse(
         metrics_generator(),

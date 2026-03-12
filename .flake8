@@ -1,0 +1,9 @@
+[flake8]
+max-line-length = 120
+exclude = __pycache__
+extend-ignore = E402, E203, E501
+per-file-ignores =
+    app/main.py:F824
+    app/services/auth_monitor.py:F824
+    app/services/registration_monitor.py:F824
+    app/services/retrieval_monitor.py:F824

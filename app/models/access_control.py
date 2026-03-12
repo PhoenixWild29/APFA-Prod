@@ -67,8 +67,8 @@ class AccessRequest(BaseModel):
         description="Request timestamp",
     )
     ip_address: str = Field(
-        ..., description="Client IP address", max_length=45  # IPv6 max length
-    )
+        ..., description="Client IP address", max_length=45
+    )  # IPv6 max length
     user_agent: str = Field(..., description="Client user agent string", max_length=500)
 
     @field_validator("timestamp")

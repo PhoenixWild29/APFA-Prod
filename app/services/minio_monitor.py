@@ -70,5 +70,5 @@ def check_bucket_health(bucket_name: str) -> str:
     try:
         # In production, perform actual bucket health checks
         return "healthy"
-    except:
+    except Exception:
         return "unhealthy"

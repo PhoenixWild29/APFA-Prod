@@ -19,8 +19,12 @@ from app.models.celery_tasks import (
     TaskStatus,
     TaskStatusEnum,
 )
-from app.models.document_batch import DocumentBatch, ProcessingOptions
-from app.models.document_management import BatchProgress, Document, DocumentBatch
+from app.models.document_batch import DocumentBatch, ProcessingOptions  # noqa: F811
+from app.models.document_management import (  # noqa: F811
+    BatchProgress,
+    Document,
+    DocumentBatch,
+)
 from app.models.document_processing import (
     DocumentProcessingEvent,
     WebSocketDocumentMessage,

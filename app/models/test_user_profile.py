@@ -43,7 +43,7 @@ def test_user_profile_email_validation():
 
     # Invalid email will raise validation error
     try:
-        invalid_profile = UserProfile(
+        UserProfile(
             user_id="user_456",
             username="testuser2",
             email="invalid-email",
@@ -121,7 +121,7 @@ def test_session_metadata_uuid_validation():
 
     # Invalid UUID will raise validation error
     try:
-        invalid_session = SessionMetadata(
+        SessionMetadata(
             session_id="not-a-valid-uuid",
             user_id="user_456",
             ip_address="10.0.0.2",
@@ -160,7 +160,7 @@ def test_session_last_activity_validation():
     # Future time should fail
     try:
         future_time = datetime.now(timezone.utc) + timedelta(hours=1)
-        invalid_session = SessionMetadata(
+        SessionMetadata(
             user_id="user_456",
             ip_address="192.168.1.2",
             user_agent="Test",
