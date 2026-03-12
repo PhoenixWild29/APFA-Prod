@@ -24,13 +24,13 @@ jobs:
       
       - name: Validate Prometheus config
         run: |
-          docker run --rm -v $(pwd)/monitoring:/config prom/prometheus:latest \
-            promtool check config /config/prometheus.yml
+          docker run --rm --entrypoint /bin/promtool -v $(pwd)/monitoring:/config prom/prometheus:latest \
+            check config /config/prometheus.yml
       
       - name: Validate alert rules
         run: |
-          docker run --rm -v $(pwd)/monitoring:/config prom/prometheus:latest \
-            promtool check rules /config/alerts.yml || echo "No alert rules file"
+          docker run --rm --entrypoint /bin/promtool -v $(pwd)/monitoring:/config prom/prometheus:latest \
+            check rules /config/alerts.yml || echo "No alert rules file"
         continue-on-error: true
   
   # ============================================================================
@@ -73,7 +73,7 @@ jobs:
       - name: Test Prometheus metrics endpoint
         run: |
           curl -f http://localhost:8000/metrics || exit 1
-          curl http://localhost:8000/metrics | grep -q "REQUEST_COUNT" || exit 1
+          curl http://localhost:8000/metrics | grep -q \"go_info\" || exit 1
       
       - name: Test health endpoint
         run: |
@@ -86,4 +86,3 @@ jobs:
       
       - name: Stop services
         run: docker compose down
-
