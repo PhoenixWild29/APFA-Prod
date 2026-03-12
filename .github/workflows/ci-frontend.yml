@@ -19,7 +19,7 @@ on:
       - 'package.json'
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '22'
   DOCKER_REGISTRY: ghcr.io
   IMAGE_NAME: apfa-frontend
 
