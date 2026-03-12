@@ -2,8 +2,13 @@
 Test file for login event models
 Run with: python -m pytest app/models/test_login_events.py
 """
-from datetime import datetime
-from app.models.login_events import LoginEvent, WebSocketLoginMessage, LoginEventType, MessageType
+
+from app.models.login_events import (
+    LoginEvent,
+    LoginEventType,
+    MessageType,
+    WebSocketLoginMessage,
+)
 
 
 def test_login_event_creation():
@@ -21,10 +26,10 @@ def test_login_event_creation():
             "country": "US",
             "city": "New York",
             "latitude": 40.7128,
-            "longitude": -74.0060
-        }
+            "longitude": -74.0060,
+        },
     )
-    
+
     assert event.event_type == LoginEventType.LOGIN_SUCCESS
     assert event.username == "testuser"
     assert event.success is True
@@ -42,9 +47,9 @@ def test_login_event_validation():
         user_agent="curl/7.68.0",
         success=False,
         failure_reason="Invalid password",
-        security_score=0.85
+        security_score=0.85,
     )
-    
+
     assert event.failure_reason == "Invalid password"
     print("✅ LoginEvent validation test passed")
 
@@ -57,20 +62,20 @@ def test_websocket_message_creation():
         ip_address="192.168.1.1",
         user_agent="Mozilla/5.0",
         success=True,
-        security_score=0.1
+        security_score=0.1,
     )
-    
+
     message = WebSocketLoginMessage(
         message_type=MessageType.LOGIN_EVENT,
         event_data=login_event,
         risk_assessment={
             "threat_level": "low",
             "reasons": [],
-            "recommended_action": "none"
+            "recommended_action": "none",
         },
-        requires_admin_attention=False
+        requires_admin_attention=False,
     )
-    
+
     assert message.message_type == MessageType.LOGIN_EVENT
     assert message.event_data.username == "admin"
     assert message.requires_admin_attention is False
@@ -86,20 +91,20 @@ def test_security_alert_message():
         user_agent="curl/7.68.0",
         success=False,
         failure_reason="Invalid password (5th attempt)",
-        security_score=0.95
+        security_score=0.95,
     )
-    
+
     alert_message = WebSocketLoginMessage(
         message_type=MessageType.SECURITY_ALERT,
         event_data=suspicious_event,
         risk_assessment={
             "threat_level": "critical",
             "reasons": ["repeated_failures", "suspicious_ip", "unusual_user_agent"],
-            "recommended_action": "block_ip"
+            "recommended_action": "block_ip",
         },
-        requires_admin_attention=True
+        requires_admin_attention=True,
     )
-    
+
     assert alert_message.message_type == MessageType.SECURITY_ALERT
     assert alert_message.requires_admin_attention is True
     assert alert_message.risk_assessment["threat_level"] == "critical"
@@ -114,16 +119,16 @@ def test_json_serialization():
         ip_address="192.168.1.1",
         user_agent="Mozilla/5.0",
         success=True,
-        security_score=0.2
+        security_score=0.2,
     )
-    
+
     message = WebSocketLoginMessage(
         message_type=MessageType.LOGIN_EVENT,
         event_data=event,
         risk_assessment={"threat_level": "low"},
-        requires_admin_attention=False
+        requires_admin_attention=False,
     )
-    
+
     # Test serialization
     json_str = message.model_dump_json(indent=2)
     assert "login_event" in json_str
@@ -141,4 +146,3 @@ if __name__ == "__main__":
     test_security_alert_message()
     test_json_serialization()
     print("\n✅ All tests passed!")
-

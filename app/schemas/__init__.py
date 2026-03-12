@@ -6,11 +6,11 @@ This package contains data validation schemas for:
 - Request/Response models
 - API data transfer objects
 """
-from app.schemas.auth import User, Token, TokenPayload
+
+from app.schemas.auth import Token, TokenPayload, User
 
 __all__ = [
-    'User',
-    'Token',
-    'TokenPayload',
+    "User",
+    "Token",
+    "TokenPayload",
 ]
-

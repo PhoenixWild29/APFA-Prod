@@ -3,36 +3,37 @@ Locust Performance Testing Configuration
 Simulates user load on the APFA application
 """
 
-from locust import HttpUser, task, between
 import random
+
+from locust import HttpUser, between, task
 
 
 class APFAUser(HttpUser):
     """Simulates a typical APFA application user"""
-    
+
     # Wait between 1 and 3 seconds between tasks
     wait_time = between(1, 3)
-    
+
     def on_start(self):
         """Called when a user starts - simulate login"""
         # Health check on start
         self.client.get("/health")
-    
+
     @task(3)
     def view_health(self):
         """Check application health endpoint"""
         self.client.get("/health", name="/health")
-    
+
     @task(2)
     def view_metrics(self):
         """Check metrics endpoint"""
         self.client.get("/metrics", name="/metrics")
-    
+
     @task(5)
     def api_root(self):
         """Access API root/docs"""
         self.client.get("/", name="/")
-        
+
     @task(1)
     def view_docs(self):
         """Access API documentation"""
@@ -42,15 +43,15 @@ class APFAUser(HttpUser):
 
 class AdminUser(HttpUser):
     """Simulates an admin user performing administrative tasks"""
-    
+
     wait_time = between(2, 5)
-    
+
     @task(2)
     def admin_dashboard(self):
         """Access admin dashboard"""
         # Note: In real scenario, would need authentication
         self.client.get("/health", name="admin-health-check")
-    
+
     @task(1)
     def view_metrics(self):
         """View detailed metrics"""
@@ -59,19 +60,19 @@ class AdminUser(HttpUser):
 
 class APIUser(HttpUser):
     """Simulates API consumers hitting various endpoints"""
-    
+
     wait_time = between(0.5, 2)
-    
+
     @task(10)
     def health_check(self):
         """Frequent health checks"""
         self.client.get("/health")
-    
+
     @task(5)
     def metrics_endpoint(self):
         """Monitor metrics"""
         self.client.get("/metrics")
-    
+
     @task(1)
     def api_info(self):
         """Get API information"""
@@ -81,22 +82,24 @@ class APIUser(HttpUser):
 # Performance test scenarios
 class QuickLoadTest(HttpUser):
     """Quick load test - simulates normal traffic"""
+
     wait_time = between(1, 2)
-    
+
     @task
     def normal_workflow(self):
         """Typical user workflow"""
         # Health check
         self.client.get("/health")
-        
+
         # View metrics
         self.client.get("/metrics")
 
 
 class StressTest(HttpUser):
     """Stress test - simulates heavy load"""
+
     wait_time = between(0.1, 0.5)
-    
+
     @task
     def rapid_requests(self):
         """Rapid fire requests"""
@@ -107,8 +110,9 @@ class StressTest(HttpUser):
 
 class SpikeTest(HttpUser):
     """Spike test - simulates sudden traffic spikes"""
+
     wait_time = between(0, 0.1)
-    
+
     @task
     def spike_requests(self):
         """Rapid requests to simulate spike"""
@@ -122,7 +126,7 @@ from locust import LoadTestShape
 class GradualRampUp(LoadTestShape):
     """
     A load shape that gradually increases users over time
-    
+
     Stages:
     1. 0-60s: Ramp up to 50 users
     2. 60-120s: Ramp up to 100 users
@@ -130,7 +134,7 @@ class GradualRampUp(LoadTestShape):
     4. 180-240s: Ramp down to 50 users
     5. 240-300s: Ramp down to 0 users
     """
-    
+
     stages = [
         {"duration": 60, "users": 50, "spawn_rate": 1},
         {"duration": 120, "users": 100, "spawn_rate": 2},
@@ -138,14 +142,14 @@ class GradualRampUp(LoadTestShape):
         {"duration": 240, "users": 50, "spawn_rate": 1},
         {"duration": 300, "users": 0, "spawn_rate": 2},
     ]
-    
+
     def tick(self):
         run_time = self.get_run_time()
-        
+
         for stage in self.stages:
             if run_time < stage["duration"]:
                 return (stage["users"], stage["spawn_rate"])
-        
+
         return None
 
 
@@ -183,4 +187,3 @@ Expected Results:
 - 99.9% success rate
 - Able to handle 100+ concurrent users
 """
-

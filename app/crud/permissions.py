@@ -1,9 +1,10 @@
 """
 CRUD operations for permission management
 """
-from typing import Dict, List, Optional
-from datetime import datetime, timezone
+
 import uuid
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
 # In-memory permission storage
 permissions_db: Dict[str, dict] = {
@@ -44,9 +45,9 @@ def create_permission(name: str, description: str, resource_identifier: str) -> 
     for perm in permissions_db.values():
         if perm["name"].lower() == name.lower():
             raise ValueError(f"Permission '{name}' already exists")
-    
+
     permission_id = f"perm_{uuid.uuid4()}"
-    
+
     permission = {
         "permission_id": permission_id,
         "name": name,
@@ -54,7 +55,7 @@ def create_permission(name: str, description: str, resource_identifier: str) -> 
         "resource_identifier": resource_identifier,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    
+
     permissions_db[permission_id] = permission
     return permission
 
@@ -75,16 +76,16 @@ def assign_permissions_to_role(role_id: str, permission_ids: List[str]) -> List[
     for perm_id in permission_ids:
         if perm_id not in permissions_db:
             raise ValueError(f"Permission '{perm_id}' not found")
-    
+
     # Add to role-permission mapping
     if role_id not in role_permissions_db:
         role_permissions_db[role_id] = []
-    
+
     # Add new permissions (avoid duplicates)
     for perm_id in permission_ids:
         if perm_id not in role_permissions_db[role_id]:
             role_permissions_db[role_id].append(perm_id)
-    
+
     # Return permission details
     return [permissions_db[pid] for pid in role_permissions_db[role_id]]
 
@@ -99,10 +100,9 @@ def remove_permission_from_role(role_id: str, permission_id: str) -> bool:
     """Remove permission from role"""
     if role_id not in role_permissions_db:
         return False
-    
+
     if permission_id in role_permissions_db[role_id]:
         role_permissions_db[role_id].remove(permission_id)
         return True
-    
-    return False
 
+    return False

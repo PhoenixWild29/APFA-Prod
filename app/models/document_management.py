@@ -8,15 +8,17 @@ Supports:
 - Version control
 - Security scanning results
 """
+
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any, Literal
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
 class Document(BaseModel):
     """
     Document data model for knowledge base management
-    
+
     Attributes:
         document_id: Unique document identifier
         filename: Original filename
@@ -29,7 +31,7 @@ class Document(BaseModel):
         metadata: Additional document metadata
         security_scan_results: Security scanning results
         version: Document version number
-    
+
     Example:
         >>> doc = Document(
         ...     document_id="doc_12345",
@@ -40,89 +42,74 @@ class Document(BaseModel):
         ...     version=1
         ... )
     """
+
     document_id: str = Field(
-        ...,
-        description="Unique document identifier",
-        min_length=1,
-        max_length=255
+        ..., description="Unique document identifier", min_length=1, max_length=255
     )
     filename: str = Field(
-        ...,
-        description="Original filename",
-        min_length=1,
-        max_length=255
+        ..., description="Original filename", min_length=1, max_length=255
     )
-    content_type: str = Field(
-        ...,
-        description="MIME type of document",
-        max_length=100
-    )
-    file_size_bytes: int = Field(
-        ...,
-        description="File size in bytes",
-        ge=0
-    )
+    content_type: str = Field(..., description="MIME type of document", max_length=100)
+    file_size_bytes: int = Field(..., description="File size in bytes", ge=0)
     upload_timestamp: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        description="UTC timestamp when uploaded"
+        description="UTC timestamp when uploaded",
     )
     processing_status: str = Field(
-        ...,
-        description="Current processing status",
-        max_length=50
+        ..., description="Current processing status", max_length=50
     )
-    extracted_text: Optional[str] = Field(
-        None,
-        description="Extracted text content"
-    )
+    extracted_text: Optional[str] = Field(None, description="Extracted text content")
     embedding_vector: Optional[List[float]] = Field(
-        None,
-        description="Embedding vector (typically 384 dimensions)"
+        None, description="Embedding vector (typically 384 dimensions)"
     )
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
         description="Additional document metadata",
-        examples=[{
-            "page_count": 10,
-            "author": "John Doe",
-            "created_date": "2025-01-01",
-            "category": "financial_report"
-        }]
+        examples=[
+            {
+                "page_count": 10,
+                "author": "John Doe",
+                "created_date": "2025-01-01",
+                "category": "financial_report",
+            }
+        ],
     )
     security_scan_results: Dict[str, Any] = Field(
         default_factory=dict,
         description="Security scanning results",
-        examples=[{
-            "status": "clean",
-            "scanned_at": "2025-10-11T14:30:00Z",
-            "threats_found": 0,
-            "scan_duration_ms": 150
-        }]
+        examples=[
+            {
+                "status": "clean",
+                "scanned_at": "2025-10-11T14:30:00Z",
+                "threats_found": 0,
+                "scan_duration_ms": 150,
+            }
+        ],
     )
-    version: int = Field(
-        ...,
-        description="Document version number",
-        ge=1
-    )
-    
-    @field_validator('upload_timestamp')
+    version: int = Field(..., description="Document version number", ge=1)
+
+    @field_validator("upload_timestamp")
     @classmethod
     def validate_timezone_aware(cls, v: datetime) -> datetime:
         """Ensure timestamp is timezone-aware"""
         if v.tzinfo is None:
             return v.replace(tzinfo=timezone.utc)
         return v
-    
-    @field_validator('embedding_vector')
+
+    @field_validator("embedding_vector")
     @classmethod
-    def validate_embedding_dimension(cls, v: Optional[List[float]]) -> Optional[List[float]]:
+    def validate_embedding_dimension(
+        cls, v: Optional[List[float]]
+    ) -> Optional[List[float]]:
         """Validate embedding vector dimension"""
         if v is not None:
             expected_dim = 384  # all-MiniLM-L6-v2 dimension
             if len(v) != expected_dim:
-                raise ValueError(f"Embedding vector must have {expected_dim} dimensions, got {len(v)}")
+                raise ValueError(
+                    f"Embedding vector must have {expected_dim} dimensions, got {len(v)}"
+                )
         return v
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -137,14 +124,14 @@ class Document(BaseModel):
                 "metadata": {
                     "page_count": 25,
                     "author": "Finance Department",
-                    "category": "quarterly_report"
+                    "category": "quarterly_report",
                 },
                 "security_scan_results": {
                     "status": "clean",
                     "scanned_at": "2025-10-11T14:30:15Z",
-                    "threats_found": 0
+                    "threats_found": 0,
                 },
-                "version": 1
+                "version": 1,
             }
         }
 
@@ -152,7 +139,7 @@ class Document(BaseModel):
 class BatchProgress(BaseModel):
     """
     Batch processing progress data model
-    
+
     Attributes:
         documents_processed: Number of documents processed
         total_documents: Total documents in batch
@@ -160,7 +147,7 @@ class BatchProgress(BaseModel):
         estimated_remaining_seconds: Estimated time remaining
         processing_rate_docs_per_second: Current processing throughput
         errors_count: Number of errors encountered
-    
+
     Example:
         >>> progress = BatchProgress(
         ...     documents_processed=450,
@@ -171,45 +158,29 @@ class BatchProgress(BaseModel):
         ...     errors_count=5
         ... )
     """
+
     documents_processed: int = Field(
-        ...,
-        description="Number of documents processed",
-        ge=0
+        ..., description="Number of documents processed", ge=0
     )
-    total_documents: int = Field(
-        ...,
-        description="Total documents in batch",
-        ge=0
-    )
+    total_documents: int = Field(..., description="Total documents in batch", ge=0)
     completion_percentage: float = Field(
-        ...,
-        description="Progress percentage (0.0-100.0)",
-        ge=0.0,
-        le=100.0
+        ..., description="Progress percentage (0.0-100.0)", ge=0.0, le=100.0
     )
     estimated_remaining_seconds: int = Field(
-        ...,
-        description="Estimated time remaining in seconds",
-        ge=0
+        ..., description="Estimated time remaining in seconds", ge=0
     )
     processing_rate_docs_per_second: float = Field(
-        ...,
-        description="Current processing throughput",
-        ge=0.0
+        ..., description="Current processing throughput", ge=0.0
     )
-    errors_count: int = Field(
-        ...,
-        description="Number of errors encountered",
-        ge=0
-    )
-    
-    @field_validator('completion_percentage')
+    errors_count: int = Field(..., description="Number of errors encountered", ge=0)
+
+    @field_validator("completion_percentage")
     @classmethod
     def validate_completion_percentage(cls, v: float, info) -> float:
         """Validate completion percentage matches processed/total ratio"""
-        processed = info.data.get('documents_processed', 0)
-        total = info.data.get('total_documents', 1)
-        
+        processed = info.data.get("documents_processed", 0)
+        total = info.data.get("total_documents", 1)
+
         if total > 0:
             expected = (processed / total) * 100
             # Allow small floating-point discrepancies
@@ -217,9 +188,9 @@ class BatchProgress(BaseModel):
                 raise ValueError(
                     f"Completion percentage {v}% doesn't match processed/total ratio ({expected:.1f}%)"
                 )
-        
+
         return v
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -228,7 +199,7 @@ class BatchProgress(BaseModel):
                 "completion_percentage": 75.0,
                 "estimated_remaining_seconds": 625,
                 "processing_rate_docs_per_second": 4000.0,
-                "errors_count": 12
+                "errors_count": 12,
             }
         }
 
@@ -236,7 +207,7 @@ class BatchProgress(BaseModel):
 class DocumentBatch(BaseModel):
     """
     Document batch data model for batch processing operations
-    
+
     Attributes:
         batch_id: Unique batch identifier
         document_ids: List of document IDs in batch
@@ -245,7 +216,7 @@ class DocumentBatch(BaseModel):
         status: Current batch status
         progress: Batch processing progress
         performance_metrics: Performance tracking metrics
-    
+
     Example:
         >>> batch = DocumentBatch(
         ...     batch_id="batch_20251011_001",
@@ -255,62 +226,51 @@ class DocumentBatch(BaseModel):
         ...     progress=batch_progress
         ... )
     """
+
     batch_id: str = Field(
-        ...,
-        description="Unique batch identifier",
-        min_length=1,
-        max_length=255
+        ..., description="Unique batch identifier", min_length=1, max_length=255
     )
-    document_ids: List[str] = Field(
-        ...,
-        description="List of document IDs in batch"
-    )
-    batch_size: int = Field(
-        ...,
-        description="Number of documents in batch",
-        ge=1
-    )
+    document_ids: List[str] = Field(..., description="List of document IDs in batch")
+    batch_size: int = Field(..., description="Number of documents in batch", ge=1)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        description="UTC timestamp when batch was created"
+        description="UTC timestamp when batch was created",
     )
-    status: Literal['queued', 'processing', 'completed', 'failed'] = Field(
-        ...,
-        description="Current batch status"
+    status: Literal["queued", "processing", "completed", "failed"] = Field(
+        ..., description="Current batch status"
     )
-    progress: BatchProgress = Field(
-        ...,
-        description="Batch processing progress"
-    )
+    progress: BatchProgress = Field(..., description="Batch processing progress")
     performance_metrics: Dict[str, float] = Field(
         default_factory=dict,
         description="Performance tracking metrics",
-        examples=[{
-            "avg_processing_time_ms": 250.0,
-            "peak_throughput_docs_per_sec": 5000.0,
-            "total_processing_time_seconds": 2500.0
-        }]
+        examples=[
+            {
+                "avg_processing_time_ms": 250.0,
+                "peak_throughput_docs_per_sec": 5000.0,
+                "total_processing_time_seconds": 2500.0,
+            }
+        ],
     )
-    
-    @field_validator('created_at')
+
+    @field_validator("created_at")
     @classmethod
     def validate_timezone_aware(cls, v: datetime) -> datetime:
         """Ensure timestamp is timezone-aware"""
         if v.tzinfo is None:
             return v.replace(tzinfo=timezone.utc)
         return v
-    
-    @field_validator('batch_size')
+
+    @field_validator("batch_size")
     @classmethod
     def validate_batch_size_matches_ids(cls, v: int, info) -> int:
         """Ensure batch_size matches document_ids length"""
-        document_ids = info.data.get('document_ids', [])
+        document_ids = info.data.get("document_ids", [])
         if len(document_ids) != v:
             raise ValueError(
                 f"batch_size ({v}) doesn't match document_ids length ({len(document_ids)})"
             )
         return v
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -325,12 +285,11 @@ class DocumentBatch(BaseModel):
                     "completion_percentage": 66.7,
                     "estimated_remaining_seconds": 15,
                     "processing_rate_docs_per_second": 4000.0,
-                    "errors_count": 0
+                    "errors_count": 0,
                 },
                 "performance_metrics": {
                     "avg_processing_time_ms": 250.0,
-                    "peak_throughput_docs_per_sec": 4500.0
-                }
+                    "peak_throughput_docs_per_sec": 4500.0,
+                },
             }
         }
-

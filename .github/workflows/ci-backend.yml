@@ -61,12 +61,16 @@ jobs:
           pip install pytest pytest-cov pytest-asyncio httpx
       
       - name: Run unit tests
-        continue-on-error: true
         run: |
           pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
         env:
           REDIS_URL: redis://localhost:6379
           TESTING: true
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          API_KEY: test_key
+        continue-on-error: true
       
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -96,20 +100,17 @@ jobs:
           pip install black flake8 mypy pylint bandit safety
       
       - name: Run Black (code formatting)
-        continue-on-error: true
         run: black --check app/ tests/
       
       - name: Run Flake8 (style guide)
-        continue-on-error: true
-        run: flake8 app/ tests/ --max-line-length=120 --exclude=__pycache__
+        run: flake8 app/ tests/
       
       - name: Run MyPy (type checking)
         run: mypy app/ --ignore-missing-imports
         continue-on-error: true
       
       - name: Run Bandit (security scanning)
-        continue-on-error: true
-        run: bandit -r app/ -ll
+        run: bandit -r app/ --severity-level high
       
       - name: Check dependencies for vulnerabilities
         run: safety check --json

@@ -19,7 +19,7 @@ on:
       - 'package.json'
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '22'
   DOCKER_REGISTRY: ghcr.io
   IMAGE_NAME: apfa-frontend
 
@@ -124,7 +124,7 @@ jobs:
           du -sh dist/
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-build
           path: dist/
