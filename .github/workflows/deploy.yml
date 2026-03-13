@@ -5,8 +5,28 @@ on:
     branches: [main]
 
 jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Check deploy secrets
+        id: check
+        env:
+          HAS_IP: ${{ secrets.DROPLET_IP != '' }}
+          HAS_KEY: ${{ secrets.DROPLET_SSH_KEY != '' }}
+        run: |
+          if [ "$HAS_IP" = "true" ] && [ "$HAS_KEY" = "true" ]; then
+            echo "ready=true" >> $GITHUB_OUTPUT
+            echo "Deploy secrets configured — proceeding with deploy."
+          else
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "Deploy secrets not configured yet — skipping deploy. Set DROPLET_IP and DROPLET_SSH_KEY to enable."
+          fi
+
   deploy:
-    if: ${{ github.ref == 'refs/heads/main' && secrets.DROPLET_IP != '' && secrets.DROPLET_SSH_KEY != '' }}
+    needs: check-secrets
+    if: needs.check-secrets.outputs.ready == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -22,15 +42,13 @@ jobs:
           echo "Changed files:"
           cat /tmp/changed.txt
 
-          if grep -qE '^(src|public)/|package(-lock)?\\.json$|^Dockerfile\\.frontend$|^vite\\.config\\.ts$|^tailwind\\.config\\.js$|^\\.prettierrc\\.cjs$|^\\.eslintrc\\.cjs$|^postcss\\.config\\.js$|^index\\.html$'
- /tmp/changed.txt; then
+          if grep -qE '^(src|public)/|package(-lock)?\\.json$|^Dockerfile\\.frontend$|^vite\\.config\\.ts$|^tailwind\\.config\\.js$|^\\.prettierrc\\.cjs$|^\\.eslintrc\\.cjs$|^postcss\\.config\\.js$|^index\\.html$' /tmp/changed.txt; then
             echo "frontend=true" >> $GITHUB_OUTPUT
           else
             echo "frontend=false" >> $GITHUB_OUTPUT
           fi
 
-          if grep -qE '^app/|^requirements\\.txt$|^Dockerfile$|^docker-compose\\.yml$|^nginx\\.conf$'
- /tmp/changed.txt; then
+          if grep -qE '^app/|^requirements\\.txt$|^Dockerfile$|^docker-compose\\.yml$|^nginx\\.conf$' /tmp/changed.txt; then
             echo "backend=true" >> $GITHUB_OUTPUT
           else
             echo "backend=false" >> $GITHUB_OUTPUT
@@ -101,9 +119,9 @@ jobs:
           else
             MSG="💰 APFA-Prod Auto-deploy complete - health check passed. Sprint deployed successfully."
           fi
-          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \\
-            -H "Content-Type: application/json" \\
-            -d "{\\"chat_id\\": \\"${CHAT_ID}\\", \\"text\\": \\"${MSG}\\", \\"parse_mode\\": \\"Markdown\\"}" || true
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\": \"${CHAT_ID}\", \"text\": \"${MSG}\", \"parse_mode\": \"Markdown\"}" || true
 
       - name: Notify Telegram — failure
         if: failure()
@@ -111,6 +129,6 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \\
-            -H "Content-Type: application/json" \\
-            -d "{\\"chat_id\\": \\"${CHAT_ID}\\", \\"text\\": \\"🚨 APFA-Prod Auto-deploy FAILED - check GitHub Actions logs.\\"}" || true
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{\"chat_id\": \"${CHAT_ID}\", \"text\": \"APFA-Prod Auto-deploy FAILED - check GitHub Actions logs.\"}" || true
