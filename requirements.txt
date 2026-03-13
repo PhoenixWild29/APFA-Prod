@@ -1,6 +1,6 @@
 langchain==0.2.5
 langgraph==0.1.9
-pyautogen==0.2.7
+pyautogen==0.10.0
 transformers==4.53.0
 sentence-transformers==3.0.1
 faiss-cpu>=1.7.4
