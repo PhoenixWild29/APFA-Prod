@@ -1,0 +1,115 @@
+name: Auto Deploy APFA-Prod to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed file types
+        id: diff
+        run: |
+          git diff --name-only HEAD~1 HEAD 2>/dev/null > /tmp/changed.txt || git show --name-only --format="" HEAD > /tmp/changed.txt
+          echo "Changed files:"
+          cat /tmp/changed.txt
+
+          if grep -qE '^(src|public)/|package(-lock)?\\.json$|^Dockerfile\\.frontend$|^vite\\.config\\.ts$|^tailwind\\.config\\.js$|^\\.prettierrc\\.cjs$|^\\.eslintrc\\.cjs$|^postcss\\.config\\.js$|^index\\.html$'
+ /tmp/changed.txt; then
+            echo "frontend=true" >> $GITHUB_OUTPUT
+          else
+            echo "frontend=false" >> $GITHUB_OUTPUT
+          fi
+
+          if grep -qE '^app/|^requirements\\.txt$|^Dockerfile$|^docker-compose\\.yml$|^nginx\\.conf$'
+ /tmp/changed.txt; then
+            echo "backend=true" >> $GITHUB_OUTPUT
+          else
+            echo "backend=false" >> $GITHUB_OUTPUT
+          fi
+
+          MIGRATION=$(grep -E '^migrations/' /tmp/changed.txt | head -1 || true)
+          echo "migration_file=$MIGRATION" >> $GITHUB_OUTPUT
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          FRONTEND: ${{ steps.diff.outputs.frontend }}
+          BACKEND: ${{ steps.diff.outputs.backend }}
+          MIGRATION: ${{ steps.diff.outputs.migration_file }}
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          envs: FRONTEND,BACKEND,MIGRATION
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /opt/apfa-prod
+            git pull origin main
+
+            if [ "$FRONTEND" = "true" ]; then
+              echo "Rebuilding frontend..."
+              npm ci
+              npm run build
+              cp -r dist/* /var/www/apfa/
+              chown -R www-data:www-data /var/www/apfa/
+              systemctl reload nginx
+            fi
+
+            if [ "$BACKEND" = "true" ]; then
+              echo "Rebuilding backend container..."
+              docker compose up -d --build apfa
+            fi
+
+            if [ -n "$MIGRATION" ]; then
+              echo "MIGRATION_NEEDED: $MIGRATION"
+            fi
+
+      - name: Health check
+        run: |
+          echo "Waiting 30s before first check..."
+          sleep 30
+          for i in $(seq 1 10); do
+            if curl -sf https://apfa.secureai.dev/health.html 2>/dev/null; then
+              echo "Health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/10 failed — retrying in 30s..."
+            sleep 30
+          done
+          echo "Health check failed after 5 minutes"
+          exit 1
+
+      - name: Notify Telegram — success
+        if: success()
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MIGRATION: ${{ steps.diff.outputs.migration_file }}
+        run: |
+          if [ -n "$MIGRATION" ]; then
+            MSG="💰 APFA-Prod Auto-deploy complete - health check passed. *Migration needed:* $MIGRATION - run manually on Droplet."
+          else
+            MSG="💰 APFA-Prod Auto-deploy complete - health check passed. Sprint deployed successfully."
+          fi
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \\
+            -H "Content-Type: application/json" \\
+            -d "{\\"chat_id\\": \\"${CHAT_ID}\\", \\"text\\": \\"${MSG}\\", \\"parse_mode\\": \\"Markdown\\"}" || true
+
+      - name: Notify Telegram — failure
+        if: failure()
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \\
+            -H "Content-Type: application/json" \\
+            -d "{\\"chat_id\\": \\"${CHAT_ID}\\", \\"text\\": \\"🚨 APFA-Prod Auto-deploy FAILED - check GitHub Actions logs.\\"}" || true
