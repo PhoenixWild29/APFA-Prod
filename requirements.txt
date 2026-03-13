@@ -29,5 +29,5 @@ aiohttp==3.12.14
 aioredis==2.0.1
 profanity-check==1.0.3
 celery==5.3.4
-redis==5.0.1
+redis==7.3.0
 python-magic==0.4.27
