@@ -7,6 +7,7 @@ Usage:
 
 Requires: requests (pip install requests)
 """
+
 import os
 import sys
 import time
@@ -105,7 +106,13 @@ def test_document_upload():
         return
     try:
         # Create a minimal test file in memory
-        files = {"file": ("test_document.txt", b"This is a smoke test document for APFA validation.", "text/plain")}
+        files = {
+            "file": (
+                "test_document.txt",
+                b"This is a smoke test document for APFA validation.",
+                "text/plain",
+            )
+        }
         r = requests.post(
             f"{BASE_URL}/documents/upload",
             files=files,
