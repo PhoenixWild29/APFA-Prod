@@ -10,7 +10,6 @@ Requires: requests (pip install requests)
 
 import os
 import sys
-import time
 import uuid
 import requests
 
