@@ -3120,7 +3120,9 @@ async def get_billing_status(current_user: dict = Depends(get_current_user)):
     tier = current_user.get("subscription_tier", "free")
     query_count = current_user.get("query_count_this_period", 0)
     limit = {"free": 5, "pro": 100, "enterprise": float("inf")}.get(tier, 5)
-    billing_period_start = current_user.get("billing_period_start", datetime.now(timezone.utc).isoformat())
+    billing_period_start = current_user.get(
+        "billing_period_start", datetime.now(timezone.utc).isoformat()
+    )
     usage_percentage = (query_count / limit) * 100 if limit != float("inf") else 0
     return BillingStatus(
         tier=tier,
@@ -3132,9 +3134,15 @@ async def get_billing_status(current_user: dict = Depends(get_current_user)):
 
 
 @app.post("/api/billing/checkout")
-async def create_checkout_session(request: CheckoutRequest, current_user: dict = Depends(get_current_user)):
+async def create_checkout_session(
+    request: CheckoutRequest, current_user: dict = Depends(get_current_user)
+):
     try:
-        price_id = STRIPE_PRICE_PRO_MONTHLY if request.tier == "pro" else STRIPE_PRICE_ENTERPRISE_MONTHLY
+        price_id = (
+            STRIPE_PRICE_PRO_MONTHLY
+            if request.tier == "pro"
+            else STRIPE_PRICE_ENTERPRISE_MONTHLY
+        )
         customer_id = current_user.get("stripe_customer_id")
         if not customer_id:
             customer = stripe.Customer.create(email=current_user["email"])
@@ -3160,7 +3168,9 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     try:
-        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError:
@@ -3173,7 +3183,9 @@ async def stripe_webhook(request: Request):
         # Find user by customer_id
         for username, user in fake_users_db.items():
             if user.get("stripe_customer_id") == customer_id:
-                tier = "pro" if session.amount_total == 2900 else "enterprise"  # Assuming prices
+                tier = (
+                    "pro" if session.amount_total == 2900 else "enterprise"
+                )  # Assuming prices
                 user["subscription_tier"] = tier
                 user["stripe_subscription_id"] = subscription_id
                 user["query_count_this_period"] = 0  # Reset on upgrade
@@ -5301,7 +5313,9 @@ async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current
         query_count = current_user.get("query_count_this_period", 0)
         limit = {"free": 5, "pro": 100, "enterprise": float("inf")}.get(tier, 5)
         if query_count >= limit:
-            raise HTTPException(status_code=402, detail="Query limit exceeded. Upgrade your plan.")
+            raise HTTPException(
+                status_code=402, detail="Query limit exceeded. Upgrade your plan."
+            )
 
         # Cache lookup
         cache_lookup_start = time.time()
