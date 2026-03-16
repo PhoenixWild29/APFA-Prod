@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
 
+    # Stripe Billing Configuration
+    stripe_secret_key: str
+    stripe_webhook_secret: str
+    stripe_price_pro_monthly: str
+    stripe_price_enterprise_monthly: str
+
     class Config:
         env_file = ".env"
 

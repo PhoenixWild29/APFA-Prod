@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import signal
+import stripe
 import time
 from contextlib import asynccontextmanager
 import json
@@ -105,6 +106,13 @@ MINIO_ENDPOINT = settings.minio_endpoint
 MINIO_ACCESS_KEY = settings.minio_access_key
 MINIO_SECRET_KEY = settings.minio_secret_key
 AWS_REGION = settings.aws_region
+STRIPE_SECRET_KEY = settings.stripe_secret_key
+STRIPE_WEBHOOK_SECRET = settings.stripe_webhook_secret
+STRIPE_PRICE_PRO_MONTHLY = settings.stripe_price_pro_monthly
+STRIPE_PRICE_ENTERPRISE_MONTHLY = settings.stripe_price_enterprise_monthly
+
+# Initialize Stripe
+stripe.api_key = STRIPE_SECRET_KEY
 
 # Initialize clients with error handling
 try:
@@ -445,6 +453,11 @@ fake_users_db = {
         "verification_token": None,
         "token_expiration": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "subscription_tier": "enterprise",
+        "stripe_customer_id": None,
+        "stripe_subscription_id": None,
+        "query_count_this_period": 0,
+        "billing_period_start": datetime.now(timezone.utc).isoformat(),
     }
 }
 
@@ -3086,6 +3099,106 @@ async def multi_agent_monitoring_sse():
     )
 
 
+# Billing Integration
+from pydantic import BaseModel
+
+
+class BillingStatus(BaseModel):
+    tier: str
+    query_count_this_period: int
+    limit: int
+    billing_period_start: str
+    usage_percentage: float
+
+
+class CheckoutRequest(BaseModel):
+    tier: str  # 'pro' or 'enterprise'
+
+
+@app.get("/api/billing/status", response_model=BillingStatus)
+async def get_billing_status(current_user: dict = Depends(get_current_user)):
+    tier = current_user.get("subscription_tier", "free")
+    query_count = current_user.get("query_count_this_period", 0)
+    limit = {"free": 5, "pro": 100, "enterprise": float("inf")}.get(tier, 5)
+    billing_period_start = current_user.get("billing_period_start", datetime.now(timezone.utc).isoformat())
+    usage_percentage = (query_count / limit) * 100 if limit != float("inf") else 0
+    return BillingStatus(
+        tier=tier,
+        query_count_this_period=query_count,
+        limit=int(limit) if limit != float("inf") else 999999,
+        billing_period_start=billing_period_start,
+        usage_percentage=usage_percentage,
+    )
+
+
+@app.post("/api/billing/checkout")
+async def create_checkout_session(request: CheckoutRequest, current_user: dict = Depends(get_current_user)):
+    try:
+        price_id = STRIPE_PRICE_PRO_MONTHLY if request.tier == "pro" else STRIPE_PRICE_ENTERPRISE_MONTHLY
+        customer_id = current_user.get("stripe_customer_id")
+        if not customer_id:
+            customer = stripe.Customer.create(email=current_user["email"])
+            customer_id = customer.id
+            fake_users_db[current_user["username"]]["stripe_customer_id"] = customer_id
+
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            mode="subscription",
+            success_url="http://localhost:3000/billing/success",
+            cancel_url="http://localhost:3000/billing/cancel",
+        )
+        return {"checkout_url": session.url}
+    except Exception as e:
+        logger.error(f"Stripe checkout error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create checkout session")
+
+
+@app.post("/api/billing/webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    if event.type == "checkout.session.completed":
+        session = event.data.object
+        customer_id = session.customer
+        subscription_id = session.subscription
+        # Find user by customer_id
+        for username, user in fake_users_db.items():
+            if user.get("stripe_customer_id") == customer_id:
+                tier = "pro" if session.amount_total == 2900 else "enterprise"  # Assuming prices
+                user["subscription_tier"] = tier
+                user["stripe_subscription_id"] = subscription_id
+                user["query_count_this_period"] = 0  # Reset on upgrade
+                break
+    elif event.type == "invoice.payment_succeeded":
+        # Reset query count at start of billing period
+        invoice = event.data.object
+        customer_id = invoice.customer
+        for username, user in fake_users_db.items():
+            if user.get("stripe_customer_id") == customer_id:
+                user["query_count_this_period"] = 0
+                user["billing_period_start"] = datetime.now(timezone.utc).isoformat()
+                break
+    elif event.type == "customer.subscription.deleted":
+        subscription = event.data.object
+        customer_id = subscription.customer
+        for username, user in fake_users_db.items():
+            if user.get("stripe_customer_id") == customer_id:
+                user["subscription_tier"] = "free"
+                user["stripe_subscription_id"] = None
+                break
+
+    return {"status": "ok"}
+
+
 # Advanced Agent Performance Analysis and Configuration
 from app.schemas.agent_configuration import (
     AgentConfigurationUpdate,
@@ -5183,6 +5296,13 @@ async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current
         raise HTTPException(status_code=401, detail="Invalid API key")
 
     try:
+        # Billing: Check usage limits
+        tier = current_user.get("subscription_tier", "free")
+        query_count = current_user.get("query_count_this_period", 0)
+        limit = {"free": 5, "pro": 100, "enterprise": float("inf")}.get(tier, 5)
+        if query_count >= limit:
+            raise HTTPException(status_code=402, detail="Query limit exceeded. Upgrade your plan.")
+
         # Cache lookup
         cache_lookup_start = time.time()
         query_hash = str(hash(q.model_dump_json()))
@@ -5210,6 +5330,9 @@ async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current
             return cached_response
 
         CACHE_MISSES.inc()
+
+        # Billing: Increment query count (only for non-cached)
+        fake_users_db[current_user["username"]]["query_count_this_period"] += 1
 
         # Agent processing (using PRE-LOADED indices - no loading delay!)
         agent_processing_start = time.time()
