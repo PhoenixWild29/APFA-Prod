@@ -1,5 +1,5 @@
 langchain==0.2.5
-langgraph==0.6.11
+langgraph==0.1.19
 pyautogen==0.2.7
 transformers==4.53.0
 sentence-transformers==3.0.1
