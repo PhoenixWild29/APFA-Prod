@@ -2,7 +2,7 @@ name: Monitoring & Observability
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'monitoring/**'
       - 'app/main.py'
