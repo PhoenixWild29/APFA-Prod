@@ -61,14 +61,25 @@ jobs:
     name: Test Metrics Endpoints
     runs-on: ubuntu-latest
     
+    env:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      AWS_REGION: us-east-1
+      API_KEY: test-api-key
+      JWT_SECRET: test-jwt-secret
+      DEBUG: false
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/apfa
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
       - name: Start application
         run: |
-          docker compose up -d apfa redis
-          sleep 20
+          docker compose up -d
+          sleep 30
       
       - name: Test Prometheus metrics endpoint
         run: |
