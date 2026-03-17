@@ -3,7 +3,15 @@
  * Adapted from AWS Amplify pattern to work with FastAPI JWT tokens
  */
 
-export const authConfig = {
+export interface AuthConfig {
+  apiEndpoint: string;
+  tokenEndpoint: string;
+  tokenStorageKey: string;
+  tokenRefreshThreshold: number;
+  tokenExpiryKey: string;
+}
+
+export const authConfig: AuthConfig = {
   apiEndpoint: process.env.REACT_APP_API_URL || 'http://localhost:8000',
   tokenEndpoint: '/token',
   tokenStorageKey: 'apfa_access_token',
@@ -15,7 +23,7 @@ export const authConfig = {
  * Get access token from localStorage
  * @returns {string|null} JWT access token
  */
-export const getAccessToken = () => {
+export const getAccessToken = (): string | null => {
   return localStorage.getItem(authConfig.tokenStorageKey);
 };
 
@@ -24,7 +32,7 @@ export const getAccessToken = () => {
  * @param {string} token - JWT access token
  * @param {number} expiresIn - Token expiry in seconds (optional)
  */
-export const setAccessToken = (token, expiresIn = null) => {
+export const setAccessToken = (token: string, expiresIn: number | null = null): void => {
   localStorage.setItem(authConfig.tokenStorageKey, token);
   
   if (expiresIn) {
@@ -36,7 +44,7 @@ export const setAccessToken = (token, expiresIn = null) => {
 /**
  * Clear access token from localStorage
  */
-export const clearAccessToken = () => {
+export const clearAccessToken = (): void => {
   localStorage.removeItem(authConfig.tokenStorageKey);
   localStorage.removeItem(authConfig.tokenExpiryKey);
 };
@@ -46,7 +54,7 @@ export const clearAccessToken = () => {
  * @param {string} token - JWT access token
  * @returns {boolean} True if token is expired
  */
-export const isTokenExpired = (token) => {
+export const isTokenExpired = (token: string): boolean => {
   if (!token) return true;
   
   try {
@@ -70,7 +78,7 @@ export const isTokenExpired = (token) => {
  * @param {string} token - JWT access token
  * @returns {number|null} Expiry timestamp in milliseconds
  */
-export const getTokenExpiry = (token) => {
+export const getTokenExpiry = (token: string): number | null => {
   if (!token) return null;
   
   try {
@@ -86,7 +94,7 @@ export const getTokenExpiry = (token) => {
  * @param {string} token - JWT access token
  * @returns {boolean} True if token should be refreshed
  */
-export const shouldRefreshToken = (token) => {
+export const shouldRefreshToken = (token: string): boolean => {
   const expiry = getTokenExpiry(token);
   if (!expiry) return false;
   
@@ -101,7 +109,7 @@ export const shouldRefreshToken = (token) => {
  * @param {string} token - JWT access token
  * @returns {string|null} Username from token
  */
-export const getUsernameFromToken = (token) => {
+export const getUsernameFromToken = (token: string): string | null => {
   if (!token) return null;
   
   try {
@@ -111,4 +119,3 @@ export const getUsernameFromToken = (token) => {
     return null;
   }
 };
-
