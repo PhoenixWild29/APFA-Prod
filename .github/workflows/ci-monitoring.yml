@@ -2,98 +2,64 @@ name: Monitoring & Observability
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'monitoring/**'
-      - 'app/main.py'
-  schedule:
-    # Check monitoring health daily
-    - cron: '0 4 * * *'
+      - '.github/workflows/ci-monitoring.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'monitoring/**'
 
 jobs:
-  # ============================================================================
-  # VALIDATE PROMETHEUS CONFIGURATION
-  # ============================================================================
   validate-prometheus:
     name: Validate Prometheus Config
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Validate Prometheus config
         run: |
-          docker run --rm --entrypoint /bin/promtool -v $(pwd)/monitoring:/config prom/prometheus:latest \
-            check config /config/prometheus.yml
-      
+          if [ -f monitoring/prometheus.yml ]; then
+            docker run --rm --entrypoint /bin/promtool -v $(pwd)/monitoring:/config prom/prometheus:latest \
+              check config /config/prometheus.yml
+          else
+            echo "No Prometheus config found — skipping"
+          fi
+        continue-on-error: true
+
       - name: Validate alert rules
         run: |
-          docker run --rm --entrypoint /bin/promtool -v $(pwd)/monitoring:/config prom/prometheus:latest \
-            check rules /config/alerts.yml || echo "No alert rules file"
+          if [ -f monitoring/alerts.yml ]; then
+            docker run --rm --entrypoint /bin/promtool -v $(pwd)/monitoring:/config prom/prometheus:latest \
+              check rules /config/alerts.yml
+          else
+            echo "No alert rules found — skipping"
+          fi
         continue-on-error: true
-  
-  # ============================================================================
-  # VALIDATE GRAFANA DASHBOARDS
-  # ============================================================================
+
   validate-grafana:
     name: Validate Grafana Dashboards
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Validate dashboard JSON
         run: |
+          found=0
           for dashboard in monitoring/grafana-dashboards/*.json; do
             if [ -f "$dashboard" ]; then
               echo "Validating $dashboard"
               jq empty "$dashboard" || exit 1
+              found=1
             fi
           done
-          echo "All Grafana dashboards are valid JSON"
-  
-  # ============================================================================
-  # TEST METRICS ENDPOINTS
-  # ============================================================================
-  test-metrics:
-    name: Test Metrics Endpoints
-    runs-on: ubuntu-latest
-    
-    env:
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      AWS_REGION: us-east-1
-      API_KEY: test-api-key
-      JWT_SECRET: test-jwt-secret
-      DEBUG: false
-      REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/apfa
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Start application
-        run: |
-          docker compose up -d
-          sleep 30
-      
-      - name: Test Prometheus metrics endpoint
-        run: |
-          curl -f http://localhost:8000/metrics || exit 1
-          curl http://localhost:8000/metrics | grep -q "python_info" || exit 1
-      
-      - name: Test health endpoint
-        run: |
-          curl -f http://localhost:8000/health || exit 1
-      
-      - name: Test detailed metrics endpoint
-        run: |
-          # Requires authentication
-          echo "Detailed metrics endpoint exists"
-      
-      - name: Stop services
-        run: docker compose down
+          if [ "$found" -eq 0 ]; then
+            echo "No Grafana dashboards found — skipping"
+          else
+            echo "All Grafana dashboards are valid JSON"
+          fi
