@@ -73,7 +73,7 @@ jobs:
       - name: Test Prometheus metrics endpoint
         run: |
           curl -f http://localhost:8000/metrics || exit 1
-          curl http://localhost:8000/metrics | grep -q \"go_info\" || exit 1
+          curl http://localhost:8000/metrics | grep -q "python_info" || exit 1
       
       - name: Test health endpoint
         run: |
