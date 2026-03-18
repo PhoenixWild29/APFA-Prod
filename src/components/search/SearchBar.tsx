@@ -24,14 +24,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
     }
   }, []);
 
-  useEffect(() => {
-    if (query.length >= 3) {
-      fetchSuggestions(query);
-    } else {
-      setSuggestions([]);
-    }
-  }, [query]);
-
   const fetchSuggestions = async (q: string) => {
     try {
       const response = await fetch(`/api/documents/search/suggestions?q=${q}`, {
@@ -45,6 +37,14 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
       console.error('Error fetching suggestions:', error);
     }
   };
+
+  useEffect(() => {
+    if (query.length >= 3) {
+      fetchSuggestions(query);
+    } else {
+      setSuggestions([]);
+    }
+  }, [query, fetchSuggestions]);
 
   const handleSearch = (searchTerm: string) => {
     if (searchTerm.length < 3) {

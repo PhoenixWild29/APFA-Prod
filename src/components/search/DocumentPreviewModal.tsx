@@ -17,14 +17,6 @@ export default function DocumentPreviewModal({ document, onClose }: DocumentPrev
   const [versions, setVersions] = useState([]);
   const [auditTrail, setAuditTrail] = useState([]);
 
-  useEffect(() => {
-    if (activeTab === 'versions') {
-      fetchVersionHistory();
-    } else if (activeTab === 'audit') {
-      fetchAuditTrail();
-    }
-  }, [activeTab]);
-
   const fetchVersionHistory = async () => {
     try {
       const response = await fetch(
@@ -58,6 +50,14 @@ export default function DocumentPreviewModal({ document, onClose }: DocumentPrev
       console.error('Error fetching audit trail:', error);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'versions') {
+      fetchVersionHistory();
+    } else if (activeTab === 'audit') {
+      fetchAuditTrail();
+    }
+  }, [activeTab, fetchVersionHistory, fetchAuditTrail]);
 
   const handleDownload = () => {
     window.open(`/api/documents/${document.document_id}/download`, '_blank');

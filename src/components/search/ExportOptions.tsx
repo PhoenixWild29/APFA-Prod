@@ -3,7 +3,6 @@
  * 
  * Individual and bulk document export
  */
-import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, FileDown } from 'lucide-react';
 

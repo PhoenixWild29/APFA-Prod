@@ -13,10 +13,6 @@ export default function SearchPerformanceCharts() {
     timestamps: []
   });
 
-  useEffect(() => {
-    fetchPerformanceMetrics();
-  }, []);
-
   const fetchPerformanceMetrics = async () => {
     try {
       const response = await fetch('/api/admin/performance/pipeline', {
@@ -37,6 +33,10 @@ export default function SearchPerformanceCharts() {
       console.error('Error fetching performance metrics:', error);
     }
   };
+
+  useEffect(() => {
+    fetchPerformanceMetrics();
+  }, [fetchPerformanceMetrics]);
 
   return (
     <div className="rounded-lg border bg-card p-6">

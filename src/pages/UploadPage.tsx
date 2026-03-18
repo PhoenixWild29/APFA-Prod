@@ -3,7 +3,6 @@
  * 
  * Provides interface for users to upload documents to the knowledge base
  */
-import React from 'react';
 import DocumentUpload from '@/components/DocumentUpload';
 
 export default function UploadPage() {

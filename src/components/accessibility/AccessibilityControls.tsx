@@ -7,13 +7,13 @@
  * - Font size adjustment
  * - Skip navigation links
  */
-import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 import { toggleHighContrastMode, isHighContrastEnabled, setDocumentDirection } from '../../utils/accessibility';
 
-export const AccessibilityControls: React.FC = () => {
+export const AccessibilityControls = () => {
   const { t, i18n } = useTranslation();
-  const [highContrast, setHighContrast] = React.useState(isHighContrastEnabled());
+  const [highContrast, setHighContrast] = useState(isHighContrastEnabled());
 
   const handleHighContrastToggle = () => {
     const newValue = !highContrast;

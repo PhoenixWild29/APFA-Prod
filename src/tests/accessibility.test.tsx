@@ -5,7 +5,6 @@
  * - jest-axe for accessibility violations
  * - React Testing Library for component testing
  */
-import React from 'react';
 import { render } from '@testing-library/react';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { AccessibilityControls } from '../components/accessibility/AccessibilityControls';

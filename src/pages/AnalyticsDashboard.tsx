@@ -22,12 +22,6 @@ export const AnalyticsDashboard: React.FC = () => {
   const [faissData, setFaissData] = useState([]);
   const [resourceData, setResourceData] = useState([]);
 
-  useEffect(() => {
-    fetchChartData();
-    const interval = setInterval(fetchChartData, 5000);
-    return () => clearInterval(interval);
-  }, [timeRange]);
-
   const fetchChartData = async () => {
     try {
       // Fetch from backend APIs
@@ -43,6 +37,12 @@ export const AnalyticsDashboard: React.FC = () => {
       console.error('Failed to fetch chart data:', error);
     }
   };
+
+  useEffect(() => {
+    fetchChartData();
+    const interval = setInterval(fetchChartData, 5000);
+    return () => clearInterval(interval);
+  }, [timeRange, fetchChartData]);
 
   return (
     <div className="analytics-dashboard">

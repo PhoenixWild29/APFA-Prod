@@ -18,12 +18,6 @@ export default function ProcessingQueueStatus() {
     processing_rate: 0
   });
 
-  useEffect(() => {
-    fetchQueueStatus();
-    const interval = setInterval(fetchQueueStatus, 5000); // Update every 5s
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchQueueStatus = async () => {
     try {
       const response = await fetch('/api/admin/integration/celery-status', {
@@ -45,6 +39,12 @@ export default function ProcessingQueueStatus() {
       console.error('Error fetching queue status:', error);
     }
   };
+
+  useEffect(() => {
+    fetchQueueStatus();
+    const interval = setInterval(fetchQueueStatus, 5000); // Update every 5s
+    return () => clearInterval(interval);
+  }, [fetchQueueStatus]);
 
   return (
     <div className="rounded-lg border bg-card p-6">

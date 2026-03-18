@@ -21,10 +21,6 @@ export default function StatisticsCards() {
     by_stage: {}
   });
 
-  useEffect(() => {
-    fetchStatistics();
-  }, []);
-
   const fetchStatistics = async () => {
     try {
       const response = await fetch('/api/admin/dashboard/statistics', {
@@ -38,6 +34,10 @@ export default function StatisticsCards() {
       console.error('Error fetching statistics:', error);
     }
   };
+
+  useEffect(() => {
+    fetchStatistics();
+  }, [fetchStatistics]);
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

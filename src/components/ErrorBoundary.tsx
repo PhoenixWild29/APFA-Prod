@@ -1,4 +1,3 @@
-import React from 'react';
 import { ErrorBoundary as ReactErrorBoundary } from 'react-error-boundary';
 import { Button } from '@/components/ui/button';
 

@@ -16,12 +16,6 @@ export default function StorageUtilization() {
     indexes_count: 0
   });
 
-  useEffect(() => {
-    fetchStorageMetrics();
-    const interval = setInterval(fetchStorageMetrics, 30000); // Update every 30s
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchStorageMetrics = async () => {
     try {
       const response = await fetch('/api/admin/integration/minio-status', {
@@ -43,6 +37,12 @@ export default function StorageUtilization() {
       console.error('Error fetching storage metrics:', error);
     }
   };
+
+  useEffect(() => {
+    fetchStorageMetrics();
+    const interval = setInterval(fetchStorageMetrics, 30000); // Update every 30s
+    return () => clearInterval(interval);
+  }, [fetchStorageMetrics]);
 
   return (
     <div className="rounded-lg border bg-card p-6">
