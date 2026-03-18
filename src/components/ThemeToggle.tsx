@@ -4,37 +4,42 @@
  * Allows users to manually switch between light and dark themes
  * with automatic system preference detection.
  */
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Theme = 'light' | 'dark' | 'system';
 
 export default function ThemeToggle() {
-  const savedTheme = localStorage.getItem('theme') as Theme | null;
-  const [theme, setTheme] = useState<Theme>(savedTheme || 'system');
-
-  const resolvedTheme = useMemo(() => {
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
-      return systemTheme;
-    } else {
-      return theme;
-    }
-  }, [theme]);
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem('theme') as Theme | null;
+    return saved || 'system';
+  });
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     // Apply theme to document
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
 
-    root.classList.add(resolvedTheme);
+    let applied: 'light' | 'dark';
+
+    if (theme === 'system') {
+      // Use system preference
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
+      applied = systemTheme;
+    } else {
+      applied = theme;
+    }
+
+    root.classList.add(applied);
+    setResolvedTheme(applied);
 
     // Save preference
     localStorage.setItem('theme', theme);
-  }, [theme, resolvedTheme]);
+  }, [theme]);
 
   const toggleTheme = () => {
     setTheme((prev) => {
