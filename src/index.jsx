@@ -39,16 +39,16 @@ root.render(
 // Optional: Performance measuring
 if (process.env.NODE_ENV === 'development') {
   // Web Vitals reporting
-  import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+  import('web-vitals').then(({ onCLS, onINP, onFCP, onLCP, onTTFB }) => {
     const reportWebVitals = (metric) => {
       console.log(metric);
     };
     
-    getCLS(reportWebVitals);
-    getFID(reportWebVitals);
-    getFCP(reportWebVitals);
-    getLCP(reportWebVitals);
-    getTTFB(reportWebVitals);
+    onCLS(reportWebVitals);
+    onINP(reportWebVitals);
+    onFCP(reportWebVitals);
+    onLCP(reportWebVitals);
+    onTTFB(reportWebVitals);
   }).catch(() => {
     // Silently fail if web-vitals not installed
   });

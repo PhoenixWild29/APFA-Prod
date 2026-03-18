@@ -1,7 +1,7 @@
 /**
  * Performance monitoring utilities using Web Vitals
  */
-import { onCLS, onFID, onFCP, onLCP, onTTFB, Metric } from 'web-vitals';
+import { onCLS, onINP, onFCP, onLCP, onTTFB, Metric } from 'web-vitals';
 
 /**
  * Report Web Vitals metrics
@@ -9,7 +9,7 @@ import { onCLS, onFID, onFCP, onLCP, onTTFB, Metric } from 'web-vitals';
 export const reportWebVitals = (onPerfEntry?: (metric: Metric) => void) => {
   if (onPerfEntry && onPerfEntry instanceof Function) {
     onCLS(onPerfEntry);
-    onFID(onPerfEntry);
+    onINP(onPerfEntry);
     onFCP(onPerfEntry);
     onLCP(onPerfEntry);
     onTTFB(onPerfEntry);
@@ -62,10 +62,10 @@ export const PERFORMANCE_THRESHOLDS = {
     good: 2500,
     needsImprovement: 4000,
   },
-  // First Input Delay (FID)
-  FID: {
-    good: 100,
-    needsImprovement: 300,
+  // Interaction to Next Paint (INP)
+  INP: {
+    good: 200,
+    needsImprovement: 500,
   },
   // Cumulative Layout Shift (CLS)
   CLS: {
