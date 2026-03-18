@@ -8,7 +8,7 @@ sentence-transformers==3.0.1
 faiss-cpu>=1.7.4
 deltalake==0.18.2
 boto3==1.34.158
-minio==7.2.7
+minio==7.2.20
 fastapi==0.112.0
 uvicorn==0.30.3
 aif360==0.6.1
