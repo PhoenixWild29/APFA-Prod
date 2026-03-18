@@ -11,6 +11,9 @@ updates:
       - dependency-name: "langchain-core"
       - dependency-name: "langgraph"
       - dependency-name: "langchain-huggingface"
+      - dependency-name: "opentelemetry-api"
+      - dependency-name: "opentelemetry-sdk"
+      - dependency-name: "opentelemetry-exporter-otlp"
 
   - package-ecosystem: "npm"
     directory: "/"
