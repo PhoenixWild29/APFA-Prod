@@ -45,11 +45,10 @@ from fastapi.security import (
 )
 from jose import JWTError, jwt
 from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain.llms import HuggingFacePipeline
-from langchain.prompts import ChatPromptTemplate
-from langchain.tools import Tool
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import Tool
+from langchain_huggingface import HuggingFacePipeline
 from langgraph.graph import END, StateGraph
-from langgraph.prebuilt import ToolExecutor
 from minio import Minio
 from opentelemetry import trace
 from passlib.context import CryptContext
@@ -203,7 +202,6 @@ tools = [
         description="Simulate loan risk with LLM.",
     ),
 ]
-tool_executor = ToolExecutor(tools)
 
 
 # LLM Setup (Fine-tuned with DeepSpeed/RLHF)

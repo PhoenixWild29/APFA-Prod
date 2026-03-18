@@ -1,2 +1,19 @@
 version: 2
-updates: []
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    ignore:
+      # langchain + langgraph must be upgraded together (coordinated stack)
+      - dependency-name: "langchain"
+      - dependency-name: "langchain-core"
+      - dependency-name: "langgraph"
+      - dependency-name: "langchain-huggingface"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
