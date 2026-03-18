@@ -82,7 +82,7 @@ export default function PasswordResetForm({
           </div>
           <h2 className="text-2xl font-bold text-foreground">Check Your Email</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            We've sent password reset instructions to <strong>{email}</strong>
+            We&apos;ve sent password reset instructions to <strong>{email}</strong>
           </p>
         </div>
 
@@ -111,7 +111,7 @@ export default function PasswordResetForm({
       <div>
         <h2 className="text-2xl font-bold text-foreground">Reset Password</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Enter your email address and we'll send you instructions to reset your password
+          Enter your email address and we&apos;ll send you instructions to reset your password
         </p>
       </div>
 

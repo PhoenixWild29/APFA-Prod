@@ -186,3 +186,31 @@ function showKeyboardShortcutsHelp() {
   console.log('Keyboard shortcuts: Tab = navigate, Enter = submit, Escape = cancel');
 }
 
+/**
+ * Toggle high contrast mode
+ */
+export function toggleHighContrastMode(enabled: boolean) {
+  if (enabled) {
+    document.documentElement.classList.add('high-contrast');
+    localStorage.setItem('highContrast', 'true');
+  } else {
+    document.documentElement.classList.remove('high-contrast');
+    localStorage.setItem('highContrast', 'false');
+  }
+}
+
+/**
+ * Check if high contrast mode is enabled
+ */
+export function isHighContrastEnabled(): boolean {
+  return localStorage.getItem('highContrast') === 'true';
+}
+
+/**
+ * Set document direction for RTL/LTR
+ */
+export function setDocumentDirection(direction: 'ltr' | 'rtl') {
+  document.documentElement.dir = direction;
+  document.documentElement.lang = direction === 'rtl' ? 'ar' : 'en'; // Example
+}
+

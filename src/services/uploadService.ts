@@ -41,7 +41,7 @@ export async function uploadFile(
     uploadedAt: new Date().toISOString(),
   }));
   
-  let startTime = Date.now();
+  const startTime = Date.now();
   let lastLoaded = 0;
   let lastTime = startTime;
   

@@ -6,7 +6,6 @@
  * - Memory usage
  * - Disk I/O
  */
-import React from 'react';
 import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface SystemResourceProps {

@@ -23,26 +23,26 @@ export const AnalyticsDashboard: React.FC = () => {
   const [resourceData, setResourceData] = useState([]);
 
   useEffect(() => {
+    const fetchChartData = async () => {
+      try {
+        // Fetch from backend APIs
+        // const perfResponse = await fetch('/api/analytics/performance');
+        // setPerformanceData(await perfResponse.json());
+
+        // Mock data for demonstration
+        setPerformanceData(generateMockPerformanceData());
+        setEmbeddingData(generateMockEmbeddingData());
+        setFaissData(generateMockFaissData());
+        setResourceData(generateMockResourceData());
+      } catch (error) {
+        console.error('Failed to fetch chart data:', error);
+      }
+    };
+
     fetchChartData();
     const interval = setInterval(fetchChartData, 5000);
     return () => clearInterval(interval);
   }, [timeRange]);
-
-  const fetchChartData = async () => {
-    try {
-      // Fetch from backend APIs
-      // const perfResponse = await fetch('/api/analytics/performance');
-      // setPerformanceData(await perfResponse.json());
-      
-      // Mock data for demonstration
-      setPerformanceData(generateMockPerformanceData());
-      setEmbeddingData(generateMockEmbeddingData());
-      setFaissData(generateMockFaissData());
-      setResourceData(generateMockResourceData());
-    } catch (error) {
-      console.error('Failed to fetch chart data:', error);
-    }
-  };
 
   return (
     <div className="analytics-dashboard">

@@ -32,6 +32,13 @@ export const useUserPreferences = () => {
   });
 
   // Persist preferences on change
+  const updatePreference = <K extends keyof UserPreferences>(
+    key: K,
+    value: UserPreferences[K]
+  ): void => {
+    setPreferences(prev => ({ ...prev, [key]: value }));
+  };
+
   useEffect(() => {
     localStorage.setItem('userPreferences', JSON.stringify(preferences));
   }, [preferences]);
@@ -39,24 +46,17 @@ export const useUserPreferences = () => {
   // Detect system theme preference
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     const handleChange = (e: MediaQueryListEvent) => {
       if (!localStorage.getItem('userThemeOverride')) {
         updatePreference('theme', e.matches ? 'dark' : 'light');
       }
     };
-    
-    mediaQuery.addEventListener('change', handleChange);
-    
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
 
-  const updatePreference = <K extends keyof UserPreferences>(
-    key: K,
-    value: UserPreferences[K]
-  ): void => {
-    setPreferences(prev => ({ ...prev, [key]: value }));
-  };
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [updatePreference]);
 
   const resetPreferences = (): void => {
     setPreferences(DEFAULT_PREFERENCES);

@@ -95,11 +95,12 @@ export default function RegistrationForm({
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Invalid email format';
         return null;
       
-      case 'password':
+      case 'password': {
         if (!value) return 'Password is required';
         const strength = checkPasswordStrength(value);
         if (strength.score < 5) return 'Password does not meet complexity requirements';
         return null;
+      }
       
       case 'confirm_password':
         if (!value) return 'Please confirm your password';

@@ -4,7 +4,6 @@
  * Efficient rendering for large datasets (10,000+ items)
  * using react-window for performance optimization
  */
-import React from 'react';
 import { FixedSizeList as List } from 'react-window';
 
 interface VirtualScrollListProps<T> {

@@ -3,7 +3,6 @@
  * 
  * Visualizes document processing lifecycle
  */
-import React from 'react';
 
 interface ProcessingHistoryTimelineProps {
   filters: any;
