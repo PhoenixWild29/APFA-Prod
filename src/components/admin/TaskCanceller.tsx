@@ -21,20 +21,20 @@ export const TaskCanceller: React.FC = () => {
   const [tasks, setTasks] = useState<RunningTask[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
 
-  const fetchRunningTasks = async () => {
-    try {
-      const response = await axios.get('/admin/jobs/running');
-      setTasks(response.data.tasks || []);
-    } catch (error) {
-      console.error('Failed to fetch running tasks:', error);
-    }
-  };
-
   useEffect(() => {
+    const fetchRunningTasks = async () => {
+      try {
+        const response = await axios.get('/admin/jobs/running');
+        setTasks(response.data.tasks || []);
+      } catch (error) {
+        console.error('Failed to fetch running tasks:', error);
+      }
+    };
+
     fetchRunningTasks();
     const interval = setInterval(fetchRunningTasks, 5000);
     return () => clearInterval(interval);
-  }, [fetchRunningTasks]);
+  }, []);
 
   const handleCancelTask = async (taskId: string) => {
     if (!confirm(`Cancel task ${taskId}?`)) return;

@@ -25,21 +25,20 @@ export const AuditLogViewer: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const fetchLogs = async () => {
-    try {
-      const response = await axios.get('/admin/audit-logs', {
-        params: { page, filter, per_page: 50 }
-      });
-      setLogs(response.data.logs);
-      setTotalPages(response.data.total_pages);
-    } catch (error) {
-      console.error('Failed to fetch audit logs:', error);
-    }
-  };
-
   useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const response = await axios.get('/admin/audit-logs', {
+          params: { page, filter, per_page: 50 }
+        });
+        setLogs(response.data.logs);
+        setTotalPages(response.data.total_pages);
+      } catch (error) {
+        console.error('Failed to fetch audit logs:', error);
+      }
+    };
     fetchLogs();
-  }, [page, filter, fetchLogs]);
+  }, [page, filter]);
 
   return (
     <div className="audit-log-viewer">

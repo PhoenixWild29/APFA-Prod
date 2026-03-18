@@ -16,33 +16,33 @@ export default function StorageUtilization() {
     indexes_count: 0
   });
 
-  const fetchStorageMetrics = async () => {
-    try {
-      const response = await fetch('/api/admin/integration/minio-status', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-      });
-      const data = await response.json();
-      
-      setStorage({
-        used_gb: data.total_storage_gb - data.available_storage_gb || 0,
-        total_gb: data.total_storage_gb || 1000,
-        utilization_percent: data.storage_utilization_percent || 0,
-        documents_count: data.total_objects || 0,
-        embeddings_count: 0,
-        indexes_count: 0
-      });
-    } catch (error) {
-      console.error('Error fetching storage metrics:', error);
-    }
-  };
-
   useEffect(() => {
+    const fetchStorageMetrics = async () => {
+      try {
+        const response = await fetch('/api/admin/integration/minio-status', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        const data = await response.json();
+
+        setStorage({
+          used_gb: data.total_storage_gb - data.available_storage_gb || 0,
+          total_gb: data.total_storage_gb || 1000,
+          utilization_percent: data.storage_utilization_percent || 0,
+          documents_count: data.total_objects || 0,
+          embeddings_count: 0,
+          indexes_count: 0
+        });
+      } catch (error) {
+        console.error('Error fetching storage metrics:', error);
+      }
+    };
+
     fetchStorageMetrics();
     const interval = setInterval(fetchStorageMetrics, 30000); // Update every 30s
     return () => clearInterval(interval);
-  }, [fetchStorageMetrics]);
+  }, []);
 
   return (
     <div className="rounded-lg border bg-card p-6">

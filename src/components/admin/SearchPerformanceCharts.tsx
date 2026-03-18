@@ -13,30 +13,30 @@ export default function SearchPerformanceCharts() {
     timestamps: []
   });
 
-  const fetchPerformanceMetrics = async () => {
-    try {
-      const response = await fetch('/api/admin/performance/pipeline', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-      });
-      const data = await response.json();
-      
-      // Process data for charts
-      setMetrics({
-        p95_latency: [50, 55, 48, 52, 49],
-        p99_latency: [95, 98, 92, 96, 94],
-        throughput: [2000, 2100, 1950, 2050, 2000],
-        timestamps: ['10:00', '10:15', '10:30', '10:45', '11:00']
-      });
-    } catch (error) {
-      console.error('Error fetching performance metrics:', error);
-    }
-  };
-
   useEffect(() => {
+    const fetchPerformanceMetrics = async () => {
+      try {
+        const response = await fetch('/api/admin/performance/pipeline', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        const data = await response.json();
+
+        // Process data for charts
+        setMetrics({
+          p95_latency: [50, 55, 48, 52, 49],
+          p99_latency: [95, 98, 92, 96, 94],
+          throughput: [2000, 2100, 1950, 2050, 2000],
+          timestamps: ['10:00', '10:15', '10:30', '10:45', '11:00']
+        });
+      } catch (error) {
+        console.error('Error fetching performance metrics:', error);
+      }
+    };
+
     fetchPerformanceMetrics();
-  }, [fetchPerformanceMetrics]);
+  }, []);
 
   return (
     <div className="rounded-lg border bg-card p-6">

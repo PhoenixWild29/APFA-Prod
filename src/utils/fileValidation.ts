@@ -88,8 +88,17 @@ export function validateFileName(file: File): ValidationResult {
   const warnings: string[] = [];
   
   // Check for potentially dangerous characters
-  const dangerousChars = /[<>:"|?*\u0000-\u001f]/;
-  if (dangerousChars.test(file.name)) {
+  const dangerousChars = /[<>:"|?*]/;
+  let hasInvalidChars = dangerousChars.test(file.name);
+  if (!hasInvalidChars) {
+    for (let i = 0; i < file.name.length; i++) {
+      if (file.name.charCodeAt(i) < 32) {
+        hasInvalidChars = true;
+        break;
+      }
+    }
+  }
+  if (hasInvalidChars) {
     errors.push('File name contains invalid characters');
   }
   

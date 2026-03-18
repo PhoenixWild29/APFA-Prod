@@ -18,33 +18,33 @@ export default function ProcessingQueueStatus() {
     processing_rate: 0
   });
 
-  const fetchQueueStatus = async () => {
-    try {
-      const response = await fetch('/api/admin/integration/celery-status', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        }
-      });
-      const data = await response.json();
-      
-      const total = Object.values(data.queue_depths || {}).reduce((sum: number, count: any) => sum + count, 0);
-      
-      setQueueStatus({
-        active_workers: data.active_workers || 0,
-        queue_depths: data.queue_depths || {},
-        total_queued: total,
-        processing_rate: data.task_execution_stats?.throughput || 0
-      });
-    } catch (error) {
-      console.error('Error fetching queue status:', error);
-    }
-  };
-
   useEffect(() => {
+    const fetchQueueStatus = async () => {
+      try {
+        const response = await fetch('/api/admin/integration/celery-status', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        const data = await response.json();
+
+        const total = Object.values(data.queue_depths || {}).reduce((sum: number, count: any) => sum + count, 0);
+
+        setQueueStatus({
+          active_workers: data.active_workers || 0,
+          queue_depths: data.queue_depths || {},
+          total_queued: total,
+          processing_rate: data.task_execution_stats?.throughput || 0
+        });
+      } catch (error) {
+        console.error('Error fetching queue status:', error);
+      }
+    };
+
     fetchQueueStatus();
     const interval = setInterval(fetchQueueStatus, 5000); // Update every 5s
     return () => clearInterval(interval);
-  }, [fetchQueueStatus]);
+  }, []);
 
   return (
     <div className="rounded-lg border bg-card p-6">
