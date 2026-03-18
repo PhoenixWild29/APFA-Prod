@@ -1,2 +1,19 @@
 version: 2
-updates: []
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    ignore:
+      # langgraph must stay compatible with langchain 0.2.5 (requires langchain-core<0.3)
+      # Dependabot keeps suggesting non-existent 1.0.10rc1 version
+      - dependency-name: "langgraph"
+      # langchain upgrade requires coordinated langgraph + langchain-core bump
+      - dependency-name: "langchain"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
