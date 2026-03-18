@@ -32,16 +32,16 @@ export const useUserPreferences = () => {
   });
 
   // Persist preferences on change
+  useEffect(() => {
+    localStorage.setItem('userPreferences', JSON.stringify(preferences));
+  }, [preferences]);
+
   const updatePreference = <K extends keyof UserPreferences>(
     key: K,
     value: UserPreferences[K]
   ): void => {
     setPreferences(prev => ({ ...prev, [key]: value }));
   };
-
-  useEffect(() => {
-    localStorage.setItem('userPreferences', JSON.stringify(preferences));
-  }, [preferences]);
 
   // Detect system theme preference
   useEffect(() => {
@@ -56,7 +56,7 @@ export const useUserPreferences = () => {
     mediaQuery.addEventListener('change', handleChange);
 
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [updatePreference]);
+  }, []);
 
   const resetPreferences = (): void => {
     setPreferences(DEFAULT_PREFERENCES);

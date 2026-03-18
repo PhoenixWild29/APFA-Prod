@@ -13,43 +13,35 @@ interface SearchBarProps {
 export default function SearchBar({ onSearch }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
-
-    const history = localStorage.getItem('searchHistory');
-
-    return history ? JSON.parse(history) : [];
-
-  });
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     // Load search history from localStorage
     const history = localStorage.getItem('searchHistory');
     if (history) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchHistory(JSON.parse(history));
     }
   }, []);
 
-  useEffect(() => {
-    const fetchSuggestions = async (q: string) => {
-      try {
-        const response = await fetch(`/api/documents/search/suggestions?q=${q}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          }
-        });
-        const data = await response.json();
-        setSuggestions(data.suggestions || []);
-      } catch (error) {
-        console.error('Error fetching suggestions:', error);
-      }
-    };
+  const fetchSuggestions = async (q: string) => {
+    try {
+      const response = await fetch(`/api/documents/search/suggestions?q=${q}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      const data = await response.json();
+      setSuggestions(data.suggestions || []);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+    }
+  };
 
+  useEffect(() => {
     if (query.length >= 3) {
       fetchSuggestions(query);
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSuggestions([]);
     }
   }, [query]);

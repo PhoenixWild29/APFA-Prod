@@ -17,47 +17,47 @@ export default function DocumentPreviewModal({ document, onClose }: DocumentPrev
   const [versions, setVersions] = useState([]);
   const [auditTrail, setAuditTrail] = useState([]);
 
+  const fetchVersionHistory = async () => {
+    try {
+      const response = await fetch(
+        `/api/documents/${document.document_id}/versions`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        }
+      );
+      const data = await response.json();
+      setVersions(data.versions || []);
+    } catch (error) {
+      console.error('Error fetching versions:', error);
+    }
+  };
+
+  const fetchAuditTrail = async () => {
+    try {
+      const response = await fetch(
+        `/api/documents/${document.document_id}/audit-trail`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        }
+      );
+      const data = await response.json();
+      setAuditTrail(data.audit_trail || []);
+    } catch (error) {
+      console.error('Error fetching audit trail:', error);
+    }
+  };
+
   useEffect(() => {
-    const fetchVersionHistory = async () => {
-      try {
-        const response = await fetch(
-          `/api/documents/${document.document_id}/versions`,
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-            }
-          }
-        );
-        const data = await response.json();
-        setVersions(data.versions || []);
-      } catch (error) {
-        console.error('Error fetching versions:', error);
-      }
-    };
-
-    const fetchAuditTrail = async () => {
-      try {
-        const response = await fetch(
-          `/api/documents/${document.document_id}/audit-trail`,
-          {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-            }
-          }
-        );
-        const data = await response.json();
-        setAuditTrail(data.audit_trail || []);
-      } catch (error) {
-        console.error('Error fetching audit trail:', error);
-      }
-    };
-
     if (activeTab === 'versions') {
       fetchVersionHistory();
     } else if (activeTab === 'audit') {
       fetchAuditTrail();
     }
-  }, [activeTab, document.document_id]);
+  }, [activeTab]);
 
   const handleDownload = () => {
     window.open(`/api/documents/${document.document_id}/download`, '_blank');

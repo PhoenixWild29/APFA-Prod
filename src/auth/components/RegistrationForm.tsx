@@ -102,10 +102,11 @@ export default function RegistrationForm({
         return null;
       }
       
-      case 'confirm_password':
+      case 'confirm_password': {
         if (!value) return 'Please confirm your password';
         if (value !== formData.password) return 'Passwords do not match';
         return null;
+      }
       
       case 'first_name':
       case 'last_name':

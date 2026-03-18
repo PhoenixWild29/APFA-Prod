@@ -21,21 +21,21 @@ export default function StatisticsCards() {
     by_stage: {}
   });
 
-  useEffect(() => {
-    const fetchStatistics = async () => {
-      try {
-        const response = await fetch('/api/admin/dashboard/statistics', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+  const fetchStatistics = async () => {
+    try {
+      const response = await fetch('/api/admin/dashboard/statistics', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         }
-        });
-        const data = await response.json();
-        setStats(data);
-      } catch (error) {
-        console.error('Error fetching statistics:', error);
-      }
-    };
+      });
+      const data = await response.json();
+      setStats(data);
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchStatistics();
   }, []);
 

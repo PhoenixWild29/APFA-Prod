@@ -42,10 +42,16 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'query-vendor': ['@tanstack/react-query'],
-          'ui-vendor': ['@radix-ui/react-slot', 'lucide-react'],
+        manualChunks(id) {
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+            return 'react-vendor';
+          }
+          if (id.includes('@tanstack/react-query')) {
+            return 'query-vendor';
+          }
+          if (id.includes('@radix-ui/react-slot') || id.includes('lucide-react')) {
+            return 'ui-vendor';
+          }
         },
       },
     },
