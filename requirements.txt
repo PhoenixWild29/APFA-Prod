@@ -1,5 +1,7 @@
-langchain==0.2.5
-langgraph==0.1.19
+langchain==1.2.12
+langchain-core==1.2.19
+langchain-huggingface>=0.1.0
+langgraph==1.1.2
 pyautogen==0.2.7
 transformers==4.53.0
 sentence-transformers==3.0.1
