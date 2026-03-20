@@ -20,7 +20,7 @@ pytest==9.0.2
 mypy==1.10.0
 black==26.3.1
 tenacity==8.2.3
-cachetools==5.3.3
+cachetools==7.0.5
 slowapi
 numpy>=1.26.0,<3.0
 prometheus-client==0.24.1
