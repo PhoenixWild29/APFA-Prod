@@ -52,7 +52,7 @@
     "autoprefixer": "^10.4.16",
     "css-loader": "^6.8.1",
     "eslint": "^8.55.0",
-    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.5",
