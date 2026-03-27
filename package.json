@@ -36,7 +36,7 @@
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
     "web-vitals": "^3.5.0",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@module-federation/enhanced": "^2.2.2",
