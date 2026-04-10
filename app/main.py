@@ -77,8 +77,32 @@ from app.schemas.health_metrics import EnhancedHealthResponse, DetailedMetricsRe
 
 # APFA-013: Database persistence
 from sqlalchemy.orm import Session
-from app.database import SessionLocal, engine, get_db
+from app.database import SessionLocal, get_db
 from app.orm_models import User
+
+
+# APFA-013: Log sanitization helper — prevents log injection (CWE-117).
+# Strips newlines, carriage returns, and other control characters from any
+# user-provided value before it appears in a log line. Truncates to 200 chars
+# to prevent log flooding. All logger.*() calls that interpolate request data
+# (username, email, etc.) MUST route the user-controlled value through this.
+_LOG_SANITIZE_MAX_LEN = 200
+
+
+def _safe_log(value) -> str:
+    """Sanitize a value for safe inclusion in a log entry.
+
+    Removes CR/LF and other control characters that could be used to forge
+    log lines. Truncates to _LOG_SANITIZE_MAX_LEN characters.
+    """
+    if value is None:
+        return "None"
+    s = str(value)
+    # Remove control characters including CR, LF, tab, and escape sequences
+    cleaned = "".join(ch for ch in s if ch.isprintable() and ch not in ("\n", "\r"))
+    if len(cleaned) > _LOG_SANITIZE_MAX_LEN:
+        cleaned = cleaned[:_LOG_SANITIZE_MAX_LEN] + "...[truncated]"
+    return cleaned
 
 
 # Custom exception classes
@@ -489,7 +513,7 @@ def authenticate_user(username: str, password: str):
 
     # Check if user email is verified (unless admin)
     if not user.get("verified", False) and user.get("role") != "admin":
-        logger.warning(f"Login attempt by unverified user: {username}")
+        logger.warning(f"Login attempt by unverified user: {_safe_log(username)}")
         return False
 
     return user
@@ -652,7 +676,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
             # If token expires in < 5 minutes, prepare refresh
             if time_to_expiry < 300:  # 5 minutes
-                logger.info(f"Token expiring soon for user {username}, will refresh")
+                logger.info(
+                    f"Token expiring soon for user {_safe_log(username)}, will refresh"
+                )
                 TOKEN_REFRESH.inc()
                 # Note: Actual refresh happens in response headers (see generate_advice endpoint)
 
@@ -660,7 +686,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         user = get_user(username=username)
         if user is None:
             AUTH_FAILURE.labels(reason="user_not_found").inc()
-            logger.warning(f"User not found: {username}")
+            logger.warning(f"User not found: {_safe_log(username)}")
             raise credentials_exception
 
         # Check if user is disabled
@@ -674,7 +700,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         AUTH_LATENCY.observe(latency)
 
         if latency > 1.0:
-            logger.warning(f"Slow authentication for user {username}: {latency:.2f}s")
+            logger.warning(
+                f"Slow authentication for user {_safe_log(username)}: {latency:.2f}s"
+            )
 
         return user
 
@@ -1045,7 +1073,9 @@ async def login_for_access_token(request: UserLoginRequest):
         user = authenticate_user(request.username, request.password)
         if not user:
             # Authentication failed - invalid credentials
-            logger.warning(f"Failed login attempt for username: {request.username}")
+            logger.warning(
+                f"Failed login attempt for username: {_safe_log(request.username)}"
+            )
             raise HTTPException(
                 status_code=401,
                 detail="Incorrect username or password",
@@ -1088,7 +1118,7 @@ async def login_for_access_token(request: UserLoginRequest):
             security_flags=["password_authenticated"],
         )
 
-        logger.info(f"Successful login for user: {user['username']}")
+        logger.info(f"Successful login for user: {_safe_log(user['username'])}")
 
         # Return OAuth2-compatible response with enhanced metadata
         return LoginResponse(
@@ -1200,7 +1230,7 @@ async def register_user(
         )
         if existing_by_username:
             logger.warning(
-                f"Registration attempt with existing username: {sanitized_username}"
+                f"Registration attempt with existing username: {_safe_log(sanitized_username)}"
             )
             raise HTTPException(
                 status_code=409,
@@ -1213,7 +1243,7 @@ async def register_user(
         )
         if existing_by_email:
             logger.warning(
-                f"Registration attempt with existing email: {sanitized_email}"
+                f"Registration attempt with existing email: {_safe_log(sanitized_email)}"
             )
             raise HTTPException(
                 status_code=409, detail="An account with this email already exists"
@@ -1254,7 +1284,9 @@ async def register_user(
         # Send verification email
         await send_verification_email(sanitized_email, verification_token)
 
-        logger.info(f"New user registered successfully: {sanitized_username}")
+        logger.info(
+            f"New user registered successfully: {_safe_log(sanitized_username)}"
+        )
 
         # Return registration response
         return RegistrationResponse(
@@ -1341,7 +1373,7 @@ async def login_with_cookies(request: UserLoginRequest, response: Response):
         max_age=int(timedelta(days=settings.refresh_token_expire_days).total_seconds()),
     )
 
-    logger.info(f"User logged in with httpOnly cookies: {user['username']}")
+    logger.info(f"User logged in with httpOnly cookies: {_safe_log(user['username'])}")
 
     return {
         "message": "Login successful",
@@ -1425,12 +1457,12 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     # Get user from PostgreSQL
     user_row = db.query(User).filter(User.username == username).first()
     if not user_row:
-        logger.error(f"User not found for verified token: {username}")
+        logger.error(f"User not found for verified token: {_safe_log(username)}")
         raise HTTPException(status_code=404, detail="User not found")
 
     # Check if already verified
     if user_row.verified:
-        logger.info(f"User already verified: {username}")
+        logger.info(f"User already verified: {_safe_log(username)}")
         return {
             "message": "Email already verified",
             "username": username,
@@ -1446,7 +1478,7 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     user_row.verified_at = datetime.now(timezone.utc)
     db.commit()
 
-    logger.info(f"Email verified successfully for user: {username}")
+    logger.info(f"Email verified successfully for user: {_safe_log(username)}")
 
     # Send welcome email
     await send_welcome_email(user_row.email, username)
@@ -5360,7 +5392,9 @@ async def generate_advice(
         cache_lookup_time_ms = (time.time() - cache_lookup_start) * 1000
 
         if cached_result:
-            logger.info(f"Returning cached advice for user {current_user['username']}")
+            logger.info(
+                f"Returning cached advice for user {_safe_log(current_user['username'])}"
+            )
             CACHE_HITS.inc()
 
             # Return cached response
