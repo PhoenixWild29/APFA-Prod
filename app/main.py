@@ -584,7 +584,8 @@ async def send_verification_email(email: str, token: str):
     """
     verification_link = f"http://localhost:3000/verify?token={token}"
 
-    logger.info(f"Sending verification email to {email}")
+    _clean_email = str(email).replace("\n", "").replace("\r", "")[:200]
+    logger.info(f"Sending verification email to {_clean_email}")
     logger.info(f"Verification link: {verification_link}")
 
     # TODO: Integrate with email service
@@ -599,7 +600,9 @@ async def send_welcome_email(email: str, username: str):
         email: User email address
         username: Username
     """
-    logger.info(f"Sending welcome email to {email} (username: {username})")
+    _clean_email = str(email).replace("\n", "").replace("\r", "")[:200]
+    _clean_username = str(username).replace("\n", "").replace("\r", "")[:200]
+    logger.info(f"Sending welcome email to {_clean_email} (username: {_clean_username})")
 
     # TODO: Integrate with email service
     # Example: sendgrid.send_email(to=email, template="welcome", data={"username": username})
@@ -1224,8 +1227,9 @@ async def register_user(
             db.query(User).filter(User.username == sanitized_username).first()
         )
         if existing_by_username:
+            _clean_u = str(sanitized_username).replace("\n", "").replace("\r", "")[:200]
             logger.warning(
-                f"Registration attempt with existing username: {str(sanitized_username).replace(chr(10), '').replace(chr(13), '')[:200]}"
+                f"Registration attempt with existing username: {_clean_u}"
             )
             raise HTTPException(
                 status_code=409,
@@ -1237,8 +1241,9 @@ async def register_user(
             db.query(User).filter(User.email == sanitized_email).first()
         )
         if existing_by_email:
+            _clean_e = str(sanitized_email).replace("\n", "").replace("\r", "")[:200]
             logger.warning(
-                f"Registration attempt with existing email: {str(sanitized_email).replace(chr(10), '').replace(chr(13), '')[:200]}"
+                f"Registration attempt with existing email: {_clean_e}"
             )
             raise HTTPException(
                 status_code=409, detail="An account with this email already exists"
@@ -5509,8 +5514,9 @@ async def generate_advice(
         RESPONSE_TIME.labels(endpoint="/generate-advice").observe(
             total_latency_ms / 1000
         )
+        _clean_u = str(current_user['username']).replace("\n", "").replace("\r", "")[:200]
         logger.info(
-            f"Advice generated in {total_latency_ms:.1f}ms for user {current_user['username']}"
+            f"Advice generated in {total_latency_ms:.1f}ms for user {_clean_u}"
         )
 
         REQUEST_COUNT.labels(
