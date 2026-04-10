@@ -12,7 +12,8 @@ WORKDIR /app
 
 # Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
+RUN chown -R apfa:apfa /usr/local/lib/python3.11 /usr/local/bin
 
 # Copy application code
 COPY app/ .
