@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # Database (PostgreSQL via SQLAlchemy)
     database_url: str = "postgresql://postgres:password@postgres:5432/apfa"
 
+    # Redis (for cache + pub/sub). Default uses Docker hostname "redis" to
+    # match docker-compose service name. Local dev without Docker can override
+    # via REDIS_URL env var.
+    redis_url: str = "redis://redis:6379"
+
     # API Security
     api_key: str
 
@@ -63,9 +68,10 @@ class Settings(BaseSettings):
     ]
     max_file_size_mb: int = 50
 
-    # Celery Configuration
-    celery_broker_url: str = "redis://localhost:6379/0"
-    celery_result_backend: str = "redis://localhost:6379/1"
+    # Celery Configuration (defaults use Docker hostname "redis" to match
+    # docker-compose service name)
+    celery_broker_url: str = "redis://redis:6379/0"
+    celery_result_backend: str = "redis://redis:6379/1"
 
     # Stripe Billing Configuration
     stripe_secret_key: str

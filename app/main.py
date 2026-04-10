@@ -17,7 +17,14 @@ import sys
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-import aioredis
+# aioredis 2.0.1 is archived/broken on Python 3.11+ (duplicate base class
+# TimeoutError — asyncio.TimeoutError became builtins.TimeoutError in PEP 678).
+# The canonical migration per the aioredis deprecation notice is to use
+# redis.asyncio from the redis-py package (which is already in requirements.txt
+# as redis==7.4.0). Using the alias `as aioredis` makes the swap a pure
+# namespace change — all downstream `aioredis.from_url(...)` calls work
+# unchanged because the API is identical.
+import redis.asyncio as aioredis
 import boto3
 import faiss
 import numpy as np
@@ -4764,7 +4771,7 @@ async def registration_monitoring_websocket(websocket: WebSocket, token: str = N
 
     try:
         # Subscribe to Redis Pub/Sub for registration events
-        redis = await aioredis.from_url("redis://localhost:6379", decode_responses=True)
+        redis = await aioredis.from_url(settings.redis_url, decode_responses=True)
         pubsub = redis.pubsub()
         await pubsub.subscribe("registration_events")
 
@@ -4891,7 +4898,7 @@ async def auth_monitoring_websocket(websocket: WebSocket, token: str = None):
     logger.info(f"Auth WebSocket connected: {username}")
 
     try:
-        redis = await aioredis.from_url("redis://localhost:6379", decode_responses=True)
+        redis = await aioredis.from_url(settings.redis_url, decode_responses=True)
         pubsub = redis.pubsub()
         await pubsub.subscribe("auth_events")
 
@@ -5258,9 +5265,9 @@ async def init_redis():
     global redis_client
     try:
         redis_client = await aioredis.from_url(
-            "redis://localhost:6379", decode_responses=True
+            settings.redis_url, decode_responses=True
         )
-        logger.info("Redis cache initialized")
+        logger.info(f"Redis cache initialized ({settings.redis_url})")
     except Exception as e:
         logger.warning(f"Redis not available, using in-memory cache: {e}")
 

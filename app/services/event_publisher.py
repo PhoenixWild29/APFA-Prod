@@ -6,9 +6,15 @@ Publishes events to Redis Pub/Sub for real-time WebSocket broadcasting
 
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-import aioredis
+# aioredis 2.0.1 is archived/broken on Python 3.11+ (duplicate base class
+# TimeoutError). Use redis.asyncio from redis-py via namespace alias — the
+# API is identical so downstream code (from_url, publish, close) works
+# unchanged.
+import redis.asyncio as aioredis
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +24,11 @@ class EventPublisher:
     Publishes events to Redis Pub/Sub channels for WebSocket broadcasting
     """
 
-    def __init__(self, redis_url: str = "redis://localhost:6379"):
-        self.redis_url = redis_url
+    def __init__(self, redis_url: Optional[str] = None):
+        # Default to the configured Redis URL from settings (which defaults
+        # to the Docker hostname "redis", not localhost). Callers can still
+        # override by passing an explicit URL.
+        self.redis_url = redis_url or settings.redis_url
         self.redis_client = None
 
     async def connect(self):

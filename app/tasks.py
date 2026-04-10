@@ -14,11 +14,17 @@ from typing import List
 from celery import Celery, Task
 from celery.schedules import crontab
 
+from config import settings
+
 logger = logging.getLogger(__name__)
 
-# Initialize Celery
+# Initialize Celery — broker/backend URLs come from settings so they honor
+# CELERY_BROKER_URL / CELERY_RESULT_BACKEND env vars and fall back to Docker
+# hostname "redis" by default (not localhost).
 celery_app = Celery(
-    "apfa", broker="redis://localhost:6379/0", backend="redis://localhost:6379/1"
+    "apfa",
+    broker=settings.celery_broker_url,
+    backend=settings.celery_result_backend,
 )
 
 # Celery configuration
