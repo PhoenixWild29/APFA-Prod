@@ -75,6 +75,11 @@ from app.models.advice_response import BiasDetectionResults, OptimizedAdviceResp
 from app.models.performance_tracking import AgentExecutionStep, ResponseMetrics
 from app.schemas.health_metrics import EnhancedHealthResponse, DetailedMetricsResponse
 
+# APFA-013: Database persistence
+from sqlalchemy.orm import Session
+from app.database import SessionLocal, engine, get_db
+from app.orm_models import User
+
 
 # Custom exception classes
 class RAGError(Exception):
@@ -432,32 +437,10 @@ AUTH_FAILURE = Counter("apfa_auth_failure_total", "Failed authentications", ["re
 AUTH_LATENCY = Histogram("apfa_auth_latency_seconds", "Authentication latency")
 TOKEN_REFRESH = Counter("apfa_token_refresh_total", "Token refresh operations")
 
-# Mock user database (in production, use real database)
-fake_users_db = {
-    "admin": {
-        "user_id": "user_admin",
-        "username": "admin",
-        "email": "admin@apfa.io",
-        "hashed_password": pwd_context.hash("admin123"),
-        "disabled": False,
-        "role": "admin",
-        "permissions": [
-            "advice:generate",
-            "advice:view_history",
-            "admin:celery:view",
-            "admin:celery:manage",
-        ],
-        "verified": True,  # Admin is pre-verified
-        "verification_token": None,
-        "token_expiration": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "subscription_tier": "enterprise",
-        "stripe_customer_id": None,
-        "stripe_subscription_id": None,
-        "query_count_this_period": 0,
-        "billing_period_start": datetime.now(timezone.utc).isoformat(),
-    }
-}
+# APFA-013: User storage is now PostgreSQL via SQLAlchemy.
+# The legacy in-memory user dict has been removed. All user operations go
+# through the User ORM model (app/orm_models.py) and get_db() sessions.
+# Admin seeding happens in the lifespan startup handler below.
 
 
 # Authentication and Authorization
@@ -466,11 +449,25 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def get_user(username: str):
-    """Get user from database."""
-    if username in fake_users_db:
-        user_dict = fake_users_db[username]
-        return user_dict
+def get_user(username: str, db: Session = None):
+    """Get user by username from PostgreSQL.
+
+    Returns a dict (legacy shape via User.to_dict()) for backward compatibility
+    with existing code paths, or None if not found.
+
+    A session must be provided. If called from an endpoint, pass the
+    Depends(get_db) session. If called outside a request context (startup,
+    background tasks), use SessionLocal() directly.
+    """
+    if db is None:
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == username).first()
+            return user.to_dict() if user else None
+        finally:
+            db.close()
+    user = db.query(User).filter(User.username == username).first()
+    return user.to_dict() if user else None
 
 
 def authenticate_user(username: str, password: str):
@@ -835,12 +832,24 @@ async def health_check():
         )
     )
 
-    # Check Database (in-memory)
+    # Check Database (PostgreSQL via SQLAlchemy)
+    db_status = "healthy"
+    user_count = 0
+    try:
+        _hc_db = SessionLocal()
+        try:
+            user_count = _hc_db.query(User).count()
+        finally:
+            _hc_db.close()
+    except Exception as e:
+        db_status = "unhealthy"
+        logger.error(f"Database health check failed: {e}")
+        failed.append("database")
     components.append(
         ComponentHealthStatus(
             component="database",
-            status="healthy",
-            metadata={"type": "in-memory", "users": len(fake_users_db)},
+            status=db_status,
+            metadata={"type": "postgresql", "users": user_count},
         )
     )
 
@@ -1136,7 +1145,9 @@ async def login_for_access_token_legacy(
 
 
 @app.post("/register", response_model=RegistrationResponse, status_code=201)
-async def register_user(request: UserRegistrationRequest):
+async def register_user(
+    request: UserRegistrationRequest, db: Session = Depends(get_db)
+):
     """
     User registration endpoint - Create new user account.
 
@@ -1183,8 +1194,11 @@ async def register_user(request: UserRegistrationRequest):
         sanitized_username = re.sub(r"[<>\"\'&]", "", request.username)
         sanitized_email = request.email.lower().strip()
 
-        # Check for duplicate username
-        if sanitized_username in fake_users_db:
+        # Check for duplicate username (PostgreSQL)
+        existing_by_username = (
+            db.query(User).filter(User.username == sanitized_username).first()
+        )
+        if existing_by_username:
             logger.warning(
                 f"Registration attempt with existing username: {sanitized_username}"
             )
@@ -1193,15 +1207,17 @@ async def register_user(request: UserRegistrationRequest):
                 detail=f"Username '{sanitized_username}' is already registered",
             )
 
-        # Check for duplicate email (scan through existing users)
-        for existing_user in fake_users_db.values():
-            if existing_user.get("email", "").lower() == sanitized_email:
-                logger.warning(
-                    f"Registration attempt with existing email: {sanitized_email}"
-                )
-                raise HTTPException(
-                    status_code=409, detail="An account with this email already exists"
-                )
+        # Check for duplicate email (PostgreSQL)
+        existing_by_email = (
+            db.query(User).filter(User.email == sanitized_email).first()
+        )
+        if existing_by_email:
+            logger.warning(
+                f"Registration attempt with existing email: {sanitized_email}"
+            )
+            raise HTTPException(
+                status_code=409, detail="An account with this email already exists"
+            )
 
         # Hash password securely
         hashed_password = pwd_context.hash(request.password)
@@ -1211,27 +1227,29 @@ async def register_user(request: UserRegistrationRequest):
 
         # Generate email verification token
         verification_token = generate_verification_token(sanitized_username)
-        token_expiration = (
-            datetime.now(timezone.utc) + timedelta(hours=24)
-        ).isoformat()
+        token_expiration_dt = datetime.now(timezone.utc) + timedelta(hours=24)
 
-        # Store new user in database
-        fake_users_db[sanitized_username] = {
-            "user_id": user_id,
-            "username": sanitized_username,
-            "email": sanitized_email,
-            "hashed_password": hashed_password,
-            "first_name": request.first_name,
-            "last_name": request.last_name,
-            "disabled": False,
-            "role": "standard",  # Default role
-            "permissions": ["advice:generate", "advice:view_history"],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "verified": False,  # Email not verified yet
-            "verification_token": verification_token,
-            "token_expiration": token_expiration,
-            "marketing_consent": request.marketing_consent,
-        }
+        # Store new user in PostgreSQL
+        new_user = User(
+            id=user_id,
+            username=sanitized_username,
+            email=sanitized_email,
+            hashed_password=hashed_password,
+            first_name=request.first_name,
+            last_name=request.last_name,
+            disabled=False,
+            role="standard",
+            permissions=["advice:generate", "advice:view_history"],
+            created_at=datetime.now(timezone.utc),
+            verified=False,
+            verification_token=verification_token,
+            token_expiration=token_expiration_dt,
+            marketing_consent=request.marketing_consent,
+            subscription_tier="free",
+            query_count_this_period=0,
+        )
+        db.add(new_user)
+        db.commit()
 
         # Send verification email
         await send_verification_email(sanitized_email, verification_token)
@@ -1352,7 +1370,7 @@ async def logout(response: Response):
 
 
 @app.get("/register/verify/{token}")
-async def verify_email(token: str):
+async def verify_email(token: str, db: Session = Depends(get_db)):
     """
     Email verification endpoint - Activate user account via verification token.
 
@@ -1404,38 +1422,39 @@ async def verify_email(token: str):
     # Token is valid, get username
     username = result
 
-    # Get user
-    user = get_user(username)
-    if not user:
+    # Get user from PostgreSQL
+    user_row = db.query(User).filter(User.username == username).first()
+    if not user_row:
         logger.error(f"User not found for verified token: {username}")
         raise HTTPException(status_code=404, detail="User not found")
 
     # Check if already verified
-    if user.get("verified", False):
+    if user_row.verified:
         logger.info(f"User already verified: {username}")
         return {
             "message": "Email already verified",
             "username": username,
-            "email": user.get("email"),
+            "email": user_row.email,
             "verified": True,
             "status": "already_verified",
         }
 
     # Activate account
-    fake_users_db[username]["verified"] = True
-    fake_users_db[username]["verification_token"] = None
-    fake_users_db[username]["token_expiration"] = None
-    fake_users_db[username]["verified_at"] = datetime.now(timezone.utc).isoformat()
+    user_row.verified = True
+    user_row.verification_token = None
+    user_row.token_expiration = None
+    user_row.verified_at = datetime.now(timezone.utc)
+    db.commit()
 
     logger.info(f"Email verified successfully for user: {username}")
 
     # Send welcome email
-    await send_welcome_email(user.get("email"), username)
+    await send_welcome_email(user_row.email, username)
 
     return {
         "message": "Email verified successfully! You can now login.",
         "username": username,
-        "email": user.get("email"),
+        "email": user_row.email,
         "verified": True,
         "status": "verified",
     }
@@ -3133,7 +3152,9 @@ async def get_billing_status(current_user: dict = Depends(get_current_user)):
 
 @app.post("/api/billing/checkout")
 async def create_checkout_session(
-    request: CheckoutRequest, current_user: dict = Depends(get_current_user)
+    request: CheckoutRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     try:
         price_id = (
@@ -3145,7 +3166,15 @@ async def create_checkout_session(
         if not customer_id:
             customer = stripe.Customer.create(email=current_user["email"])
             customer_id = customer.id
-            fake_users_db[current_user["username"]]["stripe_customer_id"] = customer_id
+            # Persist stripe_customer_id to PostgreSQL
+            user_row = (
+                db.query(User)
+                .filter(User.username == current_user["username"])
+                .first()
+            )
+            if user_row:
+                user_row.stripe_customer_id = customer_id
+                db.commit()
 
         session = stripe.checkout.Session.create(
             customer=customer_id,
@@ -3162,7 +3191,7 @@ async def create_checkout_session(
 
 
 @app.post("/api/billing/webhook")
-async def stripe_webhook(request: Request):
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     try:
@@ -3178,33 +3207,37 @@ async def stripe_webhook(request: Request):
         session = event.data.object
         customer_id = session.customer
         subscription_id = session.subscription
-        # Find user by customer_id
-        for username, user in fake_users_db.items():
-            if user.get("stripe_customer_id") == customer_id:
-                tier = (
-                    "pro" if session.amount_total == 2900 else "enterprise"
-                )  # Assuming prices
-                user["subscription_tier"] = tier
-                user["stripe_subscription_id"] = subscription_id
-                user["query_count_this_period"] = 0  # Reset on upgrade
-                break
+        # Find user by customer_id (indexed query, not dict iteration)
+        user_row = (
+            db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        )
+        if user_row:
+            tier = "pro" if session.amount_total == 2900 else "enterprise"
+            user_row.subscription_tier = tier
+            user_row.stripe_subscription_id = subscription_id
+            user_row.query_count_this_period = 0  # Reset on upgrade
+            db.commit()
     elif event.type == "invoice.payment_succeeded":
         # Reset query count at start of billing period
         invoice = event.data.object
         customer_id = invoice.customer
-        for username, user in fake_users_db.items():
-            if user.get("stripe_customer_id") == customer_id:
-                user["query_count_this_period"] = 0
-                user["billing_period_start"] = datetime.now(timezone.utc).isoformat()
-                break
+        user_row = (
+            db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        )
+        if user_row:
+            user_row.query_count_this_period = 0
+            user_row.billing_period_start = datetime.now(timezone.utc)
+            db.commit()
     elif event.type == "customer.subscription.deleted":
         subscription = event.data.object
         customer_id = subscription.customer
-        for username, user in fake_users_db.items():
-            if user.get("stripe_customer_id") == customer_id:
-                user["subscription_tier"] = "free"
-                user["stripe_subscription_id"] = None
-                break
+        user_row = (
+            db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        )
+        if user_row:
+            user_row.subscription_tier = "free"
+            user_row.stripe_subscription_id = None
+            db.commit()
 
     return {"status": "ok"}
 
@@ -5263,7 +5296,11 @@ async def rate_limit_middleware(request: Request, call_next):
 
 @app.post("/generate-advice", response_model=OptimizedAdviceResponse)
 @limiter.limit("10/minute")
-async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current_user)):
+async def generate_advice(
+    q: LoanQuery,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Generate personalized loan advice using RAG and LLM with optimized performance.
 
@@ -5344,7 +5381,14 @@ async def generate_advice(q: LoanQuery, current_user: dict = Depends(get_current
         CACHE_MISSES.inc()
 
         # Billing: Increment query count (only for non-cached)
-        fake_users_db[current_user["username"]]["query_count_this_period"] += 1
+        _user_row = (
+            db.query(User).filter(User.username == current_user["username"]).first()
+        )
+        if _user_row:
+            _user_row.query_count_this_period = (
+                _user_row.query_count_this_period or 0
+            ) + 1
+            db.commit()
 
         # Agent processing (using PRE-LOADED indices - no loading delay!)
         agent_processing_start = time.time()
@@ -5499,6 +5543,60 @@ async def lifespan(app: FastAPI):
     if missing_vars:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
+
+    # APFA-013: Run Alembic migrations and seed admin user
+    try:
+        logger.info("Running Alembic migrations (alembic upgrade head)...")
+        from alembic import command as alembic_command
+        from alembic.config import Config as AlembicConfig
+
+        # Resolve alembic.ini relative to the app directory (project root)
+        alembic_ini_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "alembic.ini",
+        )
+        alembic_cfg = AlembicConfig(alembic_ini_path)
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+        alembic_command.upgrade(alembic_cfg, "head")
+        logger.info("Alembic migrations complete")
+
+        # Seed admin user if the users table is empty
+        _seed_db = SessionLocal()
+        try:
+            user_count = _seed_db.query(User).count()
+            if user_count == 0:
+                logger.info("Seeding admin user (users table is empty)...")
+                admin_user = User(
+                    id="user_admin",
+                    username="admin",
+                    email="admin@apfa.io",
+                    hashed_password=pwd_context.hash("admin123"),
+                    disabled=False,
+                    role="admin",
+                    permissions=[
+                        "advice:generate",
+                        "advice:view_history",
+                        "admin:celery:view",
+                        "admin:celery:manage",
+                    ],
+                    verified=True,
+                    created_at=datetime.now(timezone.utc),
+                    subscription_tier="enterprise",
+                    query_count_this_period=0,
+                    billing_period_start=datetime.now(timezone.utc),
+                    marketing_consent=False,
+                )
+                _seed_db.add(admin_user)
+                _seed_db.commit()
+                logger.info("Admin user seeded successfully")
+            else:
+                logger.info(f"Users table already has {user_count} users — skipping seed")
+        finally:
+            _seed_db.close()
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        # Fail fast — the app should not start without a working DB
+        raise
 
     # Initialize Redis
     await init_redis()
