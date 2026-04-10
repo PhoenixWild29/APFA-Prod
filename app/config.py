@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     debug: bool = False
 
+    # Database (PostgreSQL via SQLAlchemy)
+    database_url: str = "postgresql://postgres:password@postgres:5432/apfa"
+
     # API Security
     api_key: str
 
