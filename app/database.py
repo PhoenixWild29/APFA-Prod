@@ -17,12 +17,21 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 from config import settings
 
-# Engine: connection pool to PostgreSQL. pool_pre_ping=True prevents stale
-# connections after DB restart or network blip.
+# Engine: connection pool to PostgreSQL.
+#
+# Pool configuration notes:
+# - pool_size=10: base connection pool size (default was 5)
+# - max_overflow=20: additional connections beyond pool_size under load
+# - pool_recycle=3600: recycle connections hourly to avoid DB idle timeouts
+# - pool_pre_ping=True: lightweight SELECT 1 before each checkout to detect
+#   dead connections (prevents stale connection errors after DB restart
+#   or network blips)
 engine = create_engine(
     settings.database_url,
+    pool_size=10,
+    max_overflow=20,
+    pool_recycle=3600,
     pool_pre_ping=True,
-    pool_recycle=3600,  # recycle connections after 1 hour
 )
 
 # SessionLocal: per-request session factory. Each HTTP request gets its own
@@ -37,6 +46,10 @@ Base = declarative_base()
 def get_db():
     """FastAPI dependency that yields a database session and ensures cleanup.
 
+    On success: session is closed in finally.
+    On exception: session is rolled back before being closed — prevents
+    half-applied transactions from leaking into the next request.
+
     Usage in endpoints:
         async def my_endpoint(db: Session = Depends(get_db)):
             return db.query(User).first()
@@ -44,5 +57,8 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

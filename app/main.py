@@ -5550,11 +5550,19 @@ async def lifespan(app: FastAPI):
         from alembic import command as alembic_command
         from alembic.config import Config as AlembicConfig
 
-        # Resolve alembic.ini relative to the app directory (project root)
+        # alembic.ini lives alongside main.py (inside app/ in the repo,
+        # at /app/alembic.ini inside the docker container since the
+        # docker-compose volume mounts ./app -> /app). The %(here)s token
+        # in alembic.ini then correctly resolves script_location.
         alembic_ini_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            os.path.dirname(os.path.abspath(__file__)),
             "alembic.ini",
         )
+        if not os.path.isfile(alembic_ini_path):
+            raise RuntimeError(
+                f"alembic.ini not found at {alembic_ini_path} — "
+                f"cannot run database migrations"
+            )
         alembic_cfg = AlembicConfig(alembic_ini_path)
         alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
         alembic_command.upgrade(alembic_cfg, "head")
@@ -5589,6 +5597,12 @@ async def lifespan(app: FastAPI):
                 _seed_db.add(admin_user)
                 _seed_db.commit()
                 logger.info("Admin user seeded successfully")
+                logger.warning(
+                    "SECURITY: Default admin password in use (admin/admin123). "
+                    "Change immediately via /users/me/password or equivalent. "
+                    "APFA-016c should move this seed to a pre-deploy task that "
+                    "reads the admin password from a secret."
+                )
             else:
                 logger.info(f"Users table already has {user_count} users — skipping seed")
         finally:
