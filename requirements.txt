@@ -10,7 +10,7 @@ deltalake==1.5.0
 boto3==1.42.87
 minio==7.2.20
 fastapi==0.135.3
-uvicorn==0.42.0
+uvicorn==0.44.0
 aif360==0.6.1
 opentelemetry-api==1.40.0
 opentelemetry-sdk==1.40.0
