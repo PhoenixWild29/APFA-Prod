@@ -23,7 +23,7 @@ tenacity==8.2.3
 cachetools==7.0.5
 slowapi
 numpy>=1.26.0,<3.0
-prometheus-client==0.24.1
+prometheus-client==0.25.0
 python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
 textblob==0.19.0
