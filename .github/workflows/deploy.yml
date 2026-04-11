@@ -86,7 +86,7 @@ jobs:
             if [ "$BACKEND" = "true" ]; then
               echo "Rebuilding backend container..."
               docker compose up -d --build apfa
-    docker compose exec -T apfa alembic upgrade head || true
+              docker compose exec -T apfa alembic upgrade head || echo "::warning::alembic upgrade head FAILED — investigate"
             fi
 
             if [ -n "$MIGRATION" ]; then
