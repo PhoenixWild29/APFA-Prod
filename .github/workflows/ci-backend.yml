@@ -23,6 +23,39 @@ env:
   PYTHON_VERSION: '3.11'
 
 jobs:
+  import-smoke:
+    name: Import Smoke Test (app/main.py)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install system deps for wheels
+        run: sudo apt-get update -qq && sudo apt-get install -qq -y --no-install-recommends libmagic1 libpq-dev build-essential
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # TEMPORARILY NON-BLOCKING. Main currently has three known-broken
+      # imports (langchain.agents AgentExecutor removed in 1.x,
+      # profanity_check broken against modern sklearn, tenacity.circuit_breaker
+      # non-existent symbol). Making this job blocking before they are fixed
+      # would prevent merging the fixes themselves. Flip to blocking (remove
+      # `continue-on-error`) once the first successful container start has
+      # been verified in production — that's the signal that all import-time
+      # bugs are cleared and the baseline is clean enough to enforce.
+      - name: Verify every top-level import in app/main.py resolves
+        run: python scripts/check_imports.py
+        continue-on-error: true
+
   test:
     name: Run Backend Tests
     runs-on: ubuntu-latest
