@@ -65,7 +65,7 @@ from pydantic import BaseModel, Field, field_validator
 from sentence_transformers import SentenceTransformer
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from tenacity import circuit_breaker, retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 from app.models.user_login import LoginResponse, UserLoginRequest
@@ -189,7 +189,6 @@ rag_df, faiss_index = load_rag_index()
 
 
 # Tools (MCP-compatible)
-@circuit_breaker(failure_threshold=5, recovery_timeout=60)
 def retrieve_loan_data(query: str) -> str:
     """RAG retrieval for loan compliance/docs."""
     try:
@@ -202,7 +201,6 @@ def retrieve_loan_data(query: str) -> str:
         return "Error retrieving loan data."
 
 
-@circuit_breaker(failure_threshold=5, recovery_timeout=60)
 def simulate_risk(input_data: str) -> str:
     """Simulate loan risk with LLM."""
     try:
@@ -616,12 +614,10 @@ async def send_welcome_email(email: str, username: str):
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5))
-@circuit_breaker(failure_threshold=5, recovery_timeout=60)
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     """
     Enhanced dependency for current user authentication with:
-    - Circuit breaker pattern for authentication service failures
-    - Automatic retry logic with exponential backoff
+    - Automatic retry logic with exponential backoff (tenacity)
     - Automatic token refresh when near expiration
     - Comprehensive monitoring and error handling
 
@@ -635,7 +631,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         HTTPException:
             - 401: Invalid or expired credentials
             - 403: User account disabled
-            - 503: Authentication service unavailable (circuit open)
+            - 503: Authentication service unavailable (unexpected error)
     """
     start_time = time.time()
 
@@ -646,7 +642,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
 
     try:
-        # Decode JWT token with retry and circuit breaker
+        # Decode JWT token (retry bounded by tenacity @retry decorator above)
         try:
             payload = jwt.decode(
                 token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
@@ -714,7 +710,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise
 
     except Exception as e:
-        # Circuit breaker or unexpected errors
+        # Unexpected errors — tenacity retry is already exhausted by this point
         AUTH_FAILURE.labels(reason="service_error").inc()
         logger.error(f"Unexpected authentication error: {e}")
         raise HTTPException(
