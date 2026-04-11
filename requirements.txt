@@ -11,6 +11,13 @@ langgraph==1.1.6
 # prebuilt 1.0.9 references ExecutionInfo/ServerInfo which only exist in
 # langgraph 1.1.3+. Both must be kept in sync.
 langgraph-prebuilt==1.0.9
+# Pin ALL transitive langgraph-* siblings explicitly (per CoWork review of PR #111):
+# leaving these unpinned means pip can drift any one of them into a version
+# that's internally inconsistent with langgraph==1.1.6, reproducing the exact
+# bug class this PR fixes. Versions captured from clean Python 3.11 resolver run
+# with the above pins on 2026-04-10.
+langgraph-checkpoint==4.0.1
+langgraph-sdk==0.3.13
 pyautogen==0.2.7
 transformers==5.5.3
 sentence-transformers==5.3.0
