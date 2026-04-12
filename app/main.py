@@ -51,8 +51,15 @@ from fastapi.security import (
     OAuth2PasswordRequestForm,
 )
 from jose import JWTError, jwt
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
+# APFA-013.1: langchain 1.x no longer exports AgentExecutor or
+# create_tool_calling_agent from langchain.agents. The 1.x replacement is
+# `create_agent` (returns a compiled langgraph graph requiring a BaseChatModel
+# with bind_tools support). Since HuggingFacePipeline is a BaseLLM (no
+# bind_tools), and retriever_agent only has one tool anyway, the correct fix
+# is to call retrieve_loan_data directly instead of wrapping it in an agent.
+# See APFA-014.x for a proper LangGraph 1.x agent migration if multi-tool
+# reasoning is ever needed in this node. ChatPromptTemplate was only used
+# inside the removed retriever_agent body and is no longer imported.
 from langchain_core.tools import Tool
 from langchain_huggingface import HuggingFacePipeline
 from langgraph.graph import END, StateGraph
@@ -266,13 +273,10 @@ class AgentState(typing.TypedDict):
 
 @trace.get_tracer(__name__).start_as_current_span("Retriever Agent")
 def retriever_agent(state):
-    prompt = ChatPromptTemplate.from_messages(
-        [("system", "Retrieve context for loan query."), ("human", "{query}")]
-    )
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    executor = AgentExecutor(agent=agent, tools=tools)
-    result = executor.invoke({"query": state["query"]})
-    return {"messages": state["messages"] + [result["output"]]}
+    # APFA-013.1: LLM reformulation removed; direct tool call.
+    # See APFA-014.x for proper LangGraph 1.x agent wiring if needed.
+    result = retrieve_loan_data(state["query"])
+    return {"messages": state["messages"] + [str(result)]}
 
 
 @trace.get_tracer(__name__).start_as_current_span("Analyzer Agent")
