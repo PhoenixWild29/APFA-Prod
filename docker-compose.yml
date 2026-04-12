@@ -19,8 +19,8 @@ services:
     # APFA-013.5: mount repo root so `from app.X import Y` resolves
     # (app/ is a subdirectory with __init__.py, WORKDIR=/opt/apfa)
     working_dir: /opt/apfa
-    volumes:
-      - .:/opt/apfa
+    # volumes: - .:/opt/apfa  # Prod: use image COPY (avoids host perm shadow)
+
     depends_on:
       - redis
       - postgres
