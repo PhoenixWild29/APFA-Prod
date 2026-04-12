@@ -77,7 +77,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # celery worker, scripts, etc.).
 ENTRY_POINTS = [
     REPO_ROOT / "app" / "main.py",
-    REPO_ROOT / "alembic" / "env.py",  # used by `alembic upgrade head` at deploy time
+    REPO_ROOT / "app" / "alembic" / "env.py",  # used by `alembic upgrade head` at deploy time
 ]
 
 

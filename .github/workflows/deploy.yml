@@ -86,27 +86,38 @@ jobs:
             if [ "$BACKEND" = "true" ]; then
               echo "Rebuilding backend container..."
               docker compose up -d --build apfa
-              docker compose exec -T apfa alembic upgrade head || echo "::warning::alembic upgrade head FAILED — investigate"
+              docker compose exec -T apfa alembic -c app/alembic.ini upgrade head || echo "::warning::alembic upgrade head FAILED — investigate"
             fi
 
             if [ -n "$MIGRATION" ]; then
               echo "MIGRATION_NEEDED: $MIGRATION"
             fi
 
+      # APFA-013.5: Health check runs FROM the droplet (via SSH) because
+      # DNS for apfa.secureai.dev is not configured yet and no SSL cert exists.
+      # Checks localhost:8000/health which hits the uvicorn FastAPI endpoint
+      # directly, proving the container is alive and responding.
+      # TODO: Replace with https://apfa.secureai.dev/health after DNS + SSL (APFA-014)
       - name: Health check
-        run: |
-          echo "Waiting 30s before first check..."
-          sleep 30
-          for i in $(seq 1 10); do
-            if curl -sf https://apfa.secureai.dev/health.html 2>/dev/null; then
-              echo "Health check passed on attempt $i"
-              exit 0
-            fi
-            echo "Attempt $i/10 failed — retrying in 30s..."
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            echo "Waiting 30s for container startup..."
             sleep 30
-          done
-          echo "Health check failed after 5 minutes"
-          exit 1
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:8000/health 2>/dev/null; then
+                echo "Health check passed on attempt $i"
+                exit 0
+              fi
+              echo "Attempt $i/10 failed — retrying in 30s..."
+              sleep 30
+            done
+            echo "Health check failed after 5 minutes"
+            exit 1
 
       - name: Notify Telegram — success
         if: success()

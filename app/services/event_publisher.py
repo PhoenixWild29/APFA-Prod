@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 # unchanged.
 import redis.asyncio as aioredis
 
-from config import settings
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 

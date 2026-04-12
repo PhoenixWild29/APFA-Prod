@@ -10,17 +10,13 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Ensure the app package is importable when alembic runs from the repo root
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from config import settings  # noqa: E402
-from app.database import Base  # noqa: E402
+# APFA-013.5: sys.path hack removed — alembic.ini's prepend_sys_path now
+# adds the repo root to sys.path, making `from app.X import Y` work cleanly.
+from app.config import settings
+from app.database import Base
 
 # Import all ORM models so Alembic's autogenerate sees them
-from app.orm_models import User  # noqa: E402,F401
+from app.orm_models import User  # noqa: F401
 
 # Alembic Config object, provides access to alembic.ini values
 config = context.config

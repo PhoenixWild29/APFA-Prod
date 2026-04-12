@@ -1,0 +1,21 @@
+# APFA-013.5: Prevent large/sensitive files from being included in the Docker
+# build context. The volume mount (.:/opt/apfa) exposes the full repo at
+# runtime, but the built IMAGE should contain only what's needed.
+.git
+.github
+node_modules
+dist
+.env
+*.md
+*.bat
+*.cmd
+*.ps1
+docs/
+deploy/
+infra/
+monitoring/prometheus.yml
+monitoring/alerts.yml
+monitoring/grafana-dashboards/
+Screenshot*
+jest.config.cjs
+index.html
