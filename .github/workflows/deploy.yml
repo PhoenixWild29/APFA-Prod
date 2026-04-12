@@ -68,7 +68,7 @@ jobs:
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
           envs: FRONTEND,BACKEND,MIGRATION
-          command_timeout: 20m
+          command_timeout: 45m
           script: |
             set -e
             cd /opt/apfa-prod
