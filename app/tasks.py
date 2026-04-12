@@ -14,7 +14,7 @@ from typing import List
 from celery import Celery, Task
 from celery.schedules import crontab
 
-from config import settings
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 

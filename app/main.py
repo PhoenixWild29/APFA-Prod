@@ -83,7 +83,7 @@ from app.models.user_registration import (
     RegistrationResponse,
     UserRegistrationRequest,
 )
-from config import settings
+from app.config import settings
 from app.dependencies import require_admin
 from app.models.advice_response import BiasDetectionResults, OptimizedAdviceResponse
 from app.models.performance_tracking import AgentExecutionStep, ResponseMetrics
