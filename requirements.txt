@@ -26,6 +26,16 @@ deltalake==1.5.0
 boto3==1.42.87
 minio==7.2.20
 fastapi==0.135.3
+# APFA-013.4: bug #7 in the "APFA has never started" chain. app/config.py:3
+# imports `from pydantic_settings import BaseSettings` — this package was
+# split out of pydantic in v2 (BaseSettings moved from pydantic.BaseSettings
+# to its own package `pydantic-settings`). It was never added to
+# requirements.txt when the codebase migrated to pydantic 2.x. The container
+# crashed on this at import time in run #99 of the auto-deploy workflow,
+# immediately after bugs #1-6 were resolved. Pinned to 2.13.1 (latest
+# stable, verified compatible with pydantic==2.12.5 which is resolved
+# transitively via fastapi).
+pydantic-settings==2.13.1
 uvicorn==0.44.0
 aif360==0.6.1
 opentelemetry-api==1.40.0
