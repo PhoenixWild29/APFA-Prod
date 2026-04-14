@@ -192,12 +192,21 @@ def load_rag_index():
         raise RAGError("Failed to load RAG index") from e
 
 
-rag_df, faiss_index = load_rag_index()
+# RAG index is optional — the app should start even if no DeltaTable exists
+# (e.g. fresh deployment with no ingested data). Endpoints that need the index
+# return a graceful error when it's None.
+try:
+    rag_df, faiss_index = load_rag_index()
+except RAGError:
+    logger.warning("RAG index unavailable — starting without it")
+    rag_df, faiss_index = None, None
 
 
 # Tools (MCP-compatible)
 def retrieve_loan_data(query: str) -> str:
     """RAG retrieval for loan compliance/docs."""
+    if faiss_index is None or rag_df is None:
+        return "RAG index not available — no data has been ingested yet."
     try:
         query_emb = np.array(embedder.encode([query]))
         faiss.normalize_L2(query_emb)
