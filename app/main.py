@@ -5685,7 +5685,9 @@ async def lifespan(app: FastAPI):
     # Cleanup resources if needed
 
 
-app = FastAPI(lifespan=lifespan)
+# Attach lifespan to the existing app (defined at line 329) — do NOT
+# create a second FastAPI() instance, which would discard all routes.
+app.router.lifespan_context = lifespan
 
 
 def signal_handler(signum, frame):

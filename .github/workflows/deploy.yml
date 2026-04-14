@@ -117,6 +117,12 @@ jobs:
               sleep 30
             done
             echo "Health check failed after 5 minutes"
+            echo "========== Container status =========="
+            docker compose -f /opt/apfa-prod/docker-compose.yml ps
+            echo "========== APFA container logs (last 100 lines) =========="
+            docker compose -f /opt/apfa-prod/docker-compose.yml logs --tail=100 apfa
+            echo "========== Redis/Postgres status =========="
+            docker compose -f /opt/apfa-prod/docker-compose.yml ps redis postgres
             exit 1
 
       - name: Notify Telegram — success
