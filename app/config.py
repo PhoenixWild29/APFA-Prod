@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
 
     # AI/ML Models
-    llm_model_name: str = "meta-llama/Llama-3-8b-hf"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
     embedder_model: str = "all-MiniLM-L6-v2"
     delta_table_path: str = "s3://customer-data-lakehouse/customers"
 

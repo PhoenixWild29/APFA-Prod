@@ -51,17 +51,8 @@ from fastapi.security import (
     OAuth2PasswordRequestForm,
 )
 from jose import JWTError, jwt
-# APFA-013.1: langchain 1.x no longer exports AgentExecutor or
-# create_tool_calling_agent from langchain.agents. The 1.x replacement is
-# `create_agent` (returns a compiled langgraph graph requiring a BaseChatModel
-# with bind_tools support). Since HuggingFacePipeline is a BaseLLM (no
-# bind_tools), and retriever_agent only has one tool anyway, the correct fix
-# is to call retrieve_loan_data directly instead of wrapping it in an agent.
-# See APFA-014.x for a proper LangGraph 1.x agent migration if multi-tool
-# reasoning is ever needed in this node. ChatPromptTemplate was only used
-# inside the removed retriever_agent body and is no longer imported.
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import Tool
-from langchain_huggingface import HuggingFacePipeline
 from langgraph.graph import END, StateGraph
 from minio import Minio
 from opentelemetry import trace
@@ -73,7 +64,7 @@ from sentence_transformers import SentenceTransformer
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from tenacity import retry, stop_after_attempt, wait_exponential
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from app.prompts import ANALYZER_SYSTEM_PROMPT, ORCHESTRATOR_SYSTEM_PROMPT
 
 from app.models.user_login import LoginResponse, UserLoginRequest
 
@@ -243,32 +234,9 @@ tools = [
 ]
 
 
-# LLM Setup (Fine-tuned with DeepSpeed/RLHF)
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-def load_llm():
-    """
-    Load the LLM model and tokenizer.
+# LLM — initialized in lifespan after config validation
+llm = None
 
-    Returns:
-        tuple: (model, tokenizer) for the loaded LLM.
-
-    Raises:
-        Exception: For any loading failures.
-    """
-    logger.info("Loading LLM")
-    try:
-        model = AutoModelForCausalLM.from_pretrained(settings.llm_model_name)
-        tokenizer = AutoTokenizer.from_pretrained(settings.llm_model_name)
-        logger.info("LLM loaded successfully")
-        return model, tokenizer
-    except Exception as e:
-        logger.error(f"Error loading LLM: {e}")
-        raise LLMError("Failed to load LLM") from e
-
-
-model, tokenizer = load_llm()
-llm_pipeline = pipeline("text-generation", model=model, tokenizer=tokenizer)
-llm = HuggingFacePipeline(pipeline=llm_pipeline)
 
 # Multi-Agent Graph (LangGraph)
 import typing
@@ -276,53 +244,110 @@ from typing import Any, Dict, List
 
 
 class AgentState(typing.TypedDict):
-    messages: typing.List[str]
+    messages: typing.List[Any]
     query: str
 
 
 @trace.get_tracer(__name__).start_as_current_span("Retriever Agent")
 def retriever_agent(state):
-    # APFA-013.1: LLM reformulation removed; direct tool call.
-    # See APFA-014.x for proper LangGraph 1.x agent wiring if needed.
-    result = retrieve_loan_data(state["query"])
-    return {"messages": state["messages"] + [str(result)]}
+    """Retrieve relevant financial context via RAG/FAISS."""
+    query = state["query"]
+    context = retrieve_loan_data(query)
+
+    augmented_content = (
+        f"Based on the following context, answer the user's question.\n\n"
+        f"Context:\n{context}\n\n"
+        f"User question: {query}"
+    )
+
+    return {"messages": [HumanMessage(content=augmented_content)]}
 
 
 @trace.get_tracer(__name__).start_as_current_span("Analyzer Agent")
 def analyzer_agent(state):
-    messages = state["messages"]
-    response = llm_pipeline(messages[-1], max_new_tokens=200)[0]["generated_text"]
-    return {"messages": messages + [response]}
+    """Analyze the RAG context and produce financial guidance."""
+    from openai import (
+        APIError,
+        APITimeoutError,
+        AuthenticationError,
+        RateLimitError,
+    )
+
+    if llm is None:
+        return {
+            "messages": state["messages"]
+            + [AIMessage(content="LLM unavailable")]
+        }
+
+    try:
+        llm_input = [SystemMessage(content=ANALYZER_SYSTEM_PROMPT)] + state[
+            "messages"
+        ]
+        response = llm.invoke(llm_input)
+        return {"messages": state["messages"] + [response]}
+    except AuthenticationError:
+        logger.error("OpenAI auth failed — check OPENAI_API_KEY")
+        raise HTTPException(503, "LLM service configuration error")
+    except RateLimitError:
+        logger.warning("OpenAI rate limit hit")
+        raise HTTPException(503, "Service temporarily busy, please retry")
+    except APITimeoutError:
+        logger.warning("OpenAI request timed out")
+        raise HTTPException(504, "LLM request timed out")
+    except APIError as e:
+        _clean_err = str(e).replace("\n", " ").replace("\r", " ")[:500]
+        logger.error(f"OpenAI API error: {_clean_err}")
+        raise HTTPException(503, "LLM service temporarily unavailable")
 
 
 @trace.get_tracer(__name__).start_as_current_span("Orchestrator Agent")
 def orchestrator_agent(state):
-    """
-    Orchestrator agent with enhanced bias detection and fairness monitoring.
-    """
+    """Review and refine the analysis for quality and regulatory compliance."""
+    from openai import (
+        APIError,
+        APITimeoutError,
+        AuthenticationError,
+        RateLimitError,
+    )
+
+    if llm is None:
+        return state
+
     messages = state["messages"]
-    combined_text = " ".join(messages)
+
+    # Extract text for bias detection
+    combined_text = " ".join(
+        m.content if hasattr(m, "content") else str(m) for m in messages
+    )
 
     # Detect bias
     bias_score = detect_bias(combined_text)
 
     if bias_score > 0.3:
         logger.warning(
-            f"High bias detected (score: {bias_score:.2f}). Recommendation: {messages[-1]}"
+            f"High bias detected (score: {bias_score:.2f})"
         )
-        # In production, could trigger retraining or human review
         state["bias_detected"] = True
         state["bias_score"] = bias_score
     else:
         state["bias_detected"] = False
         state["bias_score"] = bias_score
 
-    # Simple fairness check based on response diversity
-    response_lengths = [len(msg) for msg in messages]
-    if len(set(response_lengths)) < 2:  # All responses similar length
-        logger.info("Low response diversity detected - consider varying advice styles")
-
-    return state
+    # Orchestrator refines the response
+    try:
+        llm_input = [SystemMessage(content=ORCHESTRATOR_SYSTEM_PROMPT)] + messages
+        response = llm.invoke(llm_input)
+        return {
+            "messages": state["messages"] + [response],
+            "query": state["query"],
+            "bias_detected": state.get("bias_detected", False),
+            "bias_score": state.get("bias_score", 0.0),
+        }
+    except (AuthenticationError, RateLimitError, APITimeoutError, APIError) as e:
+        _clean_err = str(e).replace("\n", " ").replace("\r", " ")[:500]
+        logger.warning(f"Orchestrator LLM call failed: {_clean_err}")
+        # Return state as-is — analyzer output is still valid
+        return state
 
 
 graph = StateGraph(AgentState)
@@ -5406,6 +5431,17 @@ async def generate_advice(
             "knowledge base is not loaded. Please try again shortly.",
         )
 
+    if llm is None:
+        REQUEST_COUNT.labels(
+            method="POST", endpoint="/generate-advice", status="503"
+        ).inc()
+        ACTIVE_REQUESTS.dec()
+        raise HTTPException(
+            status_code=503,
+            detail="Financial advice service temporarily unavailable — "
+            "LLM is not configured. Set OPENAI_API_KEY to enable.",
+        )
+
     try:
         # Billing: Check usage limits
         tier = current_user.get("subscription_tier", "free")
@@ -5728,14 +5764,28 @@ async def lifespan(app: FastAPI):
         logger.warning("RAG index unavailable — RAG endpoints will return errors")
         rag_df, faiss_index = None, None
 
-    # Pre-load models (optional, for faster first request)
-    try:
-        logger.info("Pre-loading models...")
-        global model, tokenizer
-        model, tokenizer = await asyncio.to_thread(load_llm)
-        logger.info("Models pre-loaded successfully")
-    except Exception as e:
-        logger.warning(f"Failed to pre-load models: {e}")
+    # Initialize OpenAI LLM
+    global llm
+    if settings.openai_api_key:
+        try:
+            from langchain_openai import ChatOpenAI
+
+            llm = ChatOpenAI(
+                model=settings.openai_model,
+                api_key=settings.openai_api_key,
+                temperature=0.2,
+                max_tokens=1000,
+                timeout=30.0,
+                max_retries=2,
+            )
+            logger.info(f"LLM initialized: OpenAI {settings.openai_model}")
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI LLM: {e}")
+            llm = None
+    else:
+        logger.warning(
+            "OPENAI_API_KEY not set — /generate-advice will return 503"
+        )
 
     yield
 

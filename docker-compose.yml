@@ -23,6 +23,8 @@ services:
       - DEBUG=${DEBUG:-false}
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-apfa}}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
     working_dir: /opt/apfa
     depends_on:
       redis:
