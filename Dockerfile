@@ -25,7 +25,9 @@ RUN chown -R apfa:apfa /opt/apfa
 USER apfa
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# start-period=180s covers Alembic migrations + ML model pre-loading on
+# cold start. retries=5 gives another 2.5min grace after the start period.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 EXPOSE 8000
