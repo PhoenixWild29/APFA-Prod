@@ -1,6 +1,5 @@
-# APFA-013.5: Prevent large/sensitive files from being included in the Docker
-# build context. The volume mount (.:/opt/apfa) exposes the full repo at
-# runtime, but the built IMAGE should contain only what's needed.
+# Prevent large/sensitive files from being included in the Docker build
+# context. The image should contain only what's needed at runtime.
 .git
 .github
 node_modules

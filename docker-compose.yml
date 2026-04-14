@@ -23,11 +23,7 @@ services:
       - DEBUG=${DEBUG:-false}
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-apfa}}
-    # APFA-013.5: mount repo root so `from app.X import Y` resolves
-    # (app/ is a subdirectory with __init__.py, WORKDIR=/opt/apfa)
     working_dir: /opt/apfa
-    volumes:
-      - .:/opt/apfa
     depends_on:
       - redis
       - postgres
