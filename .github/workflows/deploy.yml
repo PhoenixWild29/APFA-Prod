@@ -98,7 +98,7 @@ jobs:
       # Checks localhost:8000/health which hits the uvicorn FastAPI endpoint
       # directly, proving the container is alive and responding.
       # TODO: Replace with https://apfa.secureai.dev/health after DNS + SSL (APFA-014)
-      - name: Health check
+      - if: steps.diff.outputs.backend == 'true'\n        name: Health check
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DROPLET_IP }}
