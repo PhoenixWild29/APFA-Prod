@@ -38,7 +38,7 @@ jobs:
       - name: Detect changed file types
         id: diff
         run: |
-          git diff --name-only HEAD~1 HEAD 2>/dev/null > /tmp/changed.txt || git show --name-only --format="" HEAD > /tmp/changed.txt
+          # Detect changed files correctly for merge commits (git diff HEAD~1 misses changes from second parent)\n          git diff --name-only HEAD~1 HEAD > /tmp/p1.txt 2>/dev/null || true\n          if git rev-parse HEAD~2 > /dev/null 2>&1; then\n            git diff --name-only HEAD~2 HEAD > /tmp/p2.txt 2>/dev/null || true\n            cat /tmp/p1.txt /tmp/p2.txt | sort -u > /tmp/changed.txt\n          else\n            cat /tmp/p1.txt > /tmp/changed.txt 2>/dev/null || git show --name-only --format="" HEAD > /tmp/changed.txt\n          fi
           echo "Changed files:"
           cat /tmp/changed.txt
 
