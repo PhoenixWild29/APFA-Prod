@@ -1,7 +1,9 @@
 FROM python:3.11-slim as base
 
-# Security: Create non-root user
-RUN groupadd -r apfa && useradd -r -g apfa apfa
+# Security: Create non-root user with home directory (-m) for HuggingFace
+# model cache. Without -m, useradd -r skips home dir creation and
+# sentence-transformers crashes with PermissionError on /home/apfa.
+RUN groupadd -r apfa && useradd -r -g apfa -m apfa
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
