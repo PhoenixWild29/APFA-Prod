@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # AI/ML Models
     llm_model_name: str = "meta-llama/Llama-3-8b-hf"
     embedder_model: str = "all-MiniLM-L6-v2"
-    delta_table_path: str = "s3a://customer-data-lakehouse/customers"
+    delta_table_path: str = "s3://customer-data-lakehouse/customers"
 
     # Logging
     log_level: str = "INFO"
