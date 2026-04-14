@@ -1,6 +1,9 @@
 langchain==1.2.12
 langchain-core==1.2.19
-langchain-huggingface>=0.1.0
+# langchain-huggingface removed — local HuggingFace LLM replaced with
+# OpenAI API via langchain-openai. sentence-transformers (embedder) is
+# a separate dependency and does not need langchain-huggingface.
+langchain-openai>=0.3.0
 # langgraph 1.1.2 was broken — its internal tool_node.py imports ExecutionInfo
 # and ServerInfo from langgraph.runtime, but runtime.py in 1.1.2 does not define
 # those symbols. Confirmed via wheel inspection: they exist in 1.1.6's runtime.py.
@@ -18,7 +21,7 @@ langgraph-prebuilt==1.0.9
 # with the above pins on 2026-04-10.
 langgraph-checkpoint==4.0.1
 langgraph-sdk==0.3.13
-pyautogen==0.2.7
+# pyautogen removed — not referenced anywhere in codebase
 transformers==5.5.3
 sentence-transformers==5.3.0
 faiss-cpu>=1.7.4
