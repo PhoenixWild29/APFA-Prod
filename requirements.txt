@@ -36,6 +36,10 @@ fastapi==0.135.3
 # stable, verified compatible with pydantic==2.12.5 which is resolved
 # transitively via fastapi).
 pydantic-settings==2.13.1
+# APFA-013.6: EmailStr (used in user_registration.py and user_profile.py)
+# requires email-validator at runtime. Pydantic 2.x no longer bundles it —
+# it must be installed explicitly or via pydantic[email].
+email-validator>=2.0
 uvicorn==0.44.0
 aif360==0.6.1
 opentelemetry-api==1.40.0
