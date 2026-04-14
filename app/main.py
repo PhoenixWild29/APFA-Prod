@@ -175,7 +175,12 @@ def load_rag_index():
     """
     logger.info("Loading RAG index")
     try:
-        dt = DeltaTable(settings.delta_table_path)
+        from app.storage import get_delta_storage_options
+
+        dt = DeltaTable(
+            settings.delta_table_path,
+            storage_options=get_delta_storage_options(),
+        )
         df = dt.to_pandas()
         if df.empty or "profile" not in df.columns:
             raise ValueError(
@@ -192,14 +197,9 @@ def load_rag_index():
         raise RAGError("Failed to load RAG index") from e
 
 
-# RAG index is optional — the app should start even if no DeltaTable exists
-# (e.g. fresh deployment with no ingested data). Endpoints that need the index
-# return a graceful error when it's None.
-try:
-    rag_df, faiss_index = load_rag_index()
-except RAGError:
-    logger.warning("RAG index unavailable — starting without it")
-    rag_df, faiss_index = None, None
+# RAG index is loaded in lifespan() after seeding — initialized as None here.
+# Endpoints check for None and return a graceful error if unavailable.
+rag_df, faiss_index = None, None
 
 
 # Tools (MCP-compatible)
@@ -5395,6 +5395,17 @@ async def generate_advice(
         ACTIVE_REQUESTS.dec()
         raise HTTPException(status_code=401, detail="Invalid API key")
 
+    if faiss_index is None or rag_df is None:
+        REQUEST_COUNT.labels(
+            method="POST", endpoint="/generate-advice", status="503"
+        ).inc()
+        ACTIVE_REQUESTS.dec()
+        raise HTTPException(
+            status_code=503,
+            detail="Financial advice service temporarily unavailable — "
+            "knowledge base is not loaded. Please try again shortly.",
+        )
+
     try:
         # Billing: Check usage limits
         tier = current_user.get("subscription_tier", "free")
@@ -5675,6 +5686,47 @@ async def lifespan(app: FastAPI):
 
     # Initialize Redis
     await init_redis()
+
+    # Seed RAG data if MinIO bucket / DeltaTable don't exist
+    try:
+        _mc = Minio(
+            settings.minio_endpoint,
+            access_key=settings.minio_access_key,
+            secret_key=settings.minio_secret_key,
+            secure=False,
+        )
+        _need_seed = not _mc.bucket_exists("customer-data-lakehouse")
+        if not _need_seed:
+            try:
+                from app.storage import get_delta_storage_options
+
+                _dt = DeltaTable(
+                    settings.delta_table_path,
+                    storage_options=get_delta_storage_options(),
+                )
+                logger.info(
+                    f"DeltaTable exists with {len(_dt.to_pandas())} rows"
+                )
+            except Exception:
+                _need_seed = True
+
+        if _need_seed:
+            logger.info("RAG data missing — running seed...")
+            from app.seed.rag_data import seed_rag_data
+
+            seed_rag_data()
+            logger.info("RAG seed complete")
+    except Exception as e:
+        logger.warning(f"RAG seed failed (non-fatal): {e}")
+
+    # Load RAG index (after seed ensures data exists)
+    global rag_df, faiss_index
+    try:
+        rag_df, faiss_index = load_rag_index()
+        logger.info("RAG index loaded successfully in lifespan")
+    except RAGError:
+        logger.warning("RAG index unavailable — RAG endpoints will return errors")
+        rag_df, faiss_index = None, None
 
     # Pre-load models (optional, for faster first request)
     try:
