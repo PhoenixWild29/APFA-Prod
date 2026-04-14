@@ -53,7 +53,7 @@ from fastapi.security import (
 from jose import JWTError, jwt
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import Tool
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 from minio import Minio
 from opentelemetry import trace
 from passlib.context import CryptContext
@@ -354,6 +354,7 @@ graph = StateGraph(AgentState)
 graph.add_node("retriever", retriever_agent)
 graph.add_node("analyzer", analyzer_agent)
 graph.add_node("orchestrator", orchestrator_agent)
+graph.add_edge(START, "retriever")
 graph.add_edge("retriever", "analyzer")
 graph.add_edge("analyzer", "orchestrator")
 graph.add_edge("orchestrator", END)
