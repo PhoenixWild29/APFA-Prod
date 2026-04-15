@@ -5380,6 +5380,7 @@ async def rate_limit_middleware(request: Request, call_next):
 @app.post("/generate-advice", response_model=OptimizedAdviceResponse)
 @limiter.limit("10/minute")
 async def generate_advice(
+    request: Request,
     q: LoanQuery,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
