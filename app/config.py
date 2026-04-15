@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # API Security
     api_key: str
+    bcrypt_rounds: int = 12
 
     # JWT Authentication
     jwt_secret: str = "your-secret-key-change-in-production"
