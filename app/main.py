@@ -376,7 +376,11 @@ app.add_middleware(
 # CSRF Protection Middleware
 from app.middleware.csrf_middleware import CSRFMiddleware
 
-app.add_middleware(CSRFMiddleware, secret_key=settings.csrf_secret)
+app.add_middleware(
+    CSRFMiddleware,
+    secret_key=settings.csrf_secret,
+    cookie_secure=settings.cookie_secure,
+)
 
 
 # Security Headers Middleware
