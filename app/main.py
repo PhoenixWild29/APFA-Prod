@@ -56,7 +56,8 @@ from langchain_core.tools import Tool
 from langgraph.graph import END, START, StateGraph
 from minio import Minio
 from opentelemetry import trace
-from passlib.context import CryptContext
+import bcrypt as _bcrypt
+import unicodedata
 from profanity_check import predict_prob
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
 from pydantic import BaseModel, Field, field_validator
@@ -471,7 +472,7 @@ class LoanQuery(BaseModel):
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+BCRYPT_ROUNDS = settings.bcrypt_rounds
 cache = TTLCache(maxsize=100, ttl=300)
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -500,10 +501,49 @@ TOKEN_REFRESH = Counter("apfa_token_refresh_total", "Token refresh operations")
 # Admin seeding happens in the lifespan startup handler below.
 
 
-# Authentication and Authorization
-def verify_password(plain_password, hashed_password):
-    """Verify a password against its hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+# Password hashing — direct bcrypt (passlib removed, abandoned since 2019)
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt with NFKC normalization."""
+    normalized = unicodedata.normalize("NFKC", password)
+    encoded = normalized.encode("utf-8")
+    if len(encoded) > 72:
+        raise ValueError(
+            f"Password exceeds bcrypt's 72-byte limit "
+            f"({len(encoded)} bytes after UTF-8 encoding)"
+        )
+    return _bcrypt.hashpw(encoded, _bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("utf-8")
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its bcrypt hash.
+
+    Dispatches by hash prefix for future algorithm migration (e.g. argon2id).
+    Returns False on oversized input or malformed hashes — never raises.
+    """
+    normalized = unicodedata.normalize("NFKC", plain_password)
+    encoded = normalized.encode("utf-8")
+
+    if hashed_password.startswith(("$2a$", "$2b$", "$2y$")):
+        if len(encoded) > 72:
+            return False
+        try:
+            return _bcrypt.checkpw(encoded, hashed_password.encode("utf-8"))
+        except (ValueError, TypeError):
+            return False
+    # Future: elif hashed_password.startswith("$argon2"): ...
+    return False
+
+
+def needs_rehash(hashed_password: str) -> bool:
+    """Check if a stored hash uses fewer rounds than current BCRYPT_ROUNDS."""
+    try:
+        parts = hashed_password.split("$")
+        if len(parts) < 4:
+            return True
+        stored_rounds = int(parts[2])
+        return stored_rounds < BCRYPT_ROUNDS
+    except (ValueError, IndexError):
+        return True
 
 
 def get_user(username: str, db: Session = None):
@@ -543,6 +583,20 @@ def authenticate_user(username: str, password: str):
         return False
     if not verify_password(password, user["hashed_password"]):
         return False
+
+    # Silently upgrade hash if cost factor has increased
+    if needs_rehash(user["hashed_password"]):
+        try:
+            db = SessionLocal()
+            db_user = db.query(User).filter(User.username == username).first()
+            if db_user:
+                db_user.hashed_password = hash_password(password)
+                db.commit()
+                logger.info(f"Rehashed password for user (upgraded bcrypt rounds)")
+        except Exception as e:
+            logger.warning(f"Failed to rehash password: {e}")
+        finally:
+            db.close()
 
     # Check if user email is verified (unless admin)
     if not user.get("verified", False) and user.get("role") != "admin":
@@ -1292,7 +1346,7 @@ async def register_user(
             )
 
         # Hash password securely
-        hashed_password = pwd_context.hash(request.password)
+        hashed_password = hash_password(request.password)
 
         # Generate user ID
         user_id = f"user_{sanitized_username}"
@@ -5670,7 +5724,7 @@ async def lifespan(app: FastAPI):
                     id="user_admin",
                     username="admin",
                     email="admin@apfa.io",
-                    hashed_password=pwd_context.hash("admin123"),
+                    hashed_password=hash_password("admin123"),
                     disabled=False,
                     role="admin",
                     permissions=[
