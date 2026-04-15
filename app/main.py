@@ -5658,31 +5658,9 @@ async def lifespan(app: FastAPI):
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
 
-    # APFA-013: Run Alembic migrations and seed admin user
+    # Alembic migrations now run in entrypoint.sh before uvicorn starts.
+    # Seed admin user if the users table is empty
     try:
-        logger.info("Running Alembic migrations (alembic upgrade head)...")
-        from alembic import command as alembic_command
-        from alembic.config import Config as AlembicConfig
-
-        # alembic.ini lives alongside main.py (inside app/ in the repo,
-        # at /app/alembic.ini inside the docker container since the
-        # docker-compose volume mounts ./app -> /app). The %(here)s token
-        # in alembic.ini then correctly resolves script_location.
-        alembic_ini_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "alembic.ini",
-        )
-        if not os.path.isfile(alembic_ini_path):
-            raise RuntimeError(
-                f"alembic.ini not found at {alembic_ini_path} — "
-                f"cannot run database migrations"
-            )
-        alembic_cfg = AlembicConfig(alembic_ini_path)
-        alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
-        alembic_command.upgrade(alembic_cfg, "head")
-        logger.info("Alembic migrations complete")
-
-        # Seed admin user if the users table is empty
         _seed_db = SessionLocal()
         try:
             user_count = _seed_db.query(User).count()

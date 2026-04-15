@@ -32,6 +32,7 @@ engine = create_engine(
     max_overflow=20,
     pool_recycle=3600,
     pool_pre_ping=True,
+    connect_args={"connect_timeout": 10},
 )
 
 # SessionLocal: per-request session factory. Each HTTP request gets its own

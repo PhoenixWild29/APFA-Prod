@@ -19,8 +19,9 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 RUN chown -R apfa:apfa /usr/local/lib/python3.11 /usr/local/bin
 
-# Copy application code — preserves the app/ package directory structure
+# Copy application code and entrypoint
 COPY app/ ./app/
+COPY entrypoint.sh ./entrypoint.sh
 
 # Change ownership to non-root user
 RUN chown -R apfa:apfa /opt/apfa
@@ -34,5 +35,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=5 \
 
 EXPOSE 8000
 
-# APFA-013.5: uvicorn imports app.main as a package-qualified module
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Entrypoint runs Alembic migrations before starting uvicorn.
+# Migrations run once, synchronously, outside the async event loop.
+# If migration fails, container exits before uvicorn starts.
+CMD ["/opt/apfa/entrypoint.sh"]
