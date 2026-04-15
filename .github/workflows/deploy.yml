@@ -86,7 +86,8 @@ jobs:
             if [ "$BACKEND" = "true" ]; then
               echo "Rebuilding backend container..."
               docker compose up -d --build apfa
-              docker compose exec -T apfa alembic -c app/alembic.ini upgrade head || echo "::warning::alembic upgrade head FAILED — investigate"
+              # Alembic migrations now run automatically via entrypoint.sh
+              # before uvicorn starts — no separate exec needed.
             fi
 
             if [ -n "$MIGRATION" ]; then
