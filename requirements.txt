@@ -26,6 +26,9 @@ transformers==5.5.3
 sentence-transformers==5.3.0
 faiss-cpu>=1.7.4
 deltalake==1.5.0
+# pyarrow is required by deltalake.write_deltalake() to serialize pandas
+# DataFrames through the Arrow format. Not a transitive dep — must be explicit.
+pyarrow>=14.0
 boto3==1.42.87
 minio==7.2.20
 fastapi==0.135.3
