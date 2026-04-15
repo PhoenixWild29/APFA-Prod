@@ -3837,9 +3837,13 @@ from app.schemas.query_analysis import QueryAnalysisResponse
 from app.services.query_analysis_service import analyze_query_comprehensive
 
 
+class QueryAnalyzeRequest(BaseModel):
+    query: str = Field(..., min_length=10, max_length=1000)
+
+
 @app.post("/query/analyze", response_model=QueryAnalysisResponse)
 async def analyze_query_endpoint(
-    query: str = Field(..., min_length=10, max_length=1000)
+    request: QueryAnalyzeRequest
 ):
     """
     Comprehensive query analysis with linguistic processing.
@@ -3908,7 +3912,7 @@ async def analyze_query_endpoint(
     """
     try:
         # Perform comprehensive analysis
-        analysis_result = analyze_query_comprehensive(query)
+        analysis_result = analyze_query_comprehensive(request.query)
 
         return QueryAnalysisResponse(**analysis_result)
 

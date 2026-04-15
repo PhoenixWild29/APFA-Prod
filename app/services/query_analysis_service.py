@@ -125,7 +125,7 @@ def extract_financial_entities(query: str) -> List[Dict[str, Any]]:
         )
 
     # Percentages
-    for match in re.finditer(r"(\d+\.?\d*)\s*%", query):
+    for match in re.finditer(r"(\d{1,6}(?:\.\d{1,2})?)\s*%", query):
         entities.append(
             {
                 "entity_type": "percentage",
@@ -137,7 +137,7 @@ def extract_financial_entities(query: str) -> List[Dict[str, Any]]:
         )
 
     # Time periods
-    for match in re.finditer(r"(\d+)\s*(year|month|day)s?", query, re.IGNORECASE):
+    for match in re.finditer(r"(\d{1,4})\s*(year|month|day)s?", query, re.IGNORECASE):
         entities.append(
             {
                 "entity_type": "time_period",
