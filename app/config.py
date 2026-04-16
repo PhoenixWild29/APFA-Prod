@@ -46,7 +46,8 @@ class Settings(BaseSettings):
 
     # Cookie Configuration
     cookie_domain: str = "localhost"
-    cookie_secure: bool = False  # Set to True in production with HTTPS
+    # Defaults True (production-safe). Override to False in dev .env over HTTP.
+    cookie_secure: bool = True
     cookie_samesite: str = "strict"  # strict, lax, or none
 
     # AWS Cognito (for future migration)
