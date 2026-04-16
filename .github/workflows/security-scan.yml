@@ -1,5 +1,10 @@
 name: Security Scanning
 
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
 on:
   push:
     branches: [main, develop]
@@ -164,31 +169,13 @@ jobs:
           sarif_file: 'trivy-results.sarif'
         continue-on-error: true
   
-  # ============================================================================
-  # OWASP DEPENDENCY CHECK
-  # ============================================================================
-  owasp-check:
-    name: OWASP Dependency Check
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Run OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          project: 'APFA'
-          path: '.'
-          format: 'HTML'
-          args: >
-            --enableRetired
-            --enableExperimental
-      
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-check-report
-          path: reports/
-        continue-on-error: true
+  # OWASP Dependency Check REMOVED — redundant with existing scanners:
+  #   - Safety (Python deps) in dependency-scan job above
+  #   - npm audit (JS deps) in dependency-scan job above
+  #   - Trivy (container vulnerabilities) in ci.yml
+  #   - CodeQL (code analysis) in ci.yml
+  # The OWASP DC Action (dependency-check/Dependency-Check_Action@main)
+  # was pinned to @main (unstable), used Node.js 20 (deprecated), and
+  # downloaded a ~1GB vulnerability database on every run. It produced
+  # zero actionable findings beyond what the other scanners already catch.
 

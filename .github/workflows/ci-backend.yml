@@ -44,17 +44,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # TEMPORARILY NON-BLOCKING. Main currently has three known-broken
-      # imports (langchain.agents AgentExecutor removed in 1.x,
-      # profanity_check broken against modern sklearn, tenacity.circuit_breaker
-      # non-existent symbol). Making this job blocking before they are fixed
-      # would prevent merging the fixes themselves. Flip to blocking (remove
-      # `continue-on-error`) once the first successful container start has
-      # been verified in production — that's the signal that all import-time
-      # bugs are cleared and the baseline is clean enough to enforce.
+      # BLOCKING: All import-time bugs are resolved (bugs #1-18) and the
+      # container has successfully booted in production. Any future import
+      # regression will fail CI and block the PR.
       - name: Verify every top-level import in app/main.py resolves
         run: python scripts/check_imports.py
-        continue-on-error: true
 
   test:
     name: Run Backend Tests
