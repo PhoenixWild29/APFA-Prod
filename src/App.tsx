@@ -18,6 +18,7 @@ const AuthPage = lazy(() => import('@/auth/pages/AuthPage'));
 
 // --- App pages ---
 const AdvisorPage = lazy(() => import('@/features/advisor/AdvisorPage'));
+const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'));
 const Home = lazy(() => import('@/pages/Home'));
 const DocumentSearchPage = lazy(() => import('@/pages/DocumentSearchPage'));
 const UploadPage = lazy(() => import('@/pages/UploadPage'));
@@ -74,7 +75,7 @@ function App() {
             <Route path="/app" element={<Navigate to="/app/advisor" replace />} />
             <Route path="/app/advisor" element={<AdvisorPage />} />
             <Route path="/app/advisor/c/:conversationId" element={<AdvisorPage />} />
-            <Route path="/app/dashboard" element={<Home />} />
+            <Route path="/app/dashboard" element={<DashboardPage />} />
             <Route path="/app/calculators" element={<div className="p-8">Calculators index — Phase 2</div>} />
             <Route path="/app/calculators/:tool" element={<div className="p-8">Calculator tool — Phase 2</div>} />
             <Route path="/app/documents" element={<DocumentSearchPage />} />
