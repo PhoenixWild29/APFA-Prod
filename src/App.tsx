@@ -19,18 +19,17 @@ const AuthPage = lazy(() => import('@/auth/pages/AuthPage'));
 // --- App pages ---
 const AdvisorPage = lazy(() => import('@/features/advisor/AdvisorPage'));
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'));
-const Home = lazy(() => import('@/pages/Home'));
 const DocumentsPage = lazy(() => import('@/features/documents/DocumentsPage'));
 const DocumentDetailPage = lazy(() => import('@/features/documents/DocumentDetailPage'));
-const NewUploadPage = lazy(() => import('@/features/documents/UploadPage'));
+const UploadPage = lazy(() => import('@/features/documents/UploadPage'));
+const InsightsPage = lazy(() => import('@/features/insights/InsightsPage'));
+const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
 
 // --- Admin pages ---
-const KnowledgeBaseDashboard = lazy(
-  () => import('@/pages/admin/KnowledgeBaseDashboard')
-);
-const SystemMonitoringDashboard = lazy(
-  () => import('@/pages/admin/SystemMonitoringDashboard')
-);
+const AdminMonitoringPage = lazy(() => import('@/features/admin/AdminMonitoringPage'));
+const AdminKnowledgeBasePage = lazy(() => import('@/features/admin/AdminKnowledgeBasePage'));
+const AdminUsersPage = lazy(() => import('@/features/admin/AdminUsersPage'));
+const AdminAuditPage = lazy(() => import('@/features/admin/AdminAuditPage'));
 
 function PageLoader() {
   return (
@@ -77,13 +76,13 @@ function App() {
             <Route path="/app/advisor" element={<AdvisorPage />} />
             <Route path="/app/advisor/c/:conversationId" element={<AdvisorPage />} />
             <Route path="/app/dashboard" element={<DashboardPage />} />
-            <Route path="/app/calculators" element={<div className="p-8">Calculators index — Phase 2</div>} />
-            <Route path="/app/calculators/:tool" element={<div className="p-8">Calculator tool — Phase 2</div>} />
+            <Route path="/app/calculators" element={<div className="p-8"><h1 className="font-serif text-2xl font-semibold">Calculators</h1><p className="mt-2 text-muted-foreground">DTI, loan comparison, and affordability calculators coming soon.</p></div>} />
+            <Route path="/app/calculators/:tool" element={<div className="p-8">Calculator tool — coming soon</div>} />
             <Route path="/app/documents" element={<DocumentsPage />} />
-            <Route path="/app/documents/upload" element={<NewUploadPage />} />
+            <Route path="/app/documents/upload" element={<UploadPage />} />
             <Route path="/app/documents/:documentId" element={<DocumentDetailPage />} />
-            <Route path="/app/insights" element={<div className="p-8">Insights — Phase 3</div>} />
-            <Route path="/app/settings" element={<div className="p-8">Settings — Phase 3</div>} />
+            <Route path="/app/insights" element={<InsightsPage />} />
+            <Route path="/app/settings" element={<SettingsPage />} />
           </Route>
 
           {/* ── Admin zone (role = admin) ── */}
@@ -97,10 +96,10 @@ function App() {
             }
           >
             <Route path="/admin" element={<Navigate to="/admin/monitoring" replace />} />
-            <Route path="/admin/monitoring" element={<SystemMonitoringDashboard />} />
-            <Route path="/admin/knowledge-base" element={<KnowledgeBaseDashboard />} />
-            <Route path="/admin/users" element={<div className="p-8">User management — Phase 4</div>} />
-            <Route path="/admin/audit" element={<div className="p-8">Audit log — Phase 4</div>} />
+            <Route path="/admin/monitoring" element={<AdminMonitoringPage />} />
+            <Route path="/admin/knowledge-base" element={<AdminKnowledgeBasePage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/audit" element={<AdminAuditPage />} />
           </Route>
 
           {/* Catch-all */}
