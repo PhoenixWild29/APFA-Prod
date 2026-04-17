@@ -49,8 +49,11 @@ export default defineConfig({
           if (id.includes('@tanstack/react-query')) {
             return 'query-vendor';
           }
-          if (id.includes('@radix-ui/react-slot') || id.includes('lucide-react')) {
+          if (id.includes('lucide-react')) {
             return 'ui-vendor';
+          }
+          if (id.includes('recharts') || id.includes('d3-')) {
+            return 'chart-vendor';
           }
         },
       },
