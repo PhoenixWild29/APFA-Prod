@@ -2,7 +2,7 @@ langchain==1.2.12
 langchain-core==1.2.19
 # langchain-huggingface removed — local HuggingFace LLM replaced with
 # OpenAI API via langchain-openai. sentence-transformers (embedder) is
-# a separate dependency and does not need langchain-huggingface.
+# replaced by fastembed (ONNX backend, no torch dependency).
 langchain-openai>=0.3.0
 # langgraph 1.1.2 was broken — its internal tool_node.py imports ExecutionInfo
 # and ServerInfo from langgraph.runtime, but runtime.py in 1.1.2 does not define
@@ -21,9 +21,10 @@ langgraph-prebuilt==1.0.9
 # with the above pins on 2026-04-10.
 langgraph-checkpoint==4.0.1
 langgraph-sdk==0.3.13
-# pyautogen removed — not referenced anywhere in codebase
-transformers==5.5.3
-sentence-transformers==5.3.0
+# Embedding: fastembed uses ONNX runtime (~150MB) instead of torch (~2.2GB+CUDA).
+# Drops Docker image from ~10GB to ~3.5GB. bge-small-en-v1.5 is 384-dim like
+# the previous all-MiniLM-L6-v2 — no validator changes needed.
+fastembed>=0.4.0
 faiss-cpu>=1.7.4
 deltalake==1.5.0
 # pyarrow is required by deltalake.write_deltalake() to serialize pandas
@@ -33,29 +34,13 @@ boto3==1.42.87
 minio==7.2.20
 fastapi==0.135.3
 python-multipart>=0.0.9
-# APFA-013.4: bug #7 in the "APFA has never started" chain. app/config.py:3
-# imports `from pydantic_settings import BaseSettings` — this package was
-# split out of pydantic in v2 (BaseSettings moved from pydantic.BaseSettings
-# to its own package `pydantic-settings`). It was never added to
-# requirements.txt when the codebase migrated to pydantic 2.x. The container
-# crashed on this at import time in run #99 of the auto-deploy workflow,
-# immediately after bugs #1-6 were resolved. Pinned to 2.13.1 (latest
-# stable, verified compatible with pydantic==2.12.5 which is resolved
-# transitively via fastapi).
 pydantic-settings==2.13.1
-# APFA-013.6: EmailStr (used in user_registration.py and user_profile.py)
-# requires email-validator at runtime. Pydantic 2.x no longer bundles it —
-# it must be installed explicitly or via pydantic[email].
 email-validator>=2.0
 uvicorn==0.44.0
-aif360==0.6.1
 opentelemetry-api==1.40.0
 opentelemetry-sdk==1.40.0
 opentelemetry-exporter-otlp==1.40.0
 python-dotenv==1.0.1
-pytest==9.0.3
-mypy==1.20.0
-black==26.3.1
 tenacity==8.2.3
 cachetools==7.0.5
 slowapi
@@ -65,14 +50,6 @@ python-jose[cryptography]==3.5.0
 bcrypt>=4.1,<5.0
 textblob==0.20.0
 aiohttp==3.13.5
-# APFA-013.2: profanity-check==1.0.3 is abandoned (last release 2019) and
-# fundamentally broken on Python 3.11 — it imports `joblib` from
-# `sklearn.externals`, which sklearn removed in 0.23. `alt-profanity-check` is
-# the canonical community fork: same top-level package name (`profanity_check`),
-# same `predict_prob`/`predict` API, same linear SVM on the same training data.
-# Import lines at app/main.py:62 and app/services/query_validation_service.py:15
-# remain byte-identical — this is a pure requirements.txt change with zero
-# code edits.
 alt-profanity-check==1.8.0
 celery==5.6.2
 redis==7.4.0
