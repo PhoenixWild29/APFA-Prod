@@ -20,8 +20,9 @@ const AuthPage = lazy(() => import('@/auth/pages/AuthPage'));
 const AdvisorPage = lazy(() => import('@/features/advisor/AdvisorPage'));
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'));
 const Home = lazy(() => import('@/pages/Home'));
-const DocumentSearchPage = lazy(() => import('@/pages/DocumentSearchPage'));
-const UploadPage = lazy(() => import('@/pages/UploadPage'));
+const DocumentsPage = lazy(() => import('@/features/documents/DocumentsPage'));
+const DocumentDetailPage = lazy(() => import('@/features/documents/DocumentDetailPage'));
+const NewUploadPage = lazy(() => import('@/features/documents/UploadPage'));
 
 // --- Admin pages ---
 const KnowledgeBaseDashboard = lazy(
@@ -78,8 +79,9 @@ function App() {
             <Route path="/app/dashboard" element={<DashboardPage />} />
             <Route path="/app/calculators" element={<div className="p-8">Calculators index — Phase 2</div>} />
             <Route path="/app/calculators/:tool" element={<div className="p-8">Calculator tool — Phase 2</div>} />
-            <Route path="/app/documents" element={<DocumentSearchPage />} />
-            <Route path="/app/documents/upload" element={<UploadPage />} />
+            <Route path="/app/documents" element={<DocumentsPage />} />
+            <Route path="/app/documents/upload" element={<NewUploadPage />} />
+            <Route path="/app/documents/:documentId" element={<DocumentDetailPage />} />
             <Route path="/app/insights" element={<div className="p-8">Insights — Phase 3</div>} />
             <Route path="/app/settings" element={<div className="p-8">Settings — Phase 3</div>} />
           </Route>
