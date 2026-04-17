@@ -101,7 +101,7 @@ export default function LoginForm({
         if (onSuccess) {
           onSuccess();
         } else {
-          navigate('/');
+          navigate('/app/advisor');
         }
       },
       onError: (error: any) => {

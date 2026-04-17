@@ -4,48 +4,86 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* APFA Light Mode — ink-50 bg, ink-900 text, teal-700 primary, gold-500 accent */
+    --background: 150 3% 97%;          /* ink-50  #F7F8F8 */
+    --foreground: 180 14% 6%;          /* ink-900 #0D1111 */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 180 14% 6%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --popover-foreground: 180 14% 6%;
+    --primary: 177 68% 18%;            /* teal-700 #0F4F4B */
+    --primary-foreground: 150 3% 97%;  /* ink-50 */
+    --secondary: 150 3% 93%;           /* ink-100 #EDEFEF */
+    --secondary-foreground: 180 8% 15%;/* ink-700 */
+    --muted: 150 3% 93%;
+    --muted-foreground: 180 5% 36%;    /* ink-500 */
+    --accent: 150 3% 93%;
+    --accent-foreground: 180 8% 15%;
+    --destructive: 3 62% 56%;          /* neg #D94A45 */
+    --destructive-foreground: 150 3% 97%;
+    --border: 160 3% 86%;              /* ink-200 #D7DBDB */
+    --input: 160 3% 86%;
+    --ring: 175 63% 33%;               /* teal-500 #1D8A84 */
     --radius: 0.5rem;
+
+    /* Chart categorical */
+    --chart-1: 175 63% 33%;            /* teal-500 */
+    --chart-2: 40 68% 47%;             /* gold-500 */
+    --chart-3: 263 37% 55%;            /* violet */
+    --chart-4: 3 62% 56%;              /* red */
+    --chart-5: 155 71% 36%;            /* green */
+    --chart-6: 27 79% 52%;             /* amber */
+
+    /* Sidebar (light) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 180 8% 15%;
+    --sidebar-primary: 177 68% 18%;
+    --sidebar-primary-foreground: 150 3% 97%;
+    --sidebar-accent: 150 3% 93%;
+    --sidebar-accent-foreground: 180 8% 15%;
+    --sidebar-border: 160 3% 86%;
+    --sidebar-ring: 175 63% 33%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* APFA Dark Mode — ink-800 bg, ink-50 text, teal-500 primary */
+    --background: 180 10% 10%;         /* ink-800 #161B1B */
+    --foreground: 150 3% 97%;          /* ink-50  #F7F8F8 */
+    --card: 180 8% 15%;                /* ink-700 #242B2B */
+    --card-foreground: 150 3% 97%;
+    --popover: 180 8% 15%;
+    --popover-foreground: 150 3% 97%;
+    --primary: 175 63% 33%;            /* teal-500 #1D8A84 */
+    --primary-foreground: 180 14% 6%;
+    --secondary: 180 8% 15%;
+    --secondary-foreground: 150 3% 97%;
+    --muted: 180 8% 15%;
+    --muted-foreground: 180 5% 53%;    /* ink-400 */
+    --accent: 180 8% 15%;
+    --accent-foreground: 150 3% 97%;
+    --destructive: 3 62% 56%;
+    --destructive-foreground: 150 3% 97%;
+    --border: 180 7% 25%;              /* ink-600 */
+    --input: 180 7% 25%;
+    --ring: 175 63% 33%;
+
+    /* Chart categorical (brighter for dark bg) */
+    --chart-1: 175 63% 40%;
+    --chart-2: 40 68% 55%;
+    --chart-3: 263 37% 62%;
+    --chart-4: 3 62% 60%;
+    --chart-5: 155 71% 44%;
+    --chart-6: 27 79% 58%;
+
+    /* Sidebar (dark) */
+    --sidebar-background: 180 14% 6%;
+    --sidebar-foreground: 150 3% 97%;
+    --sidebar-primary: 175 63% 33%;
+    --sidebar-primary-foreground: 180 14% 6%;
+    --sidebar-accent: 180 8% 15%;
+    --sidebar-accent-foreground: 150 3% 97%;
+    --sidebar-border: 180 7% 25%;
+    --sidebar-ring: 175 63% 33%;
   }
 }
 
@@ -54,44 +92,21 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-/* Mobile-first responsive design foundation */
-@media (min-width: 320px) {
-  html {
-    font-size: 14px;
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
-
-@media (min-width: 640px) {
-  html {
-    font-size: 15px;
-  }
-}
-
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-@media (min-width: 1024px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-@media (min-width: 1280px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-@media (min-width: 1536px) {
-  html {
-    font-size: 18px;
-  }
-}
-
