@@ -1,109 +1,121 @@
-import { Routes, Route, Link } from 'react-router-dom';
+import { lazy, Suspense, useState } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import Home from '@/pages/Home';
-import About from '@/pages/About';
-import Contact from '@/pages/Contact';
-import UploadPage from '@/pages/UploadPage';
-import DocumentSearchPage from '@/pages/DocumentSearchPage';
-import KnowledgeBaseDashboard from '@/pages/admin/KnowledgeBaseDashboard';
-import AuthPage from '@/auth/pages/AuthPage';
-import { Button } from '@/components/ui/button';
-import { getAccessToken } from '@/config/auth';
+import PublicLayout from '@/components/layout/PublicLayout';
+import AppLayout from '@/components/layout/AppLayout';
+import AdminLayout from '@/components/layout/AdminLayout';
+import ProtectedRoute from '@/routes/ProtectedRoute';
+import RoleRoute from '@/routes/RoleRoute';
+import RedirectIfAuth from '@/routes/RedirectIfAuth';
+import CommandPalette from '@/components/CommandPalette';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// --- Public pages ---
+const Landing = lazy(() => import('@/pages/Landing'));
+const About = lazy(() => import('@/pages/About'));
+const Contact = lazy(() => import('@/pages/Contact'));
+const AuthPage = lazy(() => import('@/auth/pages/AuthPage'));
+
+// --- App pages (placeholders until Phase 1+) ---
+const Home = lazy(() => import('@/pages/Home'));
+const DocumentSearchPage = lazy(() => import('@/pages/DocumentSearchPage'));
+const UploadPage = lazy(() => import('@/pages/UploadPage'));
+
+// --- Admin pages ---
+const KnowledgeBaseDashboard = lazy(
+  () => import('@/pages/admin/KnowledgeBaseDashboard')
+);
+const SystemMonitoringDashboard = lazy(
+  () => import('@/pages/admin/SystemMonitoringDashboard')
+);
+
+function PageLoader() {
+  return (
+    <div className="flex flex-col gap-4 p-8">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-4 w-96" />
+      <Skeleton className="h-64 w-full" />
+    </div>
+  );
+}
 
 function App() {
-  const isAuthenticated = !!getAccessToken();
+  const [cmdkOpen, setCmdkOpen] = useState(false);
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-background">
-        {/* Header / Navigation */}
-        <header className="border-b">
-          <div className="container mx-auto flex h-16 items-center justify-between px-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-primary">APFA</h1>
-              <nav className="hidden space-x-6 md:flex">
-                <Link
-                  to="/"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                >
-                  Home
-                </Link>
-                <Link
-                  to="/about"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                >
-                  About
-                </Link>
-                <Link
-                  to="/contact"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                >
-                  Contact
-                </Link>
-                {isAuthenticated && (
-                  <>
-                    <Link
-                      to="/search"
-                      className="text-sm font-medium transition-colors hover:text-primary"
-                    >
-                      Search
-                    </Link>
-                    <Link
-                      to="/upload"
-                      className="text-sm font-medium transition-colors hover:text-primary"
-                    >
-                      Upload
-                    </Link>
-                    <Link
-                      to="/admin/dashboard"
-                      className="text-sm font-medium transition-colors hover:text-primary"
-                    >
-                      Admin
-                    </Link>
-                  </>
-                )}
-              </nav>
-            </div>
-            {isAuthenticated ? (
-              <Button variant="default" size="sm" onClick={() => {
-                localStorage.clear();
-                window.location.href = '/';
-              }}>
-                Logout
-              </Button>
-            ) : (
-              <Link to="/auth">
-                <Button variant="default" size="sm">
-                  Login
-                </Button>
-              </Link>
-            )}
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
-          <Routes>
-            <Route path="/" element={<Home />} />
+      <CommandPalette open={cmdkOpen} onOpenChange={setCmdkOpen} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* ── Public zone ── */}
+          <Route element={<PublicLayout />}>
+            <Route path="/" element={<Landing />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/search" element={<DocumentSearchPage />} />
-            <Route path="/upload" element={<UploadPage />} />
-            <Route path="/admin/dashboard" element={<KnowledgeBaseDashboard />} />
-            <Route path="/auth" element={<AuthPage />} />
-          </Routes>
-        </main>
+            <Route
+              path="/auth"
+              element={
+                <RedirectIfAuth>
+                  <AuthPage />
+                </RedirectIfAuth>
+              }
+            />
+          </Route>
 
-        {/* Footer */}
-        <footer className="border-t">
-          <div className="container mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-            © 2025 APFA - Agentic Personalized Financial Advisor
-          </div>
-        </footer>
-      </div>
+          {/* ── App zone (authenticated) ── */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/app" element={<Navigate to="/app/advisor" replace />} />
+            {/* Advisor — placeholder until Phase 1 */}
+            <Route
+              path="/app/advisor"
+              element={
+                <div className="p-8">
+                  <h1 className="font-serif text-2xl font-semibold">Advisor</h1>
+                  <p className="mt-2 text-muted-foreground">
+                    Conversational advisor coming in Phase 1.
+                  </p>
+                </div>
+              }
+            />
+            <Route path="/app/advisor/c/:conversationId" element={<div className="p-8">Conversation thread — Phase 1</div>} />
+            <Route path="/app/dashboard" element={<Home />} />
+            <Route path="/app/calculators" element={<div className="p-8">Calculators index — Phase 2</div>} />
+            <Route path="/app/calculators/:tool" element={<div className="p-8">Calculator tool — Phase 2</div>} />
+            <Route path="/app/documents" element={<DocumentSearchPage />} />
+            <Route path="/app/documents/upload" element={<UploadPage />} />
+            <Route path="/app/insights" element={<div className="p-8">Insights — Phase 3</div>} />
+            <Route path="/app/settings" element={<div className="p-8">Settings — Phase 3</div>} />
+          </Route>
+
+          {/* ── Admin zone (role = admin) ── */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <RoleRoute role="admin">
+                  <AdminLayout />
+                </RoleRoute>
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/admin" element={<Navigate to="/admin/monitoring" replace />} />
+            <Route path="/admin/monitoring" element={<SystemMonitoringDashboard />} />
+            <Route path="/admin/knowledge-base" element={<KnowledgeBaseDashboard />} />
+            <Route path="/admin/users" element={<div className="p-8">User management — Phase 4</div>} />
+            <Route path="/admin/audit" element={<div className="p-8">Audit log — Phase 4</div>} />
+          </Route>
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </ErrorBoundary>
   );
 }
 
 export default App;
-
