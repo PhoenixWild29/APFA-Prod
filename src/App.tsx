@@ -16,7 +16,8 @@ const About = lazy(() => import('@/pages/About'));
 const Contact = lazy(() => import('@/pages/Contact'));
 const AuthPage = lazy(() => import('@/auth/pages/AuthPage'));
 
-// --- App pages (placeholders until Phase 1+) ---
+// --- App pages ---
+const AdvisorPage = lazy(() => import('@/features/advisor/AdvisorPage'));
 const Home = lazy(() => import('@/pages/Home'));
 const DocumentSearchPage = lazy(() => import('@/pages/DocumentSearchPage'));
 const UploadPage = lazy(() => import('@/pages/UploadPage'));
@@ -71,19 +72,8 @@ function App() {
             }
           >
             <Route path="/app" element={<Navigate to="/app/advisor" replace />} />
-            {/* Advisor — placeholder until Phase 1 */}
-            <Route
-              path="/app/advisor"
-              element={
-                <div className="p-8">
-                  <h1 className="font-serif text-2xl font-semibold">Advisor</h1>
-                  <p className="mt-2 text-muted-foreground">
-                    Conversational advisor coming in Phase 1.
-                  </p>
-                </div>
-              }
-            />
-            <Route path="/app/advisor/c/:conversationId" element={<div className="p-8">Conversation thread — Phase 1</div>} />
+            <Route path="/app/advisor" element={<AdvisorPage />} />
+            <Route path="/app/advisor/c/:conversationId" element={<AdvisorPage />} />
             <Route path="/app/dashboard" element={<Home />} />
             <Route path="/app/calculators" element={<div className="p-8">Calculators index — Phase 2</div>} />
             <Route path="/app/calculators/:tool" element={<div className="p-8">Calculator tool — Phase 2</div>} />
