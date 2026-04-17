@@ -61,7 +61,7 @@ import unicodedata
 from profanity_check import predict_prob
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
 from pydantic import BaseModel, Field, field_validator
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -139,7 +139,7 @@ stripe.api_key = STRIPE_SECRET_KEY
 
 # Initialize clients with error handling
 try:
-    embedder = SentenceTransformer(settings.embedder_model)
+    embedder = TextEmbedding(model_name=settings.embedder_model)
     minio_client = Minio(
         MINIO_ENDPOINT,
         access_key=MINIO_ACCESS_KEY,
@@ -178,7 +178,48 @@ def load_rag_index():
             raise ValueError(
                 "DeltaTable must contain non-empty data with 'profile' column"
             )
-        embeddings = np.array(embedder.encode(df["profile"].tolist()))
+
+        # Check embedding cache validity (content_hash + model match)
+        import hashlib as _hl
+
+        cache_valid = (
+            "embedding_vector" in df.columns
+            and "embedding_model" in df.columns
+            and "content_hash" in df.columns
+            and df["embedding_vector"].notna().all()
+            and (df["embedding_model"] == settings.embedder_model).all()
+        )
+
+        if cache_valid:
+            # Verify content hasn't changed
+            current_hashes = df["profile"].apply(
+                lambda p: _hl.sha256(p.encode()).hexdigest()
+            )
+            cache_valid = (current_hashes == df["content_hash"]).all()
+
+        if cache_valid:
+            logger.info("Using cached embeddings from DeltaTable")
+            embeddings = np.array(df["embedding_vector"].tolist())
+        else:
+            logger.info("Embedding documents (cache miss or model changed)")
+            embeddings = np.array(list(embedder.embed(df["profile"].tolist())))
+            # Write cache back to DeltaTable
+            df["embedding_vector"] = embeddings.tolist()
+            df["embedding_model"] = settings.embedder_model
+            df["content_hash"] = df["profile"].apply(
+                lambda p: _hl.sha256(p.encode()).hexdigest()
+            )
+            df["embedded_at"] = datetime.now(timezone.utc).isoformat()
+            import deltalake
+
+            deltalake.write_deltalake(
+                settings.delta_table_path,
+                df,
+                mode="overwrite",
+                storage_options=get_delta_storage_options(),
+            )
+            logger.info("Embedding cache written to DeltaTable")
+
         faiss.normalize_L2(embeddings)
         index = faiss.IndexFlatIP(embeddings.shape[1])
         index.add(embeddings)
@@ -200,7 +241,7 @@ def retrieve_loan_data(query: str) -> str:
     if faiss_index is None or rag_df is None:
         return "RAG index not available — no data has been ingested yet."
     try:
-        query_emb = np.array(embedder.encode([query]))
+        query_emb = np.array(list(embedder.embed([query])))
         faiss.normalize_L2(query_emb)
         _, indices = faiss_index.search(query_emb, k=min(5, len(rag_df)))
         return "\n".join(rag_df.iloc[indices[0]]["profile"].tolist())
@@ -821,7 +862,7 @@ def load_embedder():
     Return the global embedder instance.
 
     Returns:
-        SentenceTransformer: The loaded embedding model.
+        TextEmbedding: The loaded embedding model.
     """
     return embedder
 
@@ -1991,7 +2032,7 @@ async def search_documents(
 
     try:
         # Generate query embedding
-        query_embedding = embedder.encode([query])[0]
+        query_embedding = list(embedder.embed([query]))[0]
 
         # Search FAISS index
         k = min(limit + offset + 50, 100)  # Fetch extra for filtering
@@ -2110,7 +2151,7 @@ async def get_similar_documents(
 
         # Get document embedding from FAISS
         # Note: In production, store embeddings separately or retrieve from index
-        query_embedding = embedder.encode([doc_row.iloc[0].get("profile", "")])[0]
+        query_embedding = list(embedder.embed([doc_row.iloc[0].get("profile", "")]))[0]
 
         # Search for similar documents
         k = min(limit + 1, 50)  # +1 to exclude self
@@ -4029,7 +4070,7 @@ async def semantic_search(
         combined_query = " ".join(query.search_terms)
 
         # Generate embedding
-        query_embedding = embedder.encode([combined_query])[0]
+        query_embedding = list(embedder.embed([combined_query]))[0]
 
         # Search FAISS
         distances, indices = faiss_index.search(
@@ -5401,7 +5442,7 @@ async def get_cached_embedding(text: str):
         return embeddings_cache[text]
 
     # Compute in thread pool to avoid blocking
-    embedding = await asyncio.to_thread(embedder.encode, [text])
+    embedding = await asyncio.to_thread(lambda: list(embedder.embed([text])))
     embeddings_cache[text] = embedding
     return embedding
 

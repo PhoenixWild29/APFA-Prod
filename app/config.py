@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # AI/ML Models
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
-    embedder_model: str = "all-MiniLM-L6-v2"
+    embedder_model: str = "BAAI/bge-small-en-v1.5"
     delta_table_path: str = "s3://customer-data-lakehouse/customers"
 
     # Logging
