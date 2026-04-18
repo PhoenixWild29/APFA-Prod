@@ -31,8 +31,17 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379"
 
     # API Security
+    # api_key: user-facing API key for the /generate-advice endpoint (X-API-Key header).
+    # NOT used for pipeline auth. Pipeline keys are machine-to-machine tokens
+    # stored in the api_keys database table with format apfa_pipe_<token>.
+    # Pipeline keys are generated via: python -m app.scripts.generate_pipeline_key
     api_key: str
     bcrypt_rounds: int = 12
+
+    # Pipeline rate limiting (separate bucket from user traffic)
+    pipeline_rate_limit_burst: int = 60      # max burst tokens
+    pipeline_rate_limit_refill: float = 5.0  # tokens/sec (300/min steady state)
+    pipeline_max_payload_mb: int = 10        # max ingest payload size
 
     # JWT Authentication
     jwt_secret: str = "your-secret-key-change-in-production"

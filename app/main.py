@@ -647,6 +647,18 @@ CACHE_HITS = Counter("apfa_cache_hits_total", "Total cache hits")
 CACHE_MISSES = Counter("apfa_cache_misses_total", "Total cache misses")
 ACTIVE_REQUESTS = Gauge("apfa_active_requests", "Number of active requests")
 
+# Pipeline auth metrics
+PIPELINE_AUTH_TOTAL = Counter(
+    "apfa_pipeline_auth_total",
+    "Pipeline API key auth attempts",
+    ["status"],  # "success" | "rejected" | "rate_limited"
+)
+PIPELINE_RATE_LIMIT_REMAINING = Gauge(
+    "apfa_pipeline_rate_limit_remaining",
+    "Remaining pipeline rate limit tokens",
+    ["key_id"],
+)
+
 # Authentication metrics
 AUTH_SUCCESS = Counter("apfa_auth_success_total", "Successful authentications")
 AUTH_FAILURE = Counter("apfa_auth_failure_total", "Failed authentications", ["reason"])
