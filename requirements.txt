@@ -58,3 +58,15 @@ stripe==15.0.0
 SQLAlchemy>=2.0
 psycopg2-binary>=2.9
 alembic>=1.13
+# --- Data Pipeline Connectors ---
+# Google Drive: service account auth + Drive API
+google-api-python-client>=2.100.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+# Document extraction (PDFs, DOCX)
+pypdf>=4.0.0
+python-docx>=1.0.0
+# Finnhub market data
+finnhub-python>=2.4.19
+# YouTube transcript extraction
+youtube-transcript-api>=0.6.1

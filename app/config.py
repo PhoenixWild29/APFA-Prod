@@ -82,6 +82,23 @@ class Settings(BaseSettings):
     stripe_price_pro_monthly: str
     stripe_price_enterprise_monthly: str
 
+    # --- Data Pipeline Connectors ---
+
+    # Google Drive connector (service account, read-only, single shared folder)
+    google_drive_credentials_path: str = ""  # Path to service account JSON key
+    google_drive_folder_ids: List[str] = []  # Default folders to sync
+
+    # Finnhub market data connector
+    finnhub_api_key: str = ""
+    finnhub_default_tickers: List[str] = ["SPY", "QQQ", "DIA", "TLT"]
+
+    # YouTube transcript connector
+    youtube_transcript_clean: bool = True  # LLM-clean auto-captions
+
+    # FAISS rebuild signaling
+    faiss_auto_rebuild: bool = True
+    faiss_rebuild_interval_minutes: int = 30
+
     class Config:
         env_file = ".env"
 
