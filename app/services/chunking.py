@@ -1,171 +1,53 @@
 """Structure-aware text chunking for the APFA data pipeline.
 
-Splits text into semantically coherent chunks based on document type:
-- Regulatory docs: split on section headers (Item, Section, Part boundaries)
-- Prose/general: 300-500 token semantic windows with ~15% overlap
-- YouTube transcripts: 60-90 second timestamp-aware windows
-- Spreadsheets: sheet-level and table-level summaries
+Four chunking strategies, each respecting content structure:
 
-Never chunks across section boundaries. Chunks include positional metadata
-(chunk_index, total_chunks) for provenance tracking.
+    sentence_aware_chunk(text, target_tokens, overlap_pct)
+        General-purpose sentence-boundary chunker for prose text.
+
+    section_aware_chunk(text, section_pattern, target_tokens)
+        Splits Markdown/structured text on header boundaries, then
+        sub-chunks oversized sections with sentence_aware_chunk.
+
+    timestamp_chunk(segments, window_sec, overlap_sec)
+        Groups transcript segments into fixed-duration windows with
+        overlap. Never splits mid-segment. Returns start_sec/end_sec.
+
+    spreadsheet_chunk(sheet_name, headers, rows)
+        Summary chunk + batched row chunks with header context.
+
+Token sizing uses ~4 chars/token approximation (GPT-family heuristic).
+Adapted from Perplexity reference pipeline with APFA enhancements.
 """
 
+from __future__ import annotations
+
+import math
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
+from app.services.pipeline_utils import approx_token_count
+
+
+# ---------------------------------------------------------------------------
+# Data classes
+# ---------------------------------------------------------------------------
 
 @dataclass
 class Chunk:
     text: str
     chunk_index: int
-    total_chunks: int = 0  # set after all chunks are generated
-    start_sec: Optional[float] = None  # YouTube transcripts only
+    total_chunks: int = 0
+    start_sec: Optional[float] = None
     end_sec: Optional[float] = None
+    section_title: str = ""
+    chunk_kind: str = ""  # "summary", "rows", "section", etc.
+    token_count: int = 0
 
-
-# ---------------------------------------------------------------------------
-# Sentence splitting
-# ---------------------------------------------------------------------------
-
-_SENTENCE_RE = re.compile(
-    r"(?<=[.!?])\s+(?=[A-Z])"  # period/excl/question + space + capital
-    r"|(?<=\.)\s*\n"  # period + newline
-)
-
-
-def _split_sentences(text: str) -> list[str]:
-    """Split text into sentences. Falls back to newline splitting."""
-    sentences = _SENTENCE_RE.split(text.strip())
-    # Filter empty strings and whitespace-only
-    return [s.strip() for s in sentences if s.strip()]
-
-
-def _word_count(text: str) -> int:
-    return len(text.split())
-
-
-# ---------------------------------------------------------------------------
-# Section header detection (regulatory documents)
-# ---------------------------------------------------------------------------
-
-_SECTION_HEADER_RE = re.compile(
-    r"^(?:"
-    r"(?:Section|SECTION|Item|ITEM|Part|PART|Article|ARTICLE)\s+\d+"  # Section 1, Item 2
-    r"|(?:§\s*\d+)"  # §1234
-    r"|(?:[IVXLCDM]+\.\s)"  # Roman numerals: IV. ...
-    r"|(?:\d+\.\d+(?:\.\d+)*\s)"  # 1.2.3 numbering
-    r"|(?:[A-Z][A-Z\s]{4,}$)"  # ALL CAPS line (likely a header)
-    r")",
-    re.MULTILINE,
-)
-
-
-def _split_on_sections(text: str) -> list[str]:
-    """Split text at section headers. Returns sections including headers."""
-    positions = [m.start() for m in _SECTION_HEADER_RE.finditer(text)]
-    if not positions:
-        return [text]
-
-    # Add start if first section doesn't begin at 0
-    if positions[0] != 0:
-        positions.insert(0, 0)
-
-    sections = []
-    for i, start in enumerate(positions):
-        end = positions[i + 1] if i + 1 < len(positions) else len(text)
-        section = text[start:end].strip()
-        if section:
-            sections.append(section)
-    return sections
-
-
-# ---------------------------------------------------------------------------
-# Core chunking strategies
-# ---------------------------------------------------------------------------
-
-def _chunk_by_token_window(
-    text: str,
-    min_tokens: int = 300,
-    max_tokens: int = 500,
-    overlap_fraction: float = 0.15,
-) -> list[str]:
-    """Semantic window chunking with overlap. Never splits mid-sentence."""
-    sentences = _split_sentences(text)
-    if not sentences:
-        return [text] if text.strip() else []
-
-    chunks: list[str] = []
-    current_sentences: list[str] = []
-    current_words = 0
-    overlap_target = int(max_tokens * overlap_fraction)
-
-    for sentence in sentences:
-        sw = _word_count(sentence)
-
-        # Single sentence exceeds max — split at word boundaries
-        if sw > max_tokens:
-            # Flush current buffer first
-            if current_sentences:
-                chunks.append(" ".join(current_sentences))
-                current_sentences = []
-                current_words = 0
-
-            words = sentence.split()
-            for i in range(0, len(words), max_tokens):
-                chunk_words = words[i : i + max_tokens]
-                chunks.append(" ".join(chunk_words))
-            continue
-
-        if current_words + sw > max_tokens and current_words >= min_tokens:
-            # Flush current chunk
-            chunks.append(" ".join(current_sentences))
-
-            # Carry overlap: take trailing sentences up to overlap_target words
-            overlap_sentences: list[str] = []
-            overlap_words = 0
-            for s in reversed(current_sentences):
-                s_words = _word_count(s)
-                if overlap_words + s_words > overlap_target:
-                    break
-                overlap_sentences.insert(0, s)
-                overlap_words += s_words
-
-            current_sentences = overlap_sentences
-            current_words = overlap_words
-
-        current_sentences.append(sentence)
-        current_words += sw
-
-    # Flush remaining
-    if current_sentences:
-        chunks.append(" ".join(current_sentences))
-
-    return chunks
-
-
-def chunk_regulatory(text: str) -> list[Chunk]:
-    """Chunk regulatory documents: split on section headers first, then
-    apply token-window chunking within each section."""
-    sections = _split_on_sections(text)
-    raw_chunks: list[str] = []
-    for section in sections:
-        if _word_count(section) <= 500:
-            raw_chunks.append(section)
-        else:
-            raw_chunks.extend(_chunk_by_token_window(section))
-
-    return [Chunk(text=c, chunk_index=i) for i, c in enumerate(raw_chunks)]
-
-
-def chunk_prose(
-    text: str,
-    min_tokens: int = 300,
-    max_tokens: int = 500,
-) -> list[Chunk]:
-    """Chunk general prose documents with semantic windows and overlap."""
-    raw_chunks = _chunk_by_token_window(text, min_tokens, max_tokens)
-    return [Chunk(text=c, chunk_index=i) for i, c in enumerate(raw_chunks)]
+    def __post_init__(self):
+        if not self.token_count:
+            self.token_count = approx_token_count(self.text)
 
 
 @dataclass
@@ -175,69 +57,418 @@ class TranscriptSegment:
     duration: float
 
 
-def chunk_transcript(
-    segments: list[TranscriptSegment],
-    min_seconds: float = 60.0,
-    max_seconds: float = 90.0,
-) -> list[Chunk]:
-    """Chunk YouTube transcript segments by timestamp windows.
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
-    Groups transcript segments into 60-90 second windows, preserving
-    start_sec/end_sec for deep-linking ("Per CNBC at 4:23...").
+_SENT_SPLIT = re.compile(
+    r"(?<=[.!?])\s+(?=[A-Z\"'\(])"  # after terminal punctuation + space
+    r"|(?<=\n)\s*(?=\n)"  # blank-line paragraph break
+)
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Split text into sentences. Handles prose and paragraph breaks."""
+    raw = _SENT_SPLIT.split(text.strip())
+    out = [s.strip() for s in raw if s.strip()]
+    return out or [text.strip()]
+
+
+def _build_chunks_from_sentences(
+    sentences: list[str],
+    target_tokens: int,
+    overlap_pct: float,
+) -> list[str]:
+    """Greedy sentence packer with overlap.
+
+    Fills a window up to target_tokens, then starts a new window with
+    overlap_pct of the previous window re-used for context continuity.
+    """
+    if not sentences:
+        return []
+
+    overlap_tokens = max(1, int(target_tokens * overlap_pct))
+    chunks: list[str] = []
+    current: list[str] = []
+    current_tokens: int = 0
+
+    i = 0
+    while i < len(sentences):
+        sent = sentences[i]
+        sent_tok = approx_token_count(sent)
+
+        if current_tokens + sent_tok > target_tokens and current:
+            chunks.append(" ".join(current))
+
+            # Build overlap: walk back from end until overlap_tokens filled
+            overlap: list[str] = []
+            overlap_total = 0
+            for s in reversed(current):
+                s_tok = approx_token_count(s)
+                if overlap_total + s_tok > overlap_tokens:
+                    break
+                overlap.insert(0, s)
+                overlap_total += s_tok
+
+            current = overlap
+            current_tokens = overlap_total
+            continue  # re-process current sentence in new window
+
+        current.append(sent)
+        current_tokens += sent_tok
+        i += 1
+
+    if current:
+        chunks.append(" ".join(current))
+
+    return chunks
+
+
+# ---------------------------------------------------------------------------
+# Public API: Prose chunking
+# ---------------------------------------------------------------------------
+
+def sentence_aware_chunk(
+    text: str,
+    target_tokens: int = 400,
+    overlap_pct: float = 0.15,
+) -> list[dict[str, Any]]:
+    """Split text into sentence-aligned chunks with overlap.
+
+    Returns list of dicts with text, chunk_index, token_count.
+    """
+    text = text.strip()
+    if not text:
+        return []
+
+    sentences = _split_sentences(text)
+    raw_chunks = _build_chunks_from_sentences(sentences, target_tokens, overlap_pct)
+
+    return [
+        {
+            "text": c,
+            "chunk_index": idx,
+            "token_count": approx_token_count(c),
+        }
+        for idx, c in enumerate(raw_chunks)
+        if c.strip()
+    ]
+
+
+def chunk_prose(
+    text: str,
+    target_tokens: int = 400,
+    overlap_pct: float = 0.15,
+) -> list[Chunk]:
+    """Chunk general prose documents. Returns Chunk objects."""
+    raw = sentence_aware_chunk(text, target_tokens, overlap_pct)
+    chunks = [
+        Chunk(text=c["text"], chunk_index=c["chunk_index"])
+        for c in raw
+    ]
+    for c in chunks:
+        c.total_chunks = len(chunks)
+    return chunks
+
+
+# ---------------------------------------------------------------------------
+# Public API: Section-aware chunking (regulatory / Markdown)
+# ---------------------------------------------------------------------------
+
+# Matches Markdown headers, regulatory section headers, and all-caps lines
+_DEFAULT_SECTION_RE = (
+    r"^(?:"
+    r"#{1,3}\s"  # Markdown headers
+    r"|(?:Section|SECTION|Item|ITEM|Part|PART|Article|ARTICLE)\s+\d+"
+    r"|(?:§\s*\d+)"
+    r"|(?:[IVXLCDM]+\.\s)"
+    r"|(?:\d+\.\d+(?:\.\d+)*\s)"
+    r")"
+)
+
+
+def section_aware_chunk(
+    text: str,
+    section_pattern: str = _DEFAULT_SECTION_RE,
+    target_tokens: int = 400,
+    overlap_pct: float = 0.15,
+) -> list[dict[str, Any]]:
+    """Split structured text on header boundaries, then sub-chunk.
+
+    Returns list of dicts with text, section_title, chunk_index,
+    section_chunk_index, token_count.
+    """
+    text = text.strip()
+    if not text:
+        return []
+
+    header_re = re.compile(section_pattern, re.MULTILINE)
+    lines = text.splitlines(keepends=True)
+
+    # Group lines into sections
+    sections: list[tuple[str, str]] = []
+    current_header = ""
+    current_body: list[str] = []
+
+    for line in lines:
+        if header_re.match(line):
+            if current_body or current_header:
+                sections.append((current_header, "".join(current_body)))
+            current_header = line.strip()
+            current_body = []
+        else:
+            current_body.append(line)
+
+    if current_body or current_header:
+        sections.append((current_header, "".join(current_body)))
+
+    results: list[dict[str, Any]] = []
+    global_idx = 0
+
+    for header, body in sections:
+        body = body.strip()
+        section_text = (f"{header}\n\n{body}" if header else body).strip()
+        if not section_text:
+            continue
+
+        if approx_token_count(section_text) <= target_tokens:
+            results.append(
+                {
+                    "text": section_text,
+                    "section_title": header,
+                    "chunk_index": global_idx,
+                    "section_chunk_index": 0,
+                    "token_count": approx_token_count(section_text),
+                }
+            )
+            global_idx += 1
+        else:
+            sub_chunks = sentence_aware_chunk(
+                section_text, target_tokens, overlap_pct
+            )
+            for sub_idx, sc in enumerate(sub_chunks):
+                results.append(
+                    {
+                        "text": sc["text"],
+                        "section_title": header,
+                        "chunk_index": global_idx,
+                        "section_chunk_index": sub_idx,
+                        "token_count": sc["token_count"],
+                    }
+                )
+                global_idx += 1
+
+    return results
+
+
+def chunk_regulatory(text: str) -> list[Chunk]:
+    """Chunk regulatory documents using section-aware splitting."""
+    raw = section_aware_chunk(text)
+    chunks = [
+        Chunk(
+            text=c["text"],
+            chunk_index=c["chunk_index"],
+            section_title=c.get("section_title", ""),
+        )
+        for c in raw
+    ]
+    for c in chunks:
+        c.total_chunks = len(chunks)
+    return chunks
+
+
+# ---------------------------------------------------------------------------
+# Public API: Timestamp-aware chunking (YouTube transcripts)
+# ---------------------------------------------------------------------------
+
+def timestamp_chunk(
+    segments: list[dict[str, Any]] | list[TranscriptSegment],
+    window_sec: float = 75.0,
+    overlap_sec: float = 12.0,
+) -> list[dict[str, Any]]:
+    """Group transcript segments into fixed-duration windows with overlap.
+
+    Never splits mid-segment. Each chunk includes start_sec/end_sec for
+    deep-linking ("Per CNBC at 4:23...").
+
+    Args:
+        segments: Transcript segments with text, start, duration.
+        window_sec: Target window duration in seconds (default 75).
+        overlap_sec: Overlap between consecutive windows (default 12).
+
+    Returns:
+        List of dicts with text, start_sec, end_sec, chunk_index, token_count.
     """
     if not segments:
         return []
 
-    chunks: list[Chunk] = []
-    window_texts: list[str] = []
-    window_start = segments[0].start
-    window_end = window_start
-
-    for seg in segments:
-        seg_end = seg.start + seg.duration
-        window_duration = seg_end - window_start
-
-        if window_duration > max_seconds and window_texts:
-            chunks.append(
-                Chunk(
-                    text=" ".join(window_texts),
-                    chunk_index=len(chunks),
-                    start_sec=window_start,
-                    end_sec=window_end,
-                )
-            )
-            window_texts = []
-            window_start = seg.start
-
-        window_texts.append(seg.text)
-        window_end = seg_end
-
-    # Flush remaining
-    if window_texts:
-        # If too short, merge with previous chunk
-        if chunks and (window_end - window_start) < min_seconds:
-            prev = chunks[-1]
-            chunks[-1] = Chunk(
-                text=prev.text + " " + " ".join(window_texts),
-                chunk_index=prev.chunk_index,
-                start_sec=prev.start_sec,
-                end_sec=window_end,
-            )
+    # Normalize to dicts
+    segs: list[dict[str, Any]] = []
+    for s in segments:
+        if isinstance(s, TranscriptSegment):
+            segs.append({"text": s.text, "start": s.start, "duration": s.duration})
         else:
-            chunks.append(
-                Chunk(
-                    text=" ".join(window_texts),
-                    chunk_index=len(chunks),
-                    start_sec=window_start,
-                    end_sec=window_end,
-                )
-            )
+            segs.append(s)
 
-    # Set total_chunks
-    for chunk in chunks:
-        chunk.total_chunks = len(chunks)
+    def seg_end(seg: dict[str, Any]) -> float:
+        return float(seg.get("start", 0)) + float(seg.get("duration", 0))
+
+    chunks: list[dict[str, Any]] = []
+    chunk_idx = 0
+    i = 0
+    n = len(segs)
+
+    while i < n:
+        window_start = float(segs[i].get("start", 0))
+        window_end_target = window_start + window_sec
+
+        # Collect segments until we pass the target window end
+        j = i
+        while j < n and float(segs[j].get("start", 0)) < window_end_target:
+            j += 1
+
+        window_segs = segs[i:j]
+        if not window_segs:
+            i += 1
+            continue
+
+        text = " ".join(s.get("text", "").strip() for s in window_segs)
+        actual_start = float(window_segs[0].get("start", 0))
+        actual_end = seg_end(window_segs[-1])
+
+        chunks.append(
+            {
+                "text": text.strip(),
+                "start_sec": round(actual_start, 2),
+                "end_sec": round(actual_end, 2),
+                "chunk_index": chunk_idx,
+                "token_count": approx_token_count(text),
+            }
+        )
+        chunk_idx += 1
+
+        # Advance: find first segment that starts after (window_end - overlap)
+        overlap_boundary = window_end_target - overlap_sec
+        next_i = j
+        for k in range(i, j):
+            if float(segs[k].get("start", 0)) >= overlap_boundary:
+                next_i = k
+                break
+
+        # Guard against infinite loop
+        if next_i <= i:
+            next_i = i + 1
+        i = next_i
 
     return chunks
+
+
+def chunk_transcript(
+    segments: list[TranscriptSegment] | list[dict[str, Any]],
+    window_sec: float = 75.0,
+    overlap_sec: float = 12.0,
+) -> list[Chunk]:
+    """Chunk transcript segments into Chunk objects with timestamps."""
+    raw = timestamp_chunk(segments, window_sec, overlap_sec)
+    chunks = [
+        Chunk(
+            text=c["text"],
+            chunk_index=c["chunk_index"],
+            start_sec=c["start_sec"],
+            end_sec=c["end_sec"],
+        )
+        for c in raw
+    ]
+    for c in chunks:
+        c.total_chunks = len(chunks)
+    return chunks
+
+
+# ---------------------------------------------------------------------------
+# Public API: Spreadsheet chunking
+# ---------------------------------------------------------------------------
+
+def spreadsheet_chunk(
+    sheet_name: str,
+    headers: list[str],
+    rows: list[list[Any]],
+    max_rows_per_chunk: int = 30,
+) -> list[dict[str, Any]]:
+    """Convert one spreadsheet sheet into text chunks for RAG.
+
+    Produces:
+    1. A summary chunk (name, columns, row count, sample rows)
+    2. Batched row chunks with header context repeated
+
+    Returns list of dicts with text, chunk_index, chunk_kind,
+    sheet_name, row_start, row_end, token_count.
+    """
+    results: list[dict[str, Any]] = []
+    chunk_idx = 0
+
+    # Summary chunk
+    col_list = ", ".join(f'"{h}"' for h in headers)
+    summary_text = (
+        f"Sheet: {sheet_name}\n"
+        f"Columns ({len(headers)}): {col_list}\n"
+        f"Total rows: {len(rows)}\n"
+    )
+    if rows:
+        summary_text += "\nSample rows:\n"
+        for row in rows[:3]:
+            pairs = "; ".join(
+                f"{h}={v}"
+                for h, v in zip(headers, row)
+                if v not in (None, "", [])
+            )
+            summary_text += f"  {pairs}\n"
+
+    results.append(
+        {
+            "text": summary_text.strip(),
+            "chunk_index": chunk_idx,
+            "chunk_kind": "summary",
+            "sheet_name": sheet_name,
+            "row_start": 0,
+            "row_end": 0,
+            "token_count": approx_token_count(summary_text),
+        }
+    )
+    chunk_idx += 1
+
+    # Row chunks
+    header_line = "Columns: " + " | ".join(str(h) for h in headers)
+    total_batches = math.ceil(len(rows) / max_rows_per_chunk) if rows else 0
+
+    for batch_num in range(total_batches):
+        start = batch_num * max_rows_per_chunk
+        end = min(start + max_rows_per_chunk, len(rows))
+        batch = rows[start:end]
+
+        lines = [f"Sheet: {sheet_name}", header_line, ""]
+        for row_idx, row in enumerate(batch, start=start):
+            pairs = []
+            for header, cell in zip(headers, row):
+                cell_str = str(cell) if cell not in (None, "") else ""
+                if cell_str:
+                    pairs.append(f"{header}={cell_str}")
+            lines.append(f"Row {row_idx + 1}: " + "; ".join(pairs))
+
+        chunk_text = "\n".join(lines)
+        results.append(
+            {
+                "text": chunk_text.strip(),
+                "chunk_index": chunk_idx,
+                "chunk_kind": "rows",
+                "sheet_name": sheet_name,
+                "row_start": start,
+                "row_end": end,
+                "token_count": approx_token_count(chunk_text),
+            }
+        )
+        chunk_idx += 1
+
+    return results
 
 
 def chunk_spreadsheet(
@@ -246,42 +477,18 @@ def chunk_spreadsheet(
     rows: list[list[str]],
     summary: str = "",
 ) -> list[Chunk]:
-    """Chunk spreadsheet data: one summary chunk + one chunk per row group.
-
-    Produces a sheet-level summary chunk, then groups rows into chunks of
-    ~10 rows each with column headers repeated for context.
-    """
-    chunks: list[Chunk] = []
-
-    # Sheet summary
-    header_str = ", ".join(headers)
-    summary_text = (
-        f"Spreadsheet: {sheet_name}. Columns: {header_str}. "
-        f"{len(rows)} rows total."
-    )
-    if summary:
-        summary_text += f" {summary}"
-    chunks.append(Chunk(text=summary_text, chunk_index=0))
-
-    # Row groups (~10 rows per chunk)
-    group_size = 10
-    for i in range(0, len(rows), group_size):
-        group = rows[i : i + group_size]
-        row_texts = []
-        for row in group:
-            pairs = [
-                f"{h}: {v}" for h, v in zip(headers, row) if v.strip()
-            ]
-            row_texts.append("; ".join(pairs))
-        chunk_text = (
-            f"{sheet_name} (rows {i + 1}-{i + len(group)}): "
-            + " | ".join(row_texts)
+    """Chunk spreadsheet data into Chunk objects."""
+    raw = spreadsheet_chunk(sheet_name, headers, rows)
+    chunks = [
+        Chunk(
+            text=c["text"],
+            chunk_index=c["chunk_index"],
+            chunk_kind=c["chunk_kind"],
         )
-        chunks.append(Chunk(text=chunk_text, chunk_index=len(chunks)))
-
-    for chunk in chunks:
-        chunk.total_chunks = len(chunks)
-
+        for c in raw
+    ]
+    for c in chunks:
+        c.total_chunks = len(chunks)
     return chunks
 
 
@@ -295,20 +502,7 @@ def chunk_text(
     transcript_segments: list[TranscriptSegment] | None = None,
     spreadsheet_data: dict | None = None,
 ) -> list[Chunk]:
-    """Route to the appropriate chunking strategy based on content_kind.
-
-    Args:
-        text: The document text to chunk.
-        content_kind: One of "doc_section", "transcript_segment",
-                      "sheet_table", "regulation", "market_snapshot",
-                      "derived_summary".
-        transcript_segments: Required if content_kind is "transcript_segment".
-        spreadsheet_data: Dict with keys "sheet_name", "headers", "rows",
-                          and optional "summary". Required for "sheet_table".
-
-    Returns:
-        List of Chunk objects with positional metadata.
-    """
+    """Route to the appropriate chunking strategy based on content_kind."""
     if content_kind == "transcript_segment":
         if transcript_segments is None:
             raise ValueError(
@@ -332,9 +526,6 @@ def chunk_text(
         return chunk_regulatory(text)
 
     if content_kind in ("market_snapshot", "derived_summary"):
-        # Market snapshots and derived summaries are already short —
-        # return as a single chunk
         return [Chunk(text=text, chunk_index=0, total_chunks=1)]
 
-    # Default: prose chunking
     return chunk_prose(text)

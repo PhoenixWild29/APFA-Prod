@@ -102,6 +102,76 @@ services:
       - prometheus
     restart: unless-stopped
 
+  # --- Data Pipeline Workers ---
+  celery-worker:
+    build: .
+    command: celery -A app.tasks worker --loglevel=info --concurrency=2 --max-memory-per-child=500000
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - API_KEY=${API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-apfa}}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - GOOGLE_DRIVE_CREDENTIALS_PATH=${GOOGLE_DRIVE_CREDENTIALS_PATH:-}
+      - GOOGLE_DRIVE_FOLDER_IDS=${GOOGLE_DRIVE_FOLDER_IDS:-}
+      - JWT_SECRET=${JWT_SECRET}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PRICE_PRO_MONTHLY=${STRIPE_PRICE_PRO_MONTHLY}
+      - STRIPE_PRICE_ENTERPRISE_MONTHLY=${STRIPE_PRICE_ENTERPRISE_MONTHLY}
+    working_dir: /opt/apfa
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    command: celery -A app.tasks beat --loglevel=info
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - API_KEY=${API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DATABASE_URL=${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-apfa}}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
+      - GOOGLE_DRIVE_CREDENTIALS_PATH=${GOOGLE_DRIVE_CREDENTIALS_PATH:-}
+      - GOOGLE_DRIVE_FOLDER_IDS=${GOOGLE_DRIVE_FOLDER_IDS:-}
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - STRIPE_PRICE_PRO_MONTHLY=${STRIPE_PRICE_PRO_MONTHLY}
+      - STRIPE_PRICE_ENTERPRISE_MONTHLY=${STRIPE_PRICE_ENTERPRISE_MONTHLY}
+    working_dir: /opt/apfa
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   minio:
     image: minio/minio:latest
     ports:
