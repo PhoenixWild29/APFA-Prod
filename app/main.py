@@ -179,46 +179,76 @@ def load_rag_index():
                 "DeltaTable must contain non-empty data with 'profile' column"
             )
 
-        # Check embedding cache validity (content_hash + model match)
+        # Per-row embedding cache: only re-embed rows where content changed
+        # or embedding is missing. Uses merge by chunk_id to avoid overwriting
+        # rows added by data pipeline connectors.
         import hashlib as _hl
 
-        cache_valid = (
-            "embedding_vector" in df.columns
-            and "embedding_model" in df.columns
-            and "content_hash" in df.columns
-            and df["embedding_vector"].notna().all()
-            and (df["embedding_model"] == settings.embedder_model).all()
+        # Ensure embedding columns exist
+        for col, default in [
+            ("embedding_vector", None),
+            ("embedding_model", None),
+            ("content_hash", None),
+            ("embedded_at", None),
+        ]:
+            if col not in df.columns:
+                df[col] = default
+
+        # Compute current content hashes
+        current_hashes = df["profile"].apply(
+            lambda p: _hl.sha256(p.encode()).hexdigest()
         )
 
-        if cache_valid:
-            # Verify content hasn't changed
-            current_hashes = df["profile"].apply(
-                lambda p: _hl.sha256(p.encode()).hexdigest()
-            )
-            cache_valid = (current_hashes == df["content_hash"]).all()
+        # Identify rows needing (re-)embedding: missing vector, model changed,
+        # or content hash mismatch
+        needs_embed = (
+            df["embedding_vector"].isna()
+            | (df["embedding_model"] != settings.embedder_model)
+            | (df["content_hash"] != current_hashes)
+        )
 
-        if cache_valid:
-            logger.info("Using cached embeddings from DeltaTable")
-            embeddings = np.array(df["embedding_vector"].tolist())
+        if needs_embed.any():
+            stale_count = needs_embed.sum()
+            logger.info(
+                f"Embedding {stale_count}/{len(df)} documents "
+                f"(cache hit on {len(df) - stale_count})"
+            )
+            stale_texts = df.loc[needs_embed, "profile"].tolist()
+            new_embeddings = np.array(list(embedder.embed(stale_texts)))
+
+            # Update only the stale rows
+            df.loc[needs_embed, "embedding_vector"] = new_embeddings.tolist()
+            df.loc[needs_embed, "embedding_model"] = settings.embedder_model
+            df.loc[needs_embed, "content_hash"] = current_hashes[needs_embed]
+            df.loc[needs_embed, "embedded_at"] = (
+                datetime.now(timezone.utc).isoformat()
+            )
+
+            # Merge updated rows back by chunk_id — never overwrite the
+            # entire table, which would delete rows from other connectors.
+            import pyarrow as pa
+
+            update_df = df.loc[needs_embed].copy()
+            dt.merge(
+                source=pa.Table.from_pandas(update_df),
+                predicate="s.chunk_id = t.chunk_id",
+                source_alias="s",
+                target_alias="t",
+            ).when_matched_update(
+                updates={
+                    "embedding_vector": "s.embedding_vector",
+                    "embedding_model": "s.embedding_model",
+                    "content_hash": "s.content_hash",
+                    "embedded_at": "s.embedded_at",
+                }
+            ).execute()
+            logger.info(
+                f"Embedding cache merged for {stale_count} rows (by chunk_id)"
+            )
         else:
-            logger.info("Embedding documents (cache miss or model changed)")
-            embeddings = np.array(list(embedder.embed(df["profile"].tolist())))
-            # Write cache back to DeltaTable
-            df["embedding_vector"] = embeddings.tolist()
-            df["embedding_model"] = settings.embedder_model
-            df["content_hash"] = df["profile"].apply(
-                lambda p: _hl.sha256(p.encode()).hexdigest()
-            )
-            df["embedded_at"] = datetime.now(timezone.utc).isoformat()
-            import deltalake
+            logger.info("Using cached embeddings from DeltaTable (all rows valid)")
 
-            deltalake.write_deltalake(
-                settings.delta_table_path,
-                df,
-                mode="overwrite",
-                storage_options=get_delta_storage_options(),
-            )
-            logger.info("Embedding cache written to DeltaTable")
+        embeddings = np.array(df["embedding_vector"].tolist())
 
         faiss.normalize_L2(embeddings)
         index = faiss.IndexFlatIP(embeddings.shape[1])
@@ -262,16 +292,99 @@ def simulate_risk(input_data: str) -> str:
         return "Error simulating risk."
 
 
+def get_market_quote(ticker: str) -> str:
+    """Get current stock/ETF quote from structured market data store."""
+    try:
+        db = SessionLocal()
+        from app.orm_models import MarketData
+
+        record = (
+            db.query(MarketData)
+            .filter(
+                MarketData.ticker == ticker.upper(),
+                MarketData.data_type == "quote",
+            )
+            .first()
+        )
+        db.close()
+
+        if not record:
+            return f"No quote data available for {ticker}."
+
+        import json as _json
+
+        meta = _json.loads(record.metadata_json) if record.metadata_json else {}
+        return (
+            f"{ticker.upper()}: ${record.value:.2f} "
+            f"({'+' if (record.change_pct or 0) >= 0 else ''}{record.change_pct or 0:.2f}%) "
+            f"as of {record.timestamp}. "
+            f"Open: ${meta.get('open', 'N/A')}, "
+            f"High: ${meta.get('high', 'N/A')}, "
+            f"Low: ${meta.get('low', 'N/A')}."
+        )
+    except Exception as e:
+        logger.error(f"Market quote error for {ticker}: {e}")
+        return f"Error retrieving quote for {ticker}."
+
+
+def get_economic_indicator(indicator: str) -> str:
+    """Get economic indicator (mortgage rates, fed funds rate, CPI, etc.)."""
+    try:
+        db = SessionLocal()
+        from app.orm_models import MarketData
+
+        record = (
+            db.query(MarketData)
+            .filter(
+                MarketData.ticker == indicator.upper(),
+                MarketData.data_type == "economic_indicator",
+            )
+            .first()
+        )
+        db.close()
+
+        if not record:
+            return f"No data available for indicator {indicator}."
+
+        import json as _json
+
+        meta = _json.loads(record.metadata_json) if record.metadata_json else {}
+        name = meta.get("name", indicator.upper())
+        return f"{name}: {record.value}{record.unit} as of {record.timestamp}."
+    except Exception as e:
+        logger.error(f"Economic indicator error for {indicator}: {e}")
+        return f"Error retrieving indicator {indicator}."
+
+
 tools = [
     Tool.from_function(
         func=retrieve_loan_data,
         name="retrieve_loan_data",
-        description="RAG retrieval for loan compliance/docs.",
+        description="RAG retrieval for loan compliance, regulations, and financial documents.",
     ),
     Tool.from_function(
         func=simulate_risk,
         name="simulate_risk",
         description="Simulate loan risk with LLM.",
+    ),
+    Tool.from_function(
+        func=get_market_quote,
+        name="get_market_quote",
+        description=(
+            "Get current stock or ETF price quote. "
+            "Input: ticker symbol (e.g. 'AAPL', 'SPY'). "
+            "Returns: current price, change %, open/high/low."
+        ),
+    ),
+    Tool.from_function(
+        func=get_economic_indicator,
+        name="get_economic_indicator",
+        description=(
+            "Get economic indicator value. "
+            "Input: indicator code (e.g. 'MORTGAGE30US' for 30-year mortgage rate, "
+            "'FEDFUNDS' for fed funds rate, 'UNRATE' for unemployment). "
+            "Returns: current value and timestamp."
+        ),
     ),
 ]
 
@@ -5386,12 +5499,39 @@ from app.api.admin_docs import router as admin_docs_router
 from app.api.admin_faiss import router as admin_faiss_router
 from app.api.admin_jobs import router as admin_jobs_router
 from app.api.admin_recovery import router as admin_recovery_router
+from app.api.connectors import router as connectors_router
 
 app.include_router(admin_docs_router)
 app.include_router(admin_faiss_router)
 app.include_router(admin_jobs_router)
 app.include_router(admin_recovery_router)
 app.include_router(admin_dashboard_router)
+app.include_router(connectors_router)
+
+
+@app.post("/admin/faiss/reload", status_code=200)
+async def reload_faiss_index(admin: dict = Depends(require_admin)):
+    """Reload the FAISS index from DeltaTable (hot-swap).
+
+    Called after data pipeline ingestion to pick up new documents.
+    Also clears the Redis rebuild signal.
+    """
+    global rag_df, faiss_index
+    try:
+        rag_df, faiss_index = load_rag_index()
+        # Clear rebuild signal
+        if redis_client is not None:
+            try:
+                await redis_client.delete("faiss:rebuild_needed")
+            except Exception:
+                pass
+        doc_count = len(rag_df) if rag_df is not None else 0
+        logger.info(f"FAISS index reloaded: {doc_count} documents")
+        return {"status": "reloaded", "document_count": doc_count}
+    except Exception as e:
+        logger.error(f"FAISS reload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"FAISS reload failed: {e}")
+
 
 # Advanced caching with Redis fallback
 redis_client = None

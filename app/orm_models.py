@@ -11,10 +11,13 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     Index,
     Integer,
     JSON,
     String,
+    Text,
+    UniqueConstraint,
 )
 
 from app.database import Base
@@ -112,3 +115,29 @@ class User(Base):
                 else None
             ),
         }
+
+
+class MarketData(Base):
+    """Structured market data from Finnhub/Mboum connectors.
+
+    NOT embedded into FAISS — served via agent tools (get_quote, etc.).
+    Upserted by (ticker, data_type) to keep latest values.
+    """
+
+    __tablename__ = "market_data"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticker = Column(String(20), nullable=False, index=True)
+    data_type = Column(String(50), nullable=False, index=True)
+    value = Column(Float, nullable=False)
+    unit = Column(String(50), default="")
+    change_pct = Column(Float, nullable=True)
+    timestamp = Column(String(50), nullable=False)
+    source = Column(String(50), default="finnhub")
+    metadata_json = Column(Text, default="{}")
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "data_type", name="uq_market_data_ticker_type"),
+        Index("idx_market_data_ticker", "ticker"),
+        Index("idx_market_data_type", "data_type"),
+    )
