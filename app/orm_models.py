@@ -12,12 +12,14 @@ from sqlalchemy import (
     Column,
     DateTime,
     Float,
+    ForeignKey,
     Index,
     Integer,
     JSON,
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 
 from app.database import Base
@@ -57,6 +59,8 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     disabled = Column(Boolean, default=False, nullable=False)
     role = Column(String, default="standard", nullable=False)
+    # "human" for regular users, "service" for pipeline service accounts
+    type = Column(String(20), default="human", nullable=False)
     permissions = Column(JSON, default=list, nullable=False)
     verified = Column(Boolean, default=False, nullable=False)
     verification_token = Column(String, nullable=True)
@@ -90,6 +94,7 @@ class User(Base):
             "hashed_password": self.hashed_password,
             "disabled": self.disabled,
             "role": self.role,
+            "type": self.type,
             "permissions": self.permissions or [],
             "verified": self.verified,
             "verification_token": self.verification_token,
@@ -141,3 +146,53 @@ class MarketData(Base):
         Index("idx_market_data_ticker", "ticker"),
         Index("idx_market_data_type", "data_type"),
     )
+
+
+class ApiKey(Base):
+    """Machine-to-machine API keys for pipeline authentication.
+
+    Token format: apfa_pipe_<secrets.token_urlsafe(48)>
+    Only the bcrypt hash is stored — the raw key is shown once at creation.
+
+    Key rotation: insert new row with same user_id, cutover client,
+    set revoked_at on old row. No redeploy needed.
+    """
+
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    key_hash = Column(String(128), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class PipelineAuditLog(Base):
+    """Write-once audit trail for all pipeline operations.
+
+    GLBA Safeguards Rule: retain >= 7 years for financial products.
+    Never update rows — append only.
+    """
+
+    __tablename__ = "pipeline_audit_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=True)
+    source_connector = Column(String(50), nullable=False)
+    source_url = Column(Text, server_default="")
+    content_hash = Column(String(64), server_default="")
+    action = Column(String(20), nullable=False)  # create | update | delete
+    parent_document_id = Column(String(200), server_default="")
+    chunk_count = Column(Integer, server_default="0")
+    request_ip = Column(String(45), server_default="")
+    user_agent = Column(String(500), server_default="")
+    status = Column(String(20), nullable=False)  # success | rejected | partial
+    error_code = Column(String(50), server_default="")
