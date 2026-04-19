@@ -30,6 +30,7 @@ deltalake==1.5.0
 # pyarrow is required by deltalake.write_deltalake() to serialize pandas
 # DataFrames through the Arrow format. Not a transitive dep — must be explicit.
 pyarrow>=14.0
+pandas>=2.0
 boto3==1.42.87
 minio==7.2.20
 fastapi==0.135.3
