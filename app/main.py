@@ -140,6 +140,11 @@ stripe.api_key = STRIPE_SECRET_KEY
 # Initialize clients with error handling
 try:
     embedder = TextEmbedding(model_name=settings.embedder_model)
+    # Probe embedder for actual output dimension — single source of truth
+    _probe = np.array(list(embedder.embed(["probe"])), dtype=np.float32)
+    EMBEDDING_DIM = int(_probe.shape[1])
+    logger.info(f"Embedder dimension: {EMBEDDING_DIM} (from {settings.embedder_model})")
+    del _probe
     minio_client = Minio(
         MINIO_ENDPOINT,
         access_key=MINIO_ACCESS_KEY,
@@ -150,6 +155,15 @@ try:
 except Exception as e:
     logger.error(f"Initialization error: {e}")
     raise
+
+
+def _as_faiss_array(x: np.ndarray) -> np.ndarray:
+    """Ensure array is contiguous float32 for FAISS.
+
+    FAISS requires C-contiguous float32 arrays. fastembed may return
+    float64 or non-contiguous memory layouts depending on version.
+    """
+    return np.ascontiguousarray(x, dtype=np.float32)
 
 
 # RAG Setup (FAISS index from Delta Lake)
@@ -207,6 +221,18 @@ def load_rag_index():
             | (df["content_hash"] != current_hashes)
         )
 
+        # Validate cached vectors: wrong dimension or NaN → force re-embed
+        # (CoWork: cache bugs should invalidate and re-embed, NOT crash)
+        if not needs_embed.all():
+            cached_mask = ~needs_embed
+            for idx in df[cached_mask].index:
+                try:
+                    vec = np.array(df.at[idx, "embedding_vector"], dtype=np.float32)
+                    if vec.shape[0] != EMBEDDING_DIM or np.isnan(vec).any():
+                        needs_embed.at[idx] = True
+                except (ValueError, TypeError):
+                    needs_embed.at[idx] = True
+
         if needs_embed.any():
             stale_count = needs_embed.sum()
             logger.info(
@@ -214,7 +240,7 @@ def load_rag_index():
                 f"(cache hit on {len(df) - stale_count})"
             )
             stale_texts = df.loc[needs_embed, "profile"].tolist()
-            new_embeddings = np.array(list(embedder.embed(stale_texts)))
+            new_embeddings = np.array(list(embedder.embed(stale_texts)), dtype=np.float32)
 
             # Update only the stale rows — use pd.Series to avoid ndarray shape mismatch
             import pandas as pd
@@ -253,12 +279,28 @@ def load_rag_index():
         else:
             logger.info("Using cached embeddings from DeltaTable (all rows valid)")
 
-        embeddings = np.array(df["embedding_vector"].tolist())
+        embeddings = _as_faiss_array(np.array(df["embedding_vector"].tolist()))
 
         faiss.normalize_L2(embeddings)
         index = faiss.IndexFlatIP(embeddings.shape[1])
         index.add(embeddings)
-        logger.info("RAG index loaded successfully")
+
+        # Build-time sanity search — verify the index actually works
+        test_vec = _as_faiss_array(
+            np.array(list(embedder.embed(["test query"])), dtype=np.float32)
+        )
+        faiss.normalize_L2(test_vec)
+        distances, indices = index.search(test_vec, k=1)
+        if indices[0][0] == -1 or not (-1.01 <= distances[0][0] <= 1.01):
+            raise RAGError(
+                f"Sanity search failed: idx={indices[0][0]}, "
+                f"dist={distances[0][0]}"
+            )
+
+        logger.info(
+            f"RAG index loaded: {len(df)} docs, dim={embeddings.shape[1]}, "
+            f"sanity_dist={distances[0][0]:.4f}"
+        )
         return df, index
     except Exception as e:
         logger.error(f"Error loading RAG index: {e}")
@@ -276,7 +318,9 @@ def retrieve_loan_data(query: str) -> str:
     if faiss_index is None or rag_df is None:
         return "RAG index not available — no data has been ingested yet."
     try:
-        query_emb = np.array(list(embedder.embed([query])))
+        query_emb = _as_faiss_array(
+            np.array(list(embedder.embed([query])), dtype=np.float32)
+        )
         faiss.normalize_L2(query_emb)
         _, indices = faiss_index.search(query_emb, k=min(5, len(rag_df)))
         return "\n".join(rag_df.iloc[indices[0]]["profile"].tolist())
@@ -2162,11 +2206,15 @@ async def search_documents(
 
     try:
         # Generate query embedding
-        query_embedding = list(embedder.embed([query]))[0]
+        query_embedding = _as_faiss_array(
+            np.array(list(embedder.embed([query])), dtype=np.float32)
+        )[0]
 
         # Search FAISS index
         k = min(limit + offset + 50, 100)  # Fetch extra for filtering
-        distances, indices = faiss_index.search(query_embedding.reshape(1, -1), k)
+        distances, indices = faiss_index.search(
+            _as_faiss_array(query_embedding.reshape(1, -1)), k
+        )
 
         # Convert distances to similarity scores (cosine similarity)
         similarities = distances[0]
@@ -2281,11 +2329,15 @@ async def get_similar_documents(
 
         # Get document embedding from FAISS
         # Note: In production, store embeddings separately or retrieve from index
-        query_embedding = list(embedder.embed([doc_row.iloc[0].get("profile", "")]))[0]
+        query_embedding = _as_faiss_array(
+            np.array(list(embedder.embed([doc_row.iloc[0].get("profile", "")])), dtype=np.float32)
+        )[0]
 
         # Search for similar documents
         k = min(limit + 1, 50)  # +1 to exclude self
-        distances, indices = faiss_index.search(query_embedding.reshape(1, -1), k)
+        distances, indices = faiss_index.search(
+            _as_faiss_array(query_embedding.reshape(1, -1)), k
+        )
 
         similarities = distances[0]
         doc_indices = indices[0]
@@ -4200,11 +4252,13 @@ async def semantic_search(
         combined_query = " ".join(query.search_terms)
 
         # Generate embedding
-        query_embedding = list(embedder.embed([combined_query]))[0]
+        query_embedding = _as_faiss_array(
+            np.array(list(embedder.embed([combined_query])), dtype=np.float32)
+        )[0]
 
         # Search FAISS
         distances, indices = faiss_index.search(
-            query_embedding.reshape(1, -1), query.top_k
+            _as_faiss_array(query_embedding.reshape(1, -1)), query.top_k
         )
 
         # Build results
@@ -5599,7 +5653,9 @@ async def get_cached_embedding(text: str):
         return embeddings_cache[text]
 
     # Compute in thread pool to avoid blocking
-    embedding = await asyncio.to_thread(lambda: list(embedder.embed([text])))
+    embedding = await asyncio.to_thread(
+        lambda: np.array(list(embedder.embed([text])), dtype=np.float32).tolist()
+    )
     embeddings_cache[text] = embedding
     return embedding
 
