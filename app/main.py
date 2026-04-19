@@ -216,8 +216,13 @@ def load_rag_index():
             stale_texts = df.loc[needs_embed, "profile"].tolist()
             new_embeddings = np.array(list(embedder.embed(stale_texts)))
 
-            # Update only the stale rows
-            df.loc[needs_embed, "embedding_vector"] = new_embeddings.tolist()
+            # Update only the stale rows — use pd.Series to avoid ndarray shape mismatch
+            import pandas as pd
+
+            df.loc[needs_embed, "embedding_vector"] = pd.Series(
+                [vec.tolist() for vec in new_embeddings],
+                index=df.index[needs_embed],
+            )
             df.loc[needs_embed, "embedding_model"] = settings.embedder_model
             df.loc[needs_embed, "content_hash"] = current_hashes[needs_embed]
             df.loc[needs_embed, "embedded_at"] = (
