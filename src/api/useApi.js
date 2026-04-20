@@ -74,19 +74,11 @@ export const useApiMutation = (endpoint, method = 'post', options = {}) => {
 // Authentication Hooks
 // ============================================================================
 
-/**
- * Login mutation hook
- * @returns {object} Mutation result
- */
-export const useLogin = () => {
-  return useApiMutation('/token', 'post', {
-    mutationKey: mutationKeys.login,
-    onSuccess: (data) => {
-      // Token is handled by calling component
-      console.log('Login successful');
-    },
-  });
-};
+// useLogin REMOVED — LoginForm calls authStore.login() directly.
+// Login state (isPending, error) is local to the form, not global.
+// The old useLogin caused: double "Login successful" logs (StrictMode),
+// token stored in two places (useLogin onSuccess + authStore), and
+// navigation in handleSubmit instead of useEffect.
 
 /**
  * Get current user hook

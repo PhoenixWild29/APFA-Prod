@@ -1,13 +1,17 @@
 /**
  * Login Form Component
- * 
- * Provides user authentication interface with real-time validation,
- * error handling, and accessibility features (WCAG 2.1 AA compliant).
+ *
+ * Auth lifecycle:
+ * - Calls authStore.login() directly (not useLogin hook — that's dead code)
+ * - Local useState for isPending/error (login loading is per-form, not in store)
+ * - Navigation via useEffect on isAuthenticated (works for login, SSO, rehydration)
+ * - mapLoginError translates HTTP status codes to user-friendly messages
+ *
+ * WCAG 2.1 AA compliant: aria-labels, role="alert", aria-invalid, etc.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLogin } from '@/api/useApi';
-import { setAccessToken } from '@/config/auth';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
@@ -18,13 +22,60 @@ interface LoginFormProps {
   onSwitchToPasswordReset?: () => void;
 }
 
+/**
+ * Map API error responses to user-friendly messages.
+ * Translates HTTP status + backend detail into actionable copy.
+ */
+function mapLoginError(error: unknown): string {
+  const axiosErr = error as {
+    response?: { status?: number; data?: { detail?: string } };
+    code?: string;
+  };
+
+  const status = axiosErr.response?.status;
+  const detail = axiosErr.response?.data?.detail;
+
+  switch (status) {
+    case 401:
+      return 'Invalid username or password.';
+    case 403:
+      return 'Account disabled. Contact support.';
+    case 422:
+      return detail || 'Invalid request. Check your input.';
+    case 429:
+      return 'Too many attempts. Please wait a moment and try again.';
+    case 500:
+    case 502:
+    case 503:
+      return 'Server error. Please try again in a few minutes.';
+    default:
+      break;
+  }
+
+  if (axiosErr.code === 'CIRCUIT_BREAKER_OPEN') {
+    return 'Service temporarily unavailable. Please try again shortly.';
+  }
+
+  if (axiosErr.code === 'ERR_NETWORK' || axiosErr.code === 'ECONNABORTED') {
+    return 'Network error. Check your connection and try again.';
+  }
+
+  return detail || 'Login failed. Please try again.';
+}
+
 export default function LoginForm({
   onSuccess,
   onSwitchToRegister,
   onSwitchToPasswordReset,
 }: LoginFormProps) {
   const navigate = useNavigate();
-  const { mutate: login, isPending, error } = useLogin();
+  const login = useAuthStore((s) => s.login);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // Local form state — login loading/error is per-form, not in store
+  const [isPending, setIsPending] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const submittingRef = useRef(false); // gate against StrictMode double-submit
 
   const [formData, setFormData] = useState({
     username: '',
@@ -34,6 +85,18 @@ export default function LoginForm({
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
+
+  // Issue 3: Navigate via useEffect on isAuthenticated — one navigation policy
+  // Works for login, SSO, and rehydration. replace: true prevents /auth in history.
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/app/advisor', { replace: true });
+      }
+    }
+  }, [isAuthenticated, navigate, onSuccess]);
 
   // Real-time validation
   const validateField = (name: string, value: string): string | null => {
@@ -56,7 +119,7 @@ export default function LoginForm({
 
     setFormData((prev) => ({ ...prev, [name]: newValue }));
 
-    // Clear validation error on input change
+    // Clear errors on input change
     if (validationErrors[name]) {
       setValidationErrors((prev) => {
         const updated = { ...prev };
@@ -64,12 +127,15 @@ export default function LoginForm({
         return updated;
       });
     }
+    if (loginError) {
+      setLoginError(null);
+    }
 
-    // Real-time validation
+    // Real-time field validation
     if (type !== 'checkbox') {
-      const error = validateField(name, value);
-      if (error) {
-        setValidationErrors((prev) => ({ ...prev, [name]: error }));
+      const fieldError = validateField(name, value);
+      if (fieldError) {
+        setValidationErrors((prev) => ({ ...prev, [name]: fieldError }));
       }
     }
   };
@@ -77,12 +143,15 @@ export default function LoginForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Gate against double-submit (React StrictMode double-render)
+    if (submittingRef.current) return;
+
     // Validate all fields
     const errors: Record<string, string> = {};
     Object.keys(formData).forEach((key) => {
       if (key !== 'remember_me') {
-        const error = validateField(key, formData[key as keyof typeof formData] as string);
-        if (error) errors[key] = error;
+        const fieldError = validateField(key, formData[key as keyof typeof formData] as string);
+        if (fieldError) errors[key] = fieldError;
       }
     });
 
@@ -91,25 +160,23 @@ export default function LoginForm({
       return;
     }
 
-    // Submit login request
-    login(formData, {
-      onSuccess: (data) => {
-        // Store token
-        setAccessToken(data.access_token, data.expires_in);
-        
-        // Success callback
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          navigate('/app/advisor');
-        }
-      },
-      onError: (error: any) => {
-        // Handle authentication errors
-        const message = error.response?.data?.detail || 'Authentication failed';
-        setValidationErrors({ general: message });
-      },
-    });
+    // Call authStore.login() directly — no useLogin hook
+    submittingRef.current = true;
+    setIsPending(true);
+    setLoginError(null);
+
+    try {
+      await login({
+        username: formData.username,
+        password: formData.password,
+      });
+      // Navigation happens via useEffect on isAuthenticated — not here
+    } catch (error: unknown) {
+      setLoginError(mapLoginError(error));
+    } finally {
+      setIsPending(false);
+      submittingRef.current = false;
+    }
   };
 
   return (
@@ -121,15 +188,15 @@ export default function LoginForm({
         </p>
       </div>
 
-      {/* General error message */}
-      {validationErrors.general && (
+      {/* Login error message */}
+      {loginError && (
         <div
           role="alert"
           aria-live="polite"
           className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
         >
           <AlertCircle className="h-4 w-4" />
-          <span>{validationErrors.general}</span>
+          <span>{loginError}</span>
         </div>
       )}
 
@@ -262,4 +329,3 @@ export default function LoginForm({
     </form>
   );
 }
-

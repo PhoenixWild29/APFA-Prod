@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import PublicLayout from '@/components/layout/PublicLayout';
@@ -8,6 +8,7 @@ import ProtectedRoute from '@/routes/ProtectedRoute';
 import RoleRoute from '@/routes/RoleRoute';
 import RedirectIfAuth from '@/routes/RedirectIfAuth';
 import CommandPalette from '@/components/CommandPalette';
+import { useAuthStore } from '@/store/authStore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // --- Public pages ---
@@ -43,6 +44,15 @@ function PageLoader() {
 
 function App() {
   const [cmdkOpen, setCmdkOpen] = useState(false);
+  const rehydrate = useAuthStore((s) => s.rehydrate);
+
+  // Rehydrate auth state on app mount (page refresh recovery).
+  // Until POST /token/refresh ships, this will always fail on refresh
+  // (in-memory token is lost) → redirect to /auth. The infrastructure
+  // is in place for when the backend endpoint is added.
+  useEffect(() => {
+    rehydrate();
+  }, [rehydrate]);
 
   return (
     <ErrorBoundary>
