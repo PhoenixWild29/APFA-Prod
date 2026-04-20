@@ -12,16 +12,16 @@ import {
 } from 'lucide-react';
 
 const FEATURES = [
-  { icon: MessageSquare, title: 'Conversational Advisor', desc: 'Ask anything about mortgages, rates, DTI, and affordability. Get sourced, regulation-backed answers.' },
-  { icon: TrendingUp, title: 'Rate Tracking', desc: 'Monitor 30yr and 15yr rates with alerts. Know when to lock — before the window closes.' },
-  { icon: Upload, title: 'Document Intelligence', desc: 'Upload statements and tax docs. APFA reads them so you don\'t have to summarize.' },
-  { icon: Shield, title: 'Source Transparency', desc: 'Every answer cites its sources — TILA, RESPA, ECOA, and your own data. No black-box advice.' },
-  { icon: Zap, title: 'Instant Calculations', desc: 'DTI, loan comparisons, affordability — compute live, save scenarios, share with your lender.' },
-  { icon: Lock, title: 'Security First', desc: 'In-memory tokens, encrypted at rest, read-only data access. Your finances stay yours.' },
+  { icon: MessageSquare, title: 'Conversational Research', desc: 'Ask about investments, market trends, economic indicators, or portfolio strategy. Get sourced, cited answers \u2014 not opinions.' },
+  { icon: TrendingUp, title: 'Market Intelligence', desc: 'Track equity markets, interest rates, and economic indicators. Understand what\u2019s moving and why \u2014 with data, not speculation.' },
+  { icon: Upload, title: 'Document Analysis', desc: 'Upload brokerage statements, research reports, or financial documents. APFA reads and explains them so you understand every detail.' },
+  { icon: Shield, title: 'Source Transparency', desc: 'Every answer shows where it came from \u2014 investment research, SEC filings, market data, or your own documents. You verify the work.' },
+  { icon: Zap, title: 'Portfolio & Scenario Analysis', desc: 'Analyze asset allocations, compare investment options, and model scenarios. Explore trade-offs with real data behind every number.' },
+  { icon: Lock, title: 'Security First', desc: 'In-memory tokens, encrypted at rest, read-only data access. Your financial data stays yours.' },
 ];
 
 const STATS = [
-  { value: '20+', label: 'Regulatory sources' },
+  { value: '100%', label: 'Answers cite sources' },
   { value: '<3s', label: 'Response time' },
   { value: '99.9%', label: 'Uptime' },
   { value: 'SOC 2', label: 'Compliance target' },
@@ -39,21 +39,22 @@ export default function Landing() {
               {/* Trust chip */}
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs">
                 <span className="h-1.5 w-1.5 rounded-full bg-pos" />
-                Grounded in 20 regulatory sources &middot; TILA &middot; RESPA &middot; ECOA
+                Every answer cites its sources &middot; Investment research &middot; Market data &middot; SEC filings
               </div>
 
               <h1 className="font-serif text-4xl font-semibold leading-tight tracking-tight sm:text-5xl lg:text-display">
-                The financial advisor you{' '}
+                A financial advisor that{' '}
                 <em className="font-serif italic text-teal-700 dark:text-teal-300">
-                  deserve
+                  shows its work
                 </em>
                 .
               </h1>
 
               <p className="mt-5 max-w-lg text-lg leading-relaxed text-muted-foreground">
-                Ask about mortgages, compare rates, check affordability — and get
-                answers backed by real regulations and your own documents. No
-                jargon, no sales pitch.
+                Investments, market strategy, portfolio analysis, economic
+                trends — ask about your money and get answers grounded in
+                research, data, and your own documents. Every answer cites its
+                sources.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -81,7 +82,7 @@ export default function Landing() {
                 {/* Demo messages */}
                 <div className="flex justify-end">
                   <div className="rounded-2xl rounded-br-md bg-teal-700 px-4 py-2.5 text-sm text-white">
-                    Can I afford a $400K house on $85K income?
+                    Explain the rising-rate environment. My 401(k) is 70% equities.
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -89,21 +90,24 @@ export default function Landing() {
                     A
                   </div>
                   <div className="text-sm leading-relaxed text-muted-foreground">
-                    Based on your income of $85K/yr (~$7,083/mo), a $400K home
-                    with 10% down at current rates (6.62%) would cost about
-                    <span className="font-medium text-foreground"> $2,308/mo</span>.
-                    That puts your housing DTI at
-                    <span className="font-medium text-foreground"> 32.6%</span> —
-                    within the
-                    <span className="text-pos font-medium"> safe zone (≤36%)</span>.
+                    The Federal Reserve has maintained rates at 5.25–5.50% since
+                    July 2023, the highest level in 22 years. In a sustained
+                    high-rate environment, fixed-income instruments typically
+                    become more attractive on a yield basis, while equity
+                    valuations face pressure from higher discount rates —
+                    particularly in growth-heavy sectors.
+                    <br /><br />
+                    For a 70/30 equity allocation, the key considerations are
+                    duration exposure and sector concentration. Understanding
+                    your specific holdings would help clarify the trade-offs.
                     <span className="mt-1 block text-xs text-muted-foreground">
-                      Sources: TILA §226.18, Freddie Mac PMMS 04/17
+                      Sources: Federal Reserve FOMC Statement 03/26, Vanguard Capital Markets Model 2026
                     </span>
                   </div>
                 </div>
                 {/* Suggestion chips */}
                 <div className="flex flex-wrap gap-2">
-                  {['What about FHA?', 'Show me 15yr rates', 'Compare scenarios'].map((q) => (
+                  {['What drives interest rate changes?', 'Explain my brokerage statement', 'Compare index fund strategies'].map((q) => (
                     <Link
                       key={q}
                       to="/auth"
@@ -137,11 +141,12 @@ export default function Landing() {
       <section className="px-4 py-20">
         <div className="container mx-auto max-w-6xl">
           <h2 className="text-center font-serif text-3xl font-semibold">
-            Built for serious financial decisions
+            Built for serious financial research
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
-            APFA combines conversational AI with regulatory grounding — so every
-            answer is transparent, sourced, and yours to verify.
+            APFA combines conversational AI with curated investment research and
+            market intelligence — so every answer is transparent, sourced, and
+            yours to verify.
           </p>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(({ icon: Icon, title, desc }) => (
@@ -167,9 +172,9 @@ export default function Landing() {
           </h2>
           <div className="mt-12 grid gap-8 sm:grid-cols-3">
             {[
-              { step: '1', title: 'Ask', desc: 'Type a question — "Can I afford this house?" — or upload a document for APFA to read.' },
-              { step: '2', title: 'Receive sourced answers', desc: 'Every response cites regulations, rate data, and your own documents. Tap a source to inspect.' },
-              { step: '3', title: 'Act with confidence', desc: 'Save scenarios, compare loans, set rate alerts, and share results with your lender or advisor.' },
+              { step: '1', title: 'Ask about your money', desc: 'Type a question about investments, markets, or your portfolio \u2014 or upload a document for analysis.' },
+              { step: '2', title: 'Get sourced answers', desc: 'Every response cites investment research, market data, and relevant filings. Tap any source to inspect it.' },
+              { step: '3', title: 'Make informed decisions', desc: 'Save analyses, set market alerts, and share insights with your financial professional.' },
             ].map(({ step, title, desc }) => (
               <div key={step} className="text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-700 font-serif text-xl font-semibold text-white dark:bg-teal-500">
@@ -187,10 +192,10 @@ export default function Landing() {
       <section className="bg-ink-900 px-4 py-16 text-ink-50 dark:bg-ink-800">
         <div className="container mx-auto max-w-2xl text-center">
           <h2 className="font-serif text-3xl font-semibold">
-            Ready to take control?
+            Ready to understand your finances?
           </h2>
           <p className="mt-3 text-ink-300">
-            Free to start. No credit card. Upgrade when you're ready.
+            Free to start. No credit card. Your research, your terms.
           </p>
           <Link to="/auth">
             <Button
