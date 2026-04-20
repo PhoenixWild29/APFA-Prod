@@ -23,7 +23,93 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
+import pyarrow as pa
+
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# DELTA_SCHEMA — canonical PyArrow schema for the RAG DeltaTable
+# ---------------------------------------------------------------------------
+
+def build_delta_schema(embedding_dim: int) -> pa.Schema:
+    """Build the canonical PyArrow schema for the RAG DeltaTable.
+
+    The embedding_vector column uses fixed_size_list(float32, dim) to
+    guarantee type safety — PyArrow will reject wrong-dimension writes.
+
+    Args:
+        embedding_dim: Embedding dimension (e.g. 384 for bge-small-en-v1.5).
+                        Probed from the embedder at startup, never hardcoded.
+    """
+    return pa.schema([
+        # Core RAG columns (backward-compatible with seed data)
+        pa.field("document_id", pa.string()),
+        pa.field("chunk_id", pa.string()),
+        pa.field("filename", pa.string()),
+        pa.field("document_type", pa.string()),
+        pa.field("source", pa.string()),
+        pa.field("creation_date", pa.string()),
+        pa.field("file_size_bytes", pa.int64()),
+        pa.field("profile", pa.string()),
+        # Embedding cache columns
+        pa.field("embedding_vector", pa.list_(pa.float32(), embedding_dim)),
+        pa.field("embedding_model", pa.string()),
+        pa.field("content_hash", pa.string()),
+        pa.field("embedded_at", pa.string()),
+        # Pipeline extension columns
+        pa.field("external_id", pa.string()),
+        pa.field("source_connector", pa.string()),
+        pa.field("source_url", pa.string()),
+        pa.field("parent_document_id", pa.string()),
+        pa.field("chunk_index", pa.int64()),
+        pa.field("total_chunks", pa.int64()),
+        pa.field("ingested_at", pa.string()),
+        pa.field("ttl_hours", pa.int64()),
+        pa.field("freshness_class", pa.string()),
+        pa.field("content_kind", pa.string()),
+        pa.field("metadata_json", pa.string()),
+    ])
+
+
+# Module-level cache — populated lazily on first use
+_DELTA_SCHEMA: Optional[pa.Schema] = None
+_EMBEDDING_DIM: Optional[int] = None
+
+
+def get_delta_schema() -> pa.Schema:
+    """Get the canonical DELTA_SCHEMA, probing the embedder dimension if needed.
+
+    Lazy initialization avoids circular imports (main.py → base.py → main.py).
+    """
+    global _DELTA_SCHEMA, _EMBEDDING_DIM
+    if _DELTA_SCHEMA is not None:
+        return _DELTA_SCHEMA
+
+    # Try to import EMBEDDING_DIM from main.py (set at startup)
+    try:
+        from app.main import EMBEDDING_DIM
+        _EMBEDDING_DIM = EMBEDDING_DIM
+    except (ImportError, AttributeError):
+        # Fallback: probe the embedder directly
+        import numpy as np
+        from fastembed import TextEmbedding
+        from app.config import settings
+        _embedder = TextEmbedding(model_name=settings.embedder_model)
+        _probe = np.array(list(_embedder.embed(["probe"])), dtype=np.float32)
+        _EMBEDDING_DIM = int(_probe.shape[1])
+        del _embedder, _probe
+
+    _DELTA_SCHEMA = build_delta_schema(_EMBEDDING_DIM)
+    return _DELTA_SCHEMA
+
+
+def get_embedding_dim() -> int:
+    """Get the embedding dimension, initializing if needed."""
+    global _EMBEDDING_DIM
+    if _EMBEDDING_DIM is None:
+        get_delta_schema()  # triggers probe
+    return _EMBEDDING_DIM
 
 
 @dataclass

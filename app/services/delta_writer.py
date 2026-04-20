@@ -1,11 +1,16 @@
 """DeltaTable writer for the APFA data pipeline.
 
 Handles:
-- Appending new document chunks to the RAG DeltaTable
+- Appending new document chunks to the RAG DeltaTable via merge (idempotent)
+- Explicit DELTA_SCHEMA enforcement (PyArrow typed writes)
 - Content-hash dedup (skip chunks already in table with same hash)
 - FAISS rebuild signaling via Redis
 - Per-source audit logging
 - Deletion by source_url (GDPR/CCPA compliance)
+- TTL-based chunk expiration
+
+All writes use DeltaTable.merge() keyed on chunk_id — retries never
+create duplicates, updated content replaces old chunks.
 """
 
 import hashlib
@@ -16,6 +21,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +30,69 @@ def _compute_content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def _generate_external_id(
-    source_type: str, source_id: str, chunk_index: int
-) -> str:
-    """Generate a deterministic external_id for dedup.
+def _conform_df_to_schema(df: pd.DataFrame, schema: pa.Schema) -> pd.DataFrame:
+    """Ensure DataFrame has exactly the columns in DELTA_SCHEMA, in order.
 
-    Format: {source_type}:{source_id}:chunk:{chunk_index:04d}
-    Example: youtube:dQw4w9WgXcQ:chunk:0007
+    - Adds missing columns with None
+    - Removes extra columns (with a warning)
+    - Reorders to match schema
+    - Converts embedding_vector values to float32 lists
     """
-    return f"{source_type}:{source_id}:chunk:{chunk_index:04d}"
+    expected = [field.name for field in schema]
+
+    # Warn on extra columns
+    extra = set(df.columns) - set(expected)
+    if extra:
+        logger.warning(
+            f"DataFrame has columns not in DELTA_SCHEMA (dropping): {extra}"
+        )
+
+    # Add missing columns
+    for col in expected:
+        if col not in df.columns:
+            df[col] = None
+
+    # Ensure embeddings are float32 before Arrow conversion
+    if "embedding_vector" in df.columns:
+        df["embedding_vector"] = df["embedding_vector"].apply(
+            lambda v: np.asarray(v, dtype=np.float32).tolist()
+            if v is not None
+            else None
+        )
+
+    # Ensure int columns have proper types (Arrow rejects float for int fields)
+    for col in ["file_size_bytes", "chunk_index", "total_chunks", "ttl_hours"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+            # ttl_hours can be null
+            if col != "ttl_hours":
+                df[col] = df[col].fillna(0).astype("int64")
+
+    return df[expected]
+
+
+def _df_to_arrow(df: pd.DataFrame, schema: pa.Schema) -> pa.Table:
+    """Convert DataFrame to Arrow Table with explicit schema.
+
+    Raises clear error if types don't match.
+    """
+    conformed = _conform_df_to_schema(df.copy(), schema)
+    try:
+        return pa.Table.from_pandas(
+            conformed, schema=schema, preserve_index=False
+        )
+    except (pa.ArrowInvalid, pa.ArrowTypeError) as e:
+        # Identify which column caused the error
+        for field in schema:
+            col = field.name
+            try:
+                pa.array(conformed[col].tolist(), type=field.type)
+            except Exception as col_err:
+                logger.error(
+                    f"Schema mismatch on column '{col}': "
+                    f"expected {field.type}, got error: {col_err}"
+                )
+        raise ValueError(f"Arrow schema conversion failed: {e}") from e
 
 
 def ingest_chunks(
@@ -43,57 +103,47 @@ def ingest_chunks(
 ) -> dict:
     """Ingest a batch of normalized document chunks into the RAG DeltaTable.
 
-    Each chunk dict must conform to the normalized record schema:
-        - external_id: str (unique across sources)
-        - source_type: str (youtube|google_drive|finnhub|manual)
-        - source_url: str
-        - title: str
-        - author: str
-        - published_at: str (ISO 8601)
-        - fetched_at: str (ISO 8601)
-        - freshness_class: str (realtime|hourly|daily|weekly|static)
-        - content_kind: str (transcript_segment|doc_section|etc.)
-        - text: str (the actual chunk content)
-        - chunk_index: int
-        - total_chunks: int
-        - metadata_json: str (JSON blob, connector-specific)
-        - parent_document_id: str (groups chunks from same doc)
+    Uses DeltaTable.merge() keyed on chunk_id — idempotent, retries don't
+    create duplicates, updated content replaces old chunks.
+
+    Dedup: skips chunks whose content_hash already exists in the table.
 
     Args:
-        chunks: List of normalized record dicts.
+        chunks: List of normalized record dicts (must have "text" key).
         embedder: FastEmbed TextEmbedding instance.
         settings: App Settings instance.
         redis_client: Optional Redis client for FAISS rebuild signaling.
 
     Returns:
-        Dict with ingestion stats: inserted, skipped (dedup), errors.
+        Dict with ingestion stats: inserted, skipped, errors.
     """
+    from app.connectors.base import get_delta_schema
     from app.storage import get_delta_storage_options
 
     if not chunks:
         return {"inserted": 0, "skipped": 0, "errors": 0}
 
     storage_opts = get_delta_storage_options()
+    schema = get_delta_schema()
     stats = {"inserted": 0, "skipped": 0, "errors": 0}
 
     # Load existing content hashes for dedup
     existing_hashes: set[str] = set()
     existing_external_ids: set[str] = set()
+    table_exists = False
     try:
         from deltalake import DeltaTable
 
         dt = DeltaTable(settings.delta_table_path, storage_options=storage_opts)
         existing_df = dt.to_pandas()
+        table_exists = True
         if "content_hash" in existing_df.columns:
-            existing_hashes = set(
-                existing_df["content_hash"].dropna().tolist()
-            )
+            existing_hashes = set(existing_df["content_hash"].dropna().tolist())
         if "external_id" in existing_df.columns:
             existing_external_ids = set(
                 existing_df["external_id"].dropna().tolist()
             )
     except Exception:
-        # Table doesn't exist yet or is empty — no dedup needed
         pass
 
     # Filter out duplicates
@@ -104,11 +154,9 @@ def ingest_chunks(
 
         if content_hash in existing_hashes:
             stats["skipped"] += 1
-            logger.debug(f"Skipping duplicate chunk (hash): {ext_id}")
             continue
         if ext_id and ext_id in existing_external_ids:
             stats["skipped"] += 1
-            logger.debug(f"Skipping duplicate chunk (external_id): {ext_id}")
             continue
 
         chunk["_content_hash"] = content_hash
@@ -123,13 +171,13 @@ def ingest_chunks(
     # Embed the new chunks
     texts = [c["text"] for c in new_chunks]
     try:
-        embeddings = np.array(list(embedder.embed(texts)))
+        embeddings = np.array(list(embedder.embed(texts)), dtype=np.float32)
     except Exception as e:
         logger.error(f"Embedding failed: {e}")
         stats["errors"] = len(new_chunks)
         return stats
 
-    # Build DataFrame rows matching DeltaTable schema
+    # Build DataFrame rows matching DELTA_SCHEMA
     now_iso = datetime.now(timezone.utc).isoformat()
     rows = []
     for i, chunk in enumerate(new_chunks):
@@ -138,7 +186,6 @@ def ingest_chunks(
 
         rows.append(
             {
-                # Core RAG columns (backward-compatible with seed data)
                 "document_id": doc_id,
                 "chunk_id": chunk_id,
                 "filename": chunk.get("title", ""),
@@ -147,12 +194,10 @@ def ingest_chunks(
                 "creation_date": chunk.get("published_at", now_iso)[:10],
                 "file_size_bytes": len(chunk["text"].encode("utf-8")),
                 "profile": chunk["text"],
-                # Embedding cache columns
                 "embedding_vector": embeddings[i].tolist(),
                 "embedding_model": settings.embedder_model,
                 "content_hash": chunk["_content_hash"],
                 "embedded_at": now_iso,
-                # Pipeline extension columns
                 "external_id": chunk.get("external_id", ""),
                 "source_connector": chunk.get("source_type", "manual"),
                 "source_url": chunk.get("source_url", ""),
@@ -169,17 +214,38 @@ def ingest_chunks(
 
     df = pd.DataFrame(rows)
 
-    # Append to DeltaTable (schema_mode="merge" adds new columns gracefully)
+    # Convert to Arrow with explicit schema
+    try:
+        table = _df_to_arrow(df, schema)
+    except ValueError as e:
+        logger.error(f"Schema conversion failed: {e}")
+        stats["errors"] = len(rows)
+        return stats
+
+    # Write: merge if table exists, overwrite if first write
     try:
         import deltalake
 
-        deltalake.write_deltalake(
-            settings.delta_table_path,
-            df,
-            mode="append",
-            schema_mode="merge",
-            storage_options=storage_opts,
-        )
+        if table_exists:
+            # Merge keyed on chunk_id — idempotent upsert
+            dt = deltalake.DeltaTable(
+                settings.delta_table_path, storage_options=storage_opts
+            )
+            dt.merge(
+                source=table,
+                predicate="s.chunk_id = t.chunk_id",
+                source_alias="s",
+                target_alias="t",
+            ).when_matched_update_all().when_not_matched_insert_all().execute()
+        else:
+            # First write — create the table with explicit schema
+            deltalake.write_deltalake(
+                settings.delta_table_path,
+                table,
+                mode="overwrite",
+                storage_options=storage_opts,
+            )
+
         stats["inserted"] = len(rows)
         logger.info(
             f"Ingested {len(rows)} chunks into DeltaTable "
@@ -190,7 +256,6 @@ def ingest_chunks(
         stats["errors"] = len(rows)
         return stats
 
-    # Signal FAISS rebuild needed
     _signal_faiss_rebuild(redis_client)
 
     # Audit log
@@ -214,10 +279,12 @@ def delete_by_source_url(
 
     Returns the number of rows deleted.
     """
+    from app.connectors.base import get_delta_schema
     from app.storage import get_delta_storage_options
     from deltalake import DeltaTable
 
     storage_opts = get_delta_storage_options()
+    schema = get_delta_schema()
 
     try:
         dt = DeltaTable(settings.delta_table_path, storage_options=storage_opts)
@@ -232,14 +299,14 @@ def delete_by_source_url(
         if delete_count == 0:
             return 0
 
-        # Keep everything except the matching rows
         keep_df = df[~mask].copy()
+        table = _df_to_arrow(keep_df, schema)
 
         import deltalake as dl
 
         dl.write_deltalake(
             settings.delta_table_path,
-            keep_df,
+            table,
             mode="overwrite",
             storage_options=storage_opts,
         )
@@ -262,10 +329,12 @@ def expire_stale_chunks(settings, redis_client=None) -> int:
 
     Called by Celery Beat on a schedule. Returns count of expired rows.
     """
+    from app.connectors.base import get_delta_schema
     from app.storage import get_delta_storage_options
     from deltalake import DeltaTable
 
     storage_opts = get_delta_storage_options()
+    schema = get_delta_schema()
 
     try:
         dt = DeltaTable(settings.delta_table_path, storage_options=storage_opts)
@@ -292,12 +361,13 @@ def expire_stale_chunks(settings, redis_client=None) -> int:
             return 0
 
         keep_df = df[~expired_mask].copy()
+        table = _df_to_arrow(keep_df, schema)
 
         import deltalake as dl
 
         dl.write_deltalake(
             settings.delta_table_path,
-            keep_df,
+            table,
             mode="overwrite",
             storage_options=storage_opts,
         )
