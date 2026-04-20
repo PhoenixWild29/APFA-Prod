@@ -633,19 +633,10 @@ class LoanQuery(BaseModel):
         if predict_prob([v])[0] > 0.8:
             raise ValueError("Query contains inappropriate content")
 
-        # Check for financial relevance
-        financial_keywords = [
-            "loan",
-            "credit",
-            "mortgage",
-            "finance",
-            "interest",
-            "payment",
-            "debt",
-            "borrow",
-        ]
-        if not any(keyword in v.lower() for keyword in financial_keywords):
-            raise ValueError("Query must be related to financial or loan topics")
+        # Financial-topic keyword filter REMOVED — the GPT-4o system prompt
+        # already handles scope ("If the provided context does not cover the
+        # user's question, say so clearly"). Keyword matching rejected valid
+        # queries like "How would refinancing help me?" as non-financial.
 
         # Extract and validate amounts if present
         amount_pattern = r"\$?(\d+(?:,\d{3})*(?:\.\d{2})?)"
@@ -1345,7 +1336,8 @@ async def detailed_metrics(
 
 
 @app.post("/token", response_model=LoginResponse)
-async def login_for_access_token(request: UserLoginRequest):
+@limiter.limit("10/minute")
+async def login_for_access_token(request: Request, form_data: UserLoginRequest):
     """
     Primary authentication endpoint - OAuth2-compatible JWT token login.
 
@@ -1385,10 +1377,10 @@ async def login_for_access_token(request: UserLoginRequest):
     """
     try:
         # Validate user credentials using existing authenticate_user function
-        user = authenticate_user(request.username, request.password)
+        user = authenticate_user(form_data.username, form_data.password)
         if not user:
             # Authentication failed - invalid credentials
-            _clean_u = str(request.username).replace("\n", "").replace("\r", "")[:200]
+            _clean_u = str(form_data.username).replace("\n", "").replace("\r", "")[:200]
             logger.warning(
                 f"Failed login attempt for username: {_clean_u}"
             )
@@ -1427,8 +1419,8 @@ async def login_for_access_token(request: UserLoginRequest):
             user_id=user_profile.user_id,
             ip_address="127.0.0.1",  # TODO: Extract from request.client.host
             user_agent=(
-                request.client_metadata.get("browser", "Unknown")
-                if request.client_metadata
+                form_data.client_metadata.get("browser", "Unknown")
+                if form_data.client_metadata
                 else "Unknown"
             ),
             security_flags=["password_authenticated"],
@@ -5664,37 +5656,34 @@ async def get_cached_embedding(text: str):
     return embedding
 
 
-# Per-user rate limiting
-user_request_counts = {}
+# Global 10/min middleware REMOVED — was unusable (page load = 5+ calls).
+# Rate limiting is now per-endpoint via @limiter.limit() decorators:
+#   POST /token           → 10/min per IP (login)
+#   POST /generate-advice → 20/min per user (LLM/expensive)
+#   POST /admin/ingest    → 300/min per pipeline key (handled in dependencies.py)
+#   GET endpoints         → 300/min per user (via global backstop)
+#   All                   → 1000/min per IP (global backstop via slowapi default)
 
 
-@app.middleware("http")
-async def rate_limit_middleware(request: Request, call_next):
-    """Per-user rate limiting middleware."""
-    client_ip = request.client.host
-    current_time = time.time()
-
-    if client_ip not in user_request_counts:
-        user_request_counts[client_ip] = []
-
-    # Clean old requests (keep last 60 seconds)
-    user_request_counts[client_ip] = [
-        t for t in user_request_counts[client_ip] if current_time - t < 60
-    ]
-
-    if len(user_request_counts[client_ip]) >= 10:  # 10 requests per minute per IP
-        return JSONResponse(
-            status_code=429, content={"detail": "Rate limit exceeded. Try again later."}
-        )
-
-    user_request_counts[client_ip].append(current_time)
-
-    response = await call_next(request)
-    return response
+def _get_user_or_ip(request: Request) -> str:
+    """Rate limit key: user ID if authenticated, IP address otherwise."""
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Bearer "):
+        try:
+            token = auth[7:]
+            payload = jwt.decode(
+                token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+            )
+            username = payload.get("sub")
+            if username:
+                return f"user:{username}"
+        except Exception:
+            pass
+    return request.client.host if request.client else "unknown"
 
 
 @app.post("/generate-advice", response_model=OptimizedAdviceResponse)
-@limiter.limit("10/minute")
+@limiter.limit("20/minute", key_func=_get_user_or_ip)
 async def generate_advice(
     request: Request,
     q: LoanQuery,
