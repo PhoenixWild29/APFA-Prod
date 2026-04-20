@@ -33,6 +33,7 @@ from cachetools import TTLCache
 from deltalake import DeltaTable
 from fastapi import (
     BackgroundTasks,
+    Cookie,
     Depends,
     FastAPI,
     File,
@@ -77,6 +78,12 @@ from app.models.user_registration import (
 )
 from app.config import settings
 from app.dependencies import require_admin
+from app.services.refresh_token_service import (
+    create_refresh_token as create_db_refresh_token,
+    rotate_refresh_token,
+    revoke_family as revoke_token_family,
+    find_family_by_token,
+)
 from app.models.advice_response import BiasDetectionResults, OptimizedAdviceResponse
 from app.models.performance_tracking import AgentExecutionStep, ResponseMetrics
 from app.schemas.health_metrics import EnhancedHealthResponse, DetailedMetricsResponse
@@ -781,6 +788,19 @@ def get_user(username: str, db: Session = None):
     return user.to_dict() if user else None
 
 
+def get_user_by_id(user_id: str, db: Session = None):
+    """Get user by ID from PostgreSQL. Returns legacy dict or None."""
+    if db is None:
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            return user.to_dict() if user else None
+        finally:
+            db.close()
+    user = db.query(User).filter(User.id == user_id).first()
+    return user.to_dict() if user else None
+
+
 def authenticate_user(username: str, password: str):
     """
     Authenticate a user with email verification check.
@@ -1337,49 +1357,19 @@ async def detailed_metrics(
 
 @app.post("/token", response_model=LoginResponse)
 @limiter.limit("10/minute")
-async def login_for_access_token(request: Request, form_data: UserLoginRequest):
+async def login_for_access_token(
+    request: Request, response: Response, form_data: UserLoginRequest,
+    db: Session = Depends(get_db),
+):
     """
     Primary authentication endpoint - OAuth2-compatible JWT token login.
 
-    Accepts username and password, validates credentials, and returns JWT access token
-    with comprehensive user profile and session metadata.
-
-    Args:
-        request: UserLoginRequest with username, password, and optional MFA/device info
-
-    Returns:
-        LoginResponse: OAuth2-compatible response with access_token, token_type,
-                      expires_in, plus enhanced user profile and session metadata
-
-    Raises:
-        HTTPException:
-            - 400: Malformed request or validation errors
-            - 401: Invalid credentials (incorrect username or password)
-
-    Example:
-        Request:
-            POST /token
-            {
-                "username": "john_doe",
-                "password": "SecurePass123!",
-                "remember_me": true
-            }
-
-        Response:
-            {
-                "access_token": "eyJhbGci...",
-                "refresh_token": "eyJhbGci...",
-                "token_type": "bearer",
-                "expires_in": 1800,
-                "user_profile": {...},
-                "session_metadata": {...}
-            }
+    Issues a JWT access token in the response body and an opaque refresh
+    token in an httpOnly cookie (token rotation with family-based revocation).
     """
     try:
-        # Validate user credentials using existing authenticate_user function
         user = authenticate_user(form_data.username, form_data.password)
         if not user:
-            # Authentication failed - invalid credentials
             _clean_u = str(form_data.username).replace("\n", "").replace("\r", "")[:200]
             logger.warning(
                 f"Failed login attempt for username: {_clean_u}"
@@ -1390,22 +1380,34 @@ async def login_for_access_token(request: Request, form_data: UserLoginRequest):
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Authentication successful - generate JWT access token
+        # JWT access token (returned in response body)
         access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
         access_token = create_access_token(
-            data={"sub": user["username"]},  # Subject claim = username
+            data={"sub": user["username"]},
             expires_delta=access_token_expires,
         )
 
-        # Generate refresh token for token renewal
-        refresh_token = create_access_token(
-            data={"sub": user["username"], "type": "refresh"},
-            expires_delta=timedelta(days=7),
+        # Opaque refresh token (stored as SHA-256 hash, cookie only)
+        user_id = user.get("user_id", f"user_{user['username']}")
+        raw_refresh, _rt_row = create_db_refresh_token(db, user_id)
+        db.commit()
+
+        # Set httpOnly refresh cookie — path restricted to /token/*
+        refresh_max_age = int(
+            timedelta(days=settings.refresh_token_expire_days).total_seconds()
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=raw_refresh,
+            httponly=True,
+            secure=settings.cookie_secure,
+            samesite=settings.cookie_samesite,
+            path="/token",
+            max_age=refresh_max_age,
         )
 
-        # Create user profile from authenticated user data
         user_profile = UserProfile(
-            user_id=user.get("user_id", f"user_{user['username']}"),
+            user_id=user_id,
             username=user["username"],
             email=user.get("email", f"{user['username']}@apfa.io"),
             role=UserRole(user.get("role", "standard")),
@@ -1414,10 +1416,11 @@ async def login_for_access_token(request: Request, form_data: UserLoginRequest):
             ),
         )
 
-        # Create session metadata for tracking
         session_metadata = SessionMetadata(
             user_id=user_profile.user_id,
-            ip_address="127.0.0.1",  # TODO: Extract from request.client.host
+            ip_address=(
+                request.client.host if request.client else "127.0.0.1"
+            ),
             user_agent=(
                 form_data.client_metadata.get("browser", "Unknown")
                 if form_data.client_metadata
@@ -1429,10 +1432,9 @@ async def login_for_access_token(request: Request, form_data: UserLoginRequest):
         _clean_u = str(user['username']).replace("\n", "").replace("\r", "")[:200]
         logger.info(f"Successful login for user: {_clean_u}")
 
-        # Return OAuth2-compatible response with enhanced metadata
         return LoginResponse(
             access_token=access_token,
-            refresh_token=refresh_token,
+            refresh_token="httponly_cookie",  # Indicate cookie-based refresh
             token_type="bearer",
             expires_in=int(access_token_expires.total_seconds()),
             user_profile=user_profile,
@@ -1442,16 +1444,13 @@ async def login_for_access_token(request: Request, form_data: UserLoginRequest):
         )
 
     except HTTPException:
-        # Re-raise HTTP exceptions (401)
         raise
 
     except ValueError as e:
-        # Validation errors (malformed request)
         logger.error(f"Validation error in login request: {e}")
         raise HTTPException(status_code=400, detail=f"Malformed request: {str(e)}")
 
     except Exception as e:
-        # Unexpected errors
         logger.error(f"Unexpected error in login endpoint: {e}")
         raise HTTPException(
             status_code=500, detail="Internal server error during authentication"
@@ -1481,6 +1480,166 @@ async def login_for_access_token_legacy(
         data={"sub": user["username"]}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+# ---------------------------------------------------------------------------
+# Token refresh — opaque rotation with family-based revocation (CoWork approved)
+# ---------------------------------------------------------------------------
+
+
+def _check_refresh_origin(request: Request) -> None:
+    """Validate Origin/Referer header on refresh requests (CoWork requirement #4).
+
+    Blocks cross-origin refresh attempts. Only checks when Origin or Referer
+    is present (same-origin requests may omit both on some browsers).
+    """
+    origin = request.headers.get("origin")
+    referer = request.headers.get("referer")
+
+    if not origin and not referer:
+        return
+
+    # Allowed origins: self + CORS list
+    allowed: set[str] = set()
+    host = request.headers.get("host", "")
+    scheme = "https" if settings.cookie_secure else "http"
+    if host:
+        allowed.add(f"{scheme}://{host}")
+    # Match the origins configured in add_middleware(CORSMiddleware, ...)
+    allowed.update([
+        "http://localhost:3000",
+        "http://localhost:8000",
+        f"https://{settings.cookie_domain}",
+    ])
+
+    # Extract origin from either header
+    check_value = origin
+    if not check_value and referer:
+        # Referer is a full URL — extract scheme://host
+        parts = referer.split("/", 3)
+        check_value = "/".join(parts[:3]) if len(parts) >= 3 else referer
+    if check_value:
+        check_value = check_value.rstrip("/")
+
+    if check_value not in allowed:
+        logger.warning(
+            f"Refresh request blocked: origin={origin} referer={referer}"
+        )
+        raise HTTPException(status_code=403, detail="Origin not allowed")
+
+
+@app.post("/token/refresh")
+@limiter.limit("60/minute")
+async def refresh_access_token(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    refresh_token: Optional[str] = Cookie(None, alias="refresh_token"),
+):
+    """Exchange a valid refresh token for a new access token.
+
+    The refresh token is read from the httpOnly cookie (path=/token).
+    On success: old refresh token is rotated (marked replaced), new
+    refresh token set in cookie, new access token in response body.
+
+    Multi-tab safety: if a recently-rotated token is presented within
+    the grace window (~10s), the successor is returned instead of
+    triggering theft detection.
+    """
+    _check_refresh_origin(request)
+
+    if not refresh_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    new_raw, new_row, user_id = rotate_refresh_token(db, refresh_token)
+    if new_raw is None:
+        # Rotation failed (expired, revoked, or theft detected)
+        # Clear the stale cookie
+        response.delete_cookie(
+            key="refresh_token", path="/token",
+            secure=settings.cookie_secure,
+            samesite=settings.cookie_samesite,
+        )
+        db.commit()
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token invalid or revoked",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    db.commit()
+
+    # Look up user to build access token
+    user = get_user_by_id(user_id)
+    if user is None or user.get("disabled"):
+        response.delete_cookie(
+            key="refresh_token", path="/token",
+            secure=settings.cookie_secure,
+            samesite=settings.cookie_samesite,
+        )
+        raise HTTPException(status_code=401, detail="User not found or disabled")
+
+    # Issue new JWT access token
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token = create_access_token(
+        data={"sub": user["username"]},
+        expires_delta=access_token_expires,
+    )
+
+    # Set new refresh cookie
+    refresh_max_age = int(
+        timedelta(days=settings.refresh_token_expire_days).total_seconds()
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=new_raw,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        path="/token",
+        max_age=refresh_max_age,
+    )
+
+    TOKEN_REFRESH.inc()
+    logger.info(f"Token refreshed for user_id={user_id}")
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": int(access_token_expires.total_seconds()),
+    }
+
+
+@app.post("/token/revoke")
+async def revoke_refresh_token(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    refresh_token: Optional[str] = Cookie(None, alias="refresh_token"),
+):
+    """Revoke the current refresh token family (logout).
+
+    Reads the refresh token from the httpOnly cookie, finds its family,
+    and revokes all tokens in that family. Clears the cookie.
+    """
+    if refresh_token:
+        family_id = find_family_by_token(db, refresh_token)
+        if family_id:
+            revoke_token_family(db, family_id)
+            db.commit()
+
+    # Always clear the cookie regardless
+    response.delete_cookie(
+        key="refresh_token", path="/token",
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+    )
+
+    return {"message": "Token revoked successfully"}
 
 
 @app.post("/register", response_model=RegistrationResponse, status_code=201)
@@ -1633,20 +1792,11 @@ async def register_user(
 
 
 @app.post("/token/cookie", status_code=200)
-async def login_with_cookies(request: UserLoginRequest, response: Response):
-    """
-    Login endpoint with httpOnly cookie authentication (enhanced security).
-
-    Sets access and refresh tokens in httpOnly cookies instead of
-    returning them in response body.
-
-    Args:
-        request: UserLoginRequest with username and password
-        response: FastAPI Response object to set cookies
-
-    Returns:
-        dict: Success message and user info (without tokens in body)
-    """
+async def login_with_cookies(
+    request: UserLoginRequest, response: Response,
+    db: Session = Depends(get_db),
+):
+    """Login with httpOnly cookies. Will be removed in PR 3 (CoWork cleanup)."""
     user = authenticate_user(request.username, request.password)
     if not user:
         raise HTTPException(
@@ -1655,18 +1805,16 @@ async def login_with_cookies(request: UserLoginRequest, response: Response):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create tokens
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
         data={"sub": user["username"]}, expires_delta=access_token_expires
     )
 
-    refresh_token = create_access_token(
-        data={"sub": user["username"], "type": "refresh"},
-        expires_delta=timedelta(days=settings.refresh_token_expire_days),
-    )
+    # Opaque refresh token (DB-backed, same as POST /token)
+    user_id = user.get("user_id", f"user_{user['username']}")
+    raw_refresh, _rt_row = create_db_refresh_token(db, user_id)
+    db.commit()
 
-    # Set httpOnly cookies
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -1678,10 +1826,11 @@ async def login_with_cookies(request: UserLoginRequest, response: Response):
 
     response.set_cookie(
         key="refresh_token",
-        value=refresh_token,
+        value=raw_refresh,
         httponly=True,
         secure=settings.cookie_secure,
         samesite=settings.cookie_samesite,
+        path="/token",
         max_age=int(timedelta(days=settings.refresh_token_expire_days).total_seconds()),
     )
 
@@ -1697,19 +1846,24 @@ async def login_with_cookies(request: UserLoginRequest, response: Response):
 
 
 @app.post("/logout")
-async def logout(response: Response):
-    """
-    Logout endpoint - Clear httpOnly cookies.
+async def logout(
+    response: Response,
+    db: Session = Depends(get_db),
+    refresh_token: Optional[str] = Cookie(None, alias="refresh_token"),
+):
+    """Logout — revoke refresh token family and clear cookies."""
+    if refresh_token:
+        family_id = find_family_by_token(db, refresh_token)
+        if family_id:
+            revoke_token_family(db, family_id)
+            db.commit()
 
-    Args:
-        response: FastAPI Response object to clear cookies
-
-    Returns:
-        dict: Success message
-    """
-    # Clear auth cookies
     response.delete_cookie(key="access_token")
-    response.delete_cookie(key="refresh_token")
+    response.delete_cookie(
+        key="refresh_token", path="/token",
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+    )
 
     return {"message": "Logged out successfully"}
 

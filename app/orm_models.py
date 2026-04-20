@@ -196,3 +196,34 @@ class PipelineAuditLog(Base):
     user_agent = Column(String(500), server_default="")
     status = Column(String(20), nullable=False)  # success | rejected | partial
     error_code = Column(String(50), server_default="")
+
+
+class RefreshToken(Base):
+    """Opaque refresh tokens with rotation and family-based revocation.
+
+    Each login creates a new token family. Each refresh rotates the token
+    (old is marked replaced, new is issued). If a rotated-out token is
+    presented outside the grace window, the entire family is revoked
+    (theft detection).
+
+    Only SHA-256 hashes are stored — the raw token is returned once to
+    the client in an httpOnly cookie.
+    """
+
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    family_id = Column(String(36), nullable=False, index=True)  # UUID per login
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    replaced_by_id = Column(Integer, ForeignKey("refresh_tokens.id"), nullable=True)
+
+    __table_args__ = (
+        Index("idx_refresh_tokens_family", "family_id"),
+        Index("idx_refresh_tokens_user", "user_id"),
+    )
