@@ -102,6 +102,24 @@ def rotate_refresh_token(
         logger.info(f"Refresh token expired for user_id={old_row.user_id}")
         return None, None, None
 
+    # Absolute session max — revoke if family is older than limit (CoWork #5)
+    family_origin = (
+        db.query(RefreshToken.created_at)
+        .filter(RefreshToken.family_id == old_row.family_id)
+        .order_by(RefreshToken.id)
+        .first()
+    )
+    if family_origin:
+        family_age = (now - _ensure_aware(family_origin[0])).total_seconds()
+        max_seconds = settings.absolute_session_max_days * 86400
+        if family_age > max_seconds:
+            logger.info(
+                f"Absolute session max exceeded for family={old_row.family_id} "
+                f"age={family_age/86400:.1f}d"
+            )
+            _revoke_family(db, old_row.family_id, now)
+            return None, None, None
+
     # Already rotated (replaced_by_id is set)?
     # Check this BEFORE revoked_at because normal rotation sets both fields.
     if old_row.replaced_by_id is not None:
@@ -187,6 +205,33 @@ def find_family_by_token(db: Session, raw_token: str) -> Optional[str]:
         .first()
     )
     return row[0] if row else None
+
+
+def cleanup_expired_tokens(db: Session) -> int:
+    """Delete expired and rotated-out refresh tokens (CoWork #8).
+
+    Removes tokens that are either:
+    - Expired (expires_at < now)
+    - Revoked more than 24h ago (keep recent revocations for audit)
+
+    Returns count of deleted rows.
+    """
+    now = _utcnow()
+    cutoff = now - timedelta(hours=24)
+
+    count = (
+        db.query(RefreshToken)
+        .filter(
+            (RefreshToken.expires_at < now)
+            | (
+                RefreshToken.revoked_at.isnot(None)
+                & (RefreshToken.revoked_at < cutoff)
+            )
+        )
+        .delete(synchronize_session="fetch")
+    )
+    logger.info(f"Cleaned up {count} expired/revoked refresh tokens")
+    return count
 
 
 def _revoke_family(db: Session, family_id: str, now: datetime) -> int:

@@ -82,6 +82,7 @@ from app.services.refresh_token_service import (
     create_refresh_token as create_db_refresh_token,
     rotate_refresh_token,
     revoke_family as revoke_token_family,
+    revoke_all_user_families,
     find_family_by_token,
 )
 from app.models.advice_response import BiasDetectionResults, OptimizedAdviceResponse
@@ -1640,6 +1641,125 @@ async def revoke_refresh_token(
     )
 
     return {"message": "Token revoked successfully"}
+
+
+@app.post("/token/revoke-all")
+@limiter.limit("5/minute")
+async def revoke_all_sessions(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Revoke ALL refresh token families for the current user (CoWork #7).
+
+    "Log out of all devices" — requires a valid access token (Bearer header).
+    After this, the user must log in again on every device.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization required")
+
+    token = auth_header.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(
+            token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+        )
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user = get_user(username)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    user_id = user.get("user_id", f"user_{username}")
+    count = revoke_all_user_families(db, user_id)
+    db.commit()
+
+    # Clear this device's refresh cookie too
+    response.delete_cookie(
+        key="refresh_token", path="/token",
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+    )
+
+    _clean_u = str(username).replace("\n", "").replace("\r", "")[:200]
+    logger.info(f"All sessions revoked for user: {_clean_u}, count={count}")
+
+    return {"message": f"All sessions revoked ({count} tokens)", "revoked_count": count}
+
+
+@app.put("/users/me/password")
+@limiter.limit("5/minute")
+async def change_password(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Change the current user's password and revoke all sessions (CoWork #6).
+
+    Requires current_password + new_password in the request body.
+    On success, ALL refresh token families are revoked — user must
+    re-authenticate on every device.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization required")
+
+    token = auth_header.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(
+            token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+        )
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    body = await request.json()
+    current_password = body.get("current_password", "")
+    new_password = body.get("new_password", "")
+
+    if not current_password or not new_password:
+        raise HTTPException(
+            status_code=400,
+            detail="current_password and new_password are required",
+        )
+
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=400, detail="New password must be at least 8 characters"
+        )
+
+    # Verify current password
+    user = authenticate_user(username, current_password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+    # Update password in database
+    user_id = user.get("user_id", f"user_{username}")
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db_user.hashed_password = hash_password(new_password)
+
+    # Revoke ALL refresh token families (CoWork #6)
+    count = revoke_all_user_families(db, user_id)
+    db.commit()
+
+    _clean_u = str(username).replace("\n", "").replace("\r", "")[:200]
+    logger.info(
+        f"Password changed for user: {_clean_u}, "
+        f"revoked {count} refresh tokens"
+    )
+
+    return {
+        "message": "Password changed successfully. All sessions revoked.",
+        "revoked_sessions": count,
+    }
 
 
 @app.post("/register", response_model=RegistrationResponse, status_code=201)

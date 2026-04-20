@@ -50,6 +50,7 @@ os.environ.setdefault("STRIPE_PRICE_ENTERPRISE_MONTHLY", "price_test")
 from app.orm_models import RefreshToken, User  # noqa: E402
 from app.services.refresh_token_service import (  # noqa: E402
     _hash_token,
+    cleanup_expired_tokens,
     create_refresh_token,
     find_family_by_token,
     revoke_all_user_families,
@@ -278,3 +279,75 @@ class TestFindFamily:
 
     def test_not_found(self, db):
         assert find_family_by_token(db, "bogus") is None
+
+
+class TestAbsoluteSessionMax:
+    def test_session_within_max_is_allowed(self, db, test_user):
+        """Session younger than absolute max should rotate normally."""
+        raw, row = create_refresh_token(db, test_user.id)
+        db.commit()
+
+        new_raw, new_row, uid = rotate_refresh_token(db, raw)
+        db.commit()
+        assert new_raw is not None
+        assert uid == test_user.id
+
+    def test_session_exceeding_max_is_revoked(self, db, test_user):
+        """Session older than absolute max should be rejected."""
+        raw, row = create_refresh_token(db, test_user.id)
+        # Backdate the family origin to exceed 90 days
+        row.created_at = datetime.now(timezone.utc) - timedelta(days=91)
+        db.commit()
+
+        result = rotate_refresh_token(db, raw)
+        db.commit()
+        assert result == (None, None, None)
+
+        # Token should be revoked
+        db.refresh(row)
+        assert row.revoked_at is not None
+
+
+class TestCleanupExpiredTokens:
+    def test_deletes_expired_tokens(self, db, test_user):
+        """Expired tokens should be cleaned up."""
+        _, row_expired = create_refresh_token(db, test_user.id)
+        row_expired.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        _, row_valid = create_refresh_token(db, test_user.id)
+        db.commit()
+        expired_id = row_expired.id
+        valid_id = row_valid.id
+
+        count = cleanup_expired_tokens(db)
+        db.commit()
+
+        assert count >= 1
+        assert db.query(RefreshToken).filter(RefreshToken.id == valid_id).first() is not None
+        assert db.query(RefreshToken).filter(RefreshToken.id == expired_id).first() is None
+
+    def test_deletes_old_revoked_tokens(self, db, test_user):
+        """Revoked tokens older than 24h should be cleaned up."""
+        _, row_old_revoked = create_refresh_token(db, test_user.id)
+        row_old_revoked.revoked_at = datetime.now(timezone.utc) - timedelta(hours=25)
+        _, row_recent_revoked = create_refresh_token(db, test_user.id)
+        row_recent_revoked.revoked_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        db.commit()
+        old_id = row_old_revoked.id
+        recent_id = row_recent_revoked.id
+
+        count = cleanup_expired_tokens(db)
+        db.commit()
+
+        assert db.query(RefreshToken).filter(RefreshToken.id == old_id).first() is None
+        assert db.query(RefreshToken).filter(RefreshToken.id == recent_id).first() is not None
+
+    def test_keeps_active_tokens(self, db, test_user):
+        """Active (non-expired, non-revoked) tokens should not be cleaned up."""
+        _, row = create_refresh_token(db, test_user.id)
+        db.commit()
+
+        count = cleanup_expired_tokens(db)
+        db.commit()
+
+        assert count == 0
+        assert db.query(RefreshToken).filter(RefreshToken.id == row.id).first() is not None

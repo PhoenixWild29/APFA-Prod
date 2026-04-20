@@ -395,6 +395,13 @@ def setup_periodic_tasks(sender, **kwargs):
         name="cleanup-old-documents",
     )
 
+    # Cleanup expired/rotated refresh tokens daily at 2:30 AM (CoWork #8)
+    sender.add_periodic_task(
+        crontab(hour=2, minute=30),
+        cleanup_refresh_tokens_task.s(),
+        name="cleanup-refresh-tokens",
+    )
+
     # Expire TTL chunks daily at 3 AM
     sender.add_periodic_task(
         crontab(hour=3, minute=0),
@@ -446,3 +453,26 @@ def cleanup_old_documents():
     logger.info("Running document cleanup task")
     # TODO: Implement cleanup of temp files in /tmp
     return {"cleaned": 0}
+
+
+@celery_app.task(name="cleanup_refresh_tokens")
+def cleanup_refresh_tokens_task():
+    """Delete expired and rotated-out refresh tokens (CoWork #8).
+
+    Runs daily. Removes tokens that are expired or revoked >24h ago.
+    """
+    from app.database import SessionLocal
+    from app.services.refresh_token_service import cleanup_expired_tokens
+
+    db = SessionLocal()
+    try:
+        count = cleanup_expired_tokens(db)
+        db.commit()
+        logger.info(f"Refresh token cleanup: {count} rows deleted")
+        return {"deleted": count}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Refresh token cleanup failed: {e}")
+        return {"error": str(e)}
+    finally:
+        db.close()

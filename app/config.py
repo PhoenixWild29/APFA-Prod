@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     refresh_token_grace_window_seconds: int = 10  # Multi-tab race safety (CoWork)
+    absolute_session_max_days: int = 90  # Revoke family regardless of rotation (CoWork #5)
 
     # CSRF Protection
     csrf_secret: str = "your-csrf-secret-change-in-production"
