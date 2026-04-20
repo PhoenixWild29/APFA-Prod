@@ -579,9 +579,17 @@ app_graph = graph.compile()
 app = FastAPI()
 
 # CORS, security, and validation
+# Production: nginx serves frontend and proxies API on the same domain,
+# so CORS isn't needed. But the production origin must be listed when
+# authClient uses withCredentials:true (browser enforces explicit match).
+_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "https://apfa.secureai.dev",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1499,18 +1507,13 @@ def _check_refresh_origin(request: Request) -> None:
     if not origin and not referer:
         return
 
-    # Allowed origins: self + CORS list
+    # Allowed origins: request host + CORS origins list
     allowed: set[str] = set()
     host = request.headers.get("host", "")
     scheme = "https" if settings.cookie_secure else "http"
     if host:
         allowed.add(f"{scheme}://{host}")
-    # Match the origins configured in add_middleware(CORSMiddleware, ...)
-    allowed.update([
-        "http://localhost:3000",
-        "http://localhost:8000",
-        f"https://{settings.cookie_domain}",
-    ])
+    allowed.update(_cors_origins)
 
     # Extract origin from either header
     check_value = origin
@@ -5816,19 +5819,10 @@ async def generate_advice(
 
     # Timing breakdowns
     request_start = time.time()
-    validation_start = request_start
 
-    # Validation (already done by Pydantic)
-    (time.time() - validation_start) * 1000
-
-    api_key = api_key_header
-    if not api_key or api_key != settings.api_key:
-        logger.warning("Unauthorized access attempt")
-        REQUEST_COUNT.labels(
-            method="POST", endpoint="/generate-advice", status="401"
-        ).inc()
-        ACTIVE_REQUESTS.dec()
-        raise HTTPException(status_code=401, detail="Invalid API key")
+    # Auth: Depends(get_current_user) already validates the Bearer JWT.
+    # The old X-API-Key check was broken (compared the APIKeyHeader object
+    # to a string, always failed) and redundant for authenticated users.
 
     if faiss_index is None or rag_df is None:
         REQUEST_COUNT.labels(
