@@ -47,9 +47,8 @@ function App() {
   const rehydrate = useAuthStore((s) => s.rehydrate);
 
   // Rehydrate auth state on app mount (page refresh recovery).
-  // Until POST /token/refresh ships, this will always fail on refresh
-  // (in-memory token is lost) → redirect to /auth. The infrastructure
-  // is in place for when the backend endpoint is added.
+  // Calls POST /token/refresh with the httpOnly cookie to get a new
+  // access token. If the cookie is expired/missing, redirects to /auth.
   useEffect(() => {
     rehydrate();
   }, [rehydrate]);

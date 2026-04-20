@@ -2,9 +2,9 @@
  * Authentication configuration — Vite env, in-memory token storage.
  *
  * Access token lives in a module-scoped variable (never localStorage).
- * This reduces XSS blast radius to the current tab.
- * Refresh token will be in an httpOnly cookie once POST /token/refresh ships.
- * Until then, we fall back to in-memory-only with re-login on expiry.
+ * Refresh token lives in an httpOnly cookie (path=/token, SameSite=Strict).
+ * On page refresh, authStore.rehydrate() calls POST /token/refresh to
+ * exchange the cookie for a new access token.
  */
 
 export const authConfig = {

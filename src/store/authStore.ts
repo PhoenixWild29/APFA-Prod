@@ -2,18 +2,18 @@
  * Authentication State Store (Zustand)
  *
  * Access token lives in-memory only (config/auth.ts module scope).
- * User profile and role are kept in Zustand (non-persisted).
- * Refresh token flow will use httpOnly cookies once POST /token/refresh ships.
- * Until then, token expiry or page refresh forces re-login.
+ * Refresh token lives in an httpOnly cookie (set by POST /token).
  *
  * Auth lifecycle:
- *   1. App mount → rehydrate() tries to restore session
- *   2. Login → authStore.login() → sets token + user + isAuthenticated
- *   3. Navigation via useEffect on isAuthenticated (not inline in handleSubmit)
- *   4. Page refresh → rehydrate() runs again → restores or redirects
+ *   1. App mount → rehydrate() calls POST /token/refresh (cookie-based)
+ *   2. Login → authStore.login() → sets access token + user profile
+ *   3. Page refresh → rehydrate() gets new access token from cookie
+ *   4. 401 on API call → apiClient interceptor coalesces refresh + retries
+ *   5. Proactive refresh every 60s when token is near expiry
  */
 import { create } from 'zustand';
 import apiClient from '@/api/apiClient';
+import authClient from '@/api/authClient';
 import type { AuthState, LoginResponse } from '@/types/auth';
 import { setAccessToken, clearAccessToken, getAccessToken, shouldRefreshToken } from '@/config/auth';
 
@@ -37,13 +37,13 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   rehydrationStatus: 'pending',
 
   login: async (credentials: { username: string; password: string }) => {
-    // No isLoading in store — login loading state is per-form (local useState).
-    // Store only tracks auth outcome, not transient UI state.
     try {
-      const response = await apiClient.post<LoginResponse>('/token', credentials);
+      // Use authClient (withCredentials) so the response's Set-Cookie
+      // for the refresh token is accepted by the browser.
+      const response = await authClient.post<LoginResponse>('/token', credentials);
       const data = response.data;
 
-      // Store token in-memory only — never localStorage
+      // Store access token in-memory only — never localStorage
       setAccessToken(data.access_token, data.expires_in);
 
       set({
@@ -52,15 +52,13 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
         session: data.session_metadata,
         tokens: {
           access_token: data.access_token,
-          refresh_token: data.refresh_token,
+          refresh_token: data.refresh_token, // "httponly_cookie" sentinel
           token_type: data.token_type,
           expires_in: data.expires_in,
         },
         error: null,
       });
     } catch (error: unknown) {
-      // Don't set error in store — the form handles its own error display.
-      // Just ensure auth state is clean.
       set({
         isAuthenticated: false,
         user: null,
@@ -73,7 +71,9 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
 
   logout: async () => {
     try {
-      await apiClient.post('/logout').catch(() => {});
+      // POST /token/revoke revokes the refresh token family
+      // and clears the httpOnly cookie server-side.
+      await authClient.post('/token/revoke').catch(() => {});
     } finally {
       clearAccessToken();
       set({
@@ -88,27 +88,38 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   },
 
   rehydrate: async () => {
-    // Try to restore session after page refresh.
-    // Currently: check if in-memory token survives (it won't after refresh).
-    // Future: POST /token/refresh with httpOnly cookie will go here.
-    const token = getAccessToken();
-
-    if (!token) {
-      // No in-memory token → session lost on refresh.
-      // This is expected until POST /token/refresh ships.
-      set({ isAuthenticated: false, rehydrationStatus: 'done' });
-      return;
-    }
-
-    // Token exists in memory (same tab, no refresh) — verify it's still valid
+    // On page refresh, the in-memory access token is gone.
+    // But the httpOnly refresh_token cookie survives.
+    // Call POST /token/refresh to get a new access token.
     try {
-      const response = await apiClient.get('/users/me');
+      const response = await authClient.post<{
+        access_token: string;
+        token_type: string;
+        expires_in: number;
+      }>('/token/refresh');
+
+      const { access_token, expires_in } = response.data;
+      setAccessToken(access_token, expires_in);
+
+      // Fetch user profile with the new token
+      const userResponse = await apiClient.get('/users/me', {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+
       set({
         isAuthenticated: true,
-        user: response.data,
+        user: userResponse.data,
+        tokens: {
+          access_token,
+          refresh_token: 'httponly_cookie',
+          token_type: 'bearer',
+          expires_in,
+        },
         rehydrationStatus: 'done',
       });
     } catch {
+      // No valid refresh cookie — user needs to log in again.
+      // This is normal for first-time visitors or expired sessions.
       clearAccessToken();
       set({
         isAuthenticated: false,
@@ -121,26 +132,25 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   },
 
   refreshToken: async () => {
-    const currentTokens = get().tokens;
-    if (!currentTokens?.refresh_token) {
-      await get().logout();
-      return;
-    }
-
+    // Proactive refresh — called by the 60s interval when token
+    // is near expiry. Uses authClient (withCredentials) for the
+    // httpOnly cookie.
     try {
-      const response = await apiClient.post('/token/refresh', {
-        refresh_token: currentTokens.refresh_token,
-      });
-      const newTokens = response.data;
+      const response = await authClient.post<{
+        access_token: string;
+        token_type: string;
+        expires_in: number;
+      }>('/token/refresh');
 
-      setAccessToken(newTokens.access_token, newTokens.expires_in);
+      const { access_token, expires_in } = response.data;
+      setAccessToken(access_token, expires_in);
 
       set({
         tokens: {
-          access_token: newTokens.access_token,
-          refresh_token: newTokens.refresh_token,
-          token_type: newTokens.token_type,
-          expires_in: newTokens.expires_in,
+          access_token,
+          refresh_token: 'httponly_cookie',
+          token_type: 'bearer',
+          expires_in,
         },
       });
     } catch {
@@ -157,7 +167,8 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   },
 }));
 
-// Auto-refresh check every 60s
+// Auto-refresh check every 60s — proactively refresh when token
+// is within 5 minutes of expiry.
 setInterval(() => {
   const state = useAuthStore.getState();
   if (state.isAuthenticated) {
