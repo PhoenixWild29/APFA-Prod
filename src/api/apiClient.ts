@@ -107,12 +107,18 @@ apiClient.interceptors.response.use(
       recordFailure(config.url || '');
     }
 
-    // 401 — clear token, redirect to auth
+    // 401 — clear token. Navigation to /auth happens automatically:
+    // ProtectedRoute reads isAuthenticated from authStore, which is false
+    // once the token is cleared. No window.location needed.
     if (error.response?.status === 401) {
       clearAccessToken();
-      if (window.location.pathname !== '/auth') {
-        window.location.href = '/auth';
-      }
+      // Sync auth store state (lazy import avoids circular dep at module load)
+      import('@/store/authStore').then(({ useAuthStore }) => {
+        const state = useAuthStore.getState();
+        if (state.isAuthenticated) {
+          state.logout().catch(() => {});
+        }
+      });
       return Promise.reject(error);
     }
 
