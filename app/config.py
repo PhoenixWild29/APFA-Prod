@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
+    refresh_token_grace_window_seconds: int = 10  # Multi-tab race safety (CoWork)
 
     # CSRF Protection
     csrf_secret: str = "your-csrf-secret-change-in-production"
@@ -110,6 +111,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 
 settings = Settings()

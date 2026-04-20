@@ -1,17 +1,17 @@
 [build-system]
-requires = [&quot;setuptools &gt;= 70.0.0&quot;, &quot;wheel&quot;]
-build-backend = &quot;setuptools.build_meta&quot;
+requires = ["setuptools >= 70.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = &quot;apfa-prod&quot;
-version = &quot;0.1.0&quot;
-description = &quot;AI-Powered Finance App&quot;
-requires-python = &quot;&gt;=3.11&quot;
+name = "apfa-prod"
+version = "0.1.0"
+description = "AI-Powered Finance App"
+requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
 dev = [
-  &quot;pytest&quot;,
-  &quot;mypy&quot;,
-  &quot;black&quot;,
+  "pytest",
+  "mypy",
+  "black",
 ]
