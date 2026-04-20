@@ -257,11 +257,15 @@ def load_rag_index():
 
             # Merge updated rows back by chunk_id — never overwrite the
             # entire table, which would delete rows from other connectors.
-            import pyarrow as pa
+            # Uses DELTA_SCHEMA for type-safe Arrow conversion.
+            from app.connectors.base import get_delta_schema
+            from app.services.delta_writer import _df_to_arrow
 
             update_df = df.loc[needs_embed].copy()
+            schema = get_delta_schema()
+            update_table = _df_to_arrow(update_df, schema)
             dt.merge(
-                source=pa.Table.from_pandas(update_df),
+                source=update_table,
                 predicate="s.chunk_id = t.chunk_id",
                 source_alias="s",
                 target_alias="t",

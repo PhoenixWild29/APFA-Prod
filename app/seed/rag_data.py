@@ -464,12 +464,17 @@ DOCUMENTS = [
 def seed_rag_data() -> None:
     """Create the MinIO bucket and populate the DeltaTable with seed data.
 
-    Idempotent: safe to call multiple times. Uses mode="overwrite" so
-    re-running replaces stale seed data rather than duplicating it.
+    Idempotent: if the DeltaTable already has rows, skip seeding entirely.
+    This prevents wiping connector-ingested data on deploy/restart.
+
+    Only seeds on first boot (empty or missing table).
+    Uses DELTA_SCHEMA for type-safe Arrow writes.
     """
     import deltalake
 
     from app.config import settings
+    from app.connectors.base import get_delta_schema
+    from app.services.delta_writer import _conform_df_to_schema
     from app.storage import get_delta_storage_options
 
     # 1. Ensure MinIO bucket exists
@@ -485,7 +490,24 @@ def seed_rag_data() -> None:
     else:
         logger.info(f"MinIO bucket already exists: {BUCKET_NAME}")
 
-    # 2. Build DataFrame with schema matching load_rag_index() expectations
+    storage_options = get_delta_storage_options()
+
+    # 2. Check if table already has data — if so, skip seed
+    try:
+        dt = deltalake.DeltaTable(
+            settings.delta_table_path, storage_options=storage_options
+        )
+        existing = dt.to_pandas()
+        if len(existing) > 0:
+            logger.info(
+                f"DeltaTable has {len(existing)} rows — skipping seed "
+                f"(connector data preserved)"
+            )
+            return
+    except Exception:
+        pass  # Table doesn't exist yet — proceed with seed
+
+    # 3. Build DataFrame with all DELTA_SCHEMA columns
     rows = []
     for doc in DOCUMENTS:
         doc_id = str(uuid.uuid4())
@@ -499,16 +521,40 @@ def seed_rag_data() -> None:
                 "creation_date": str(date.today()),
                 "file_size_bytes": len(doc["profile"].encode("utf-8")),
                 "profile": doc["profile"],
+                # Pipeline columns — null for seed data
+                "external_id": f"seed:{doc_id}",
+                "source_connector": "seed",
+                "source_url": "",
+                "parent_document_id": doc_id,
+                "chunk_index": 0,
+                "total_chunks": 1,
+                "ingested_at": "",
+                "ttl_hours": None,
+                "freshness_class": "static",
+                "content_kind": doc["document_type"],
+                "metadata_json": "{}",
+                # Embedding columns — null, filled by load_rag_index on first boot
+                "embedding_vector": None,
+                "embedding_model": None,
+                "content_hash": None,
+                "embedded_at": None,
             }
         )
 
     df = pd.DataFrame(rows)
 
-    # 3. Write DeltaTable to MinIO
-    storage_options = get_delta_storage_options()
+    # 4. Convert to Arrow with explicit DELTA_SCHEMA
+    schema = get_delta_schema()
+    conformed = _conform_df_to_schema(df, schema)
+    import pyarrow as pa
+
+    table = pa.Table.from_pandas(conformed, schema=schema, preserve_index=False)
+
+    # 5. Write DeltaTable — mode="overwrite" is safe here since we verified
+    #    the table was empty or missing above
     deltalake.write_deltalake(
         settings.delta_table_path,
-        df,
+        table,
         mode="overwrite",
         storage_options=storage_options,
     )
@@ -517,7 +563,7 @@ def seed_rag_data() -> None:
         f"{settings.delta_table_path}"
     )
 
-    # 4. Verify the write
+    # 6. Verify the write
     dt = deltalake.DeltaTable(
         settings.delta_table_path, storage_options=storage_options
     )
