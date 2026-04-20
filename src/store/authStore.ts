@@ -4,24 +4,41 @@
  * Access token lives in-memory only (config/auth.ts module scope).
  * User profile and role are kept in Zustand (non-persisted).
  * Refresh token flow will use httpOnly cookies once POST /token/refresh ships.
- * Until then, token expiry forces re-login.
+ * Until then, token expiry or page refresh forces re-login.
+ *
+ * Auth lifecycle:
+ *   1. App mount → rehydrate() tries to restore session
+ *   2. Login → authStore.login() → sets token + user + isAuthenticated
+ *   3. Navigation via useEffect on isAuthenticated (not inline in handleSubmit)
+ *   4. Page refresh → rehydrate() runs again → restores or redirects
  */
 import { create } from 'zustand';
 import apiClient from '@/api/apiClient';
 import type { AuthState, LoginResponse } from '@/types/auth';
 import { setAccessToken, clearAccessToken, getAccessToken, shouldRefreshToken } from '@/config/auth';
 
-export const useAuthStore = create<AuthState>()((set, get) => ({
+interface AuthStore extends AuthState {
+  rehydrationStatus: 'pending' | 'done';
+  login: (credentials: { username: string; password: string }) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshToken: () => Promise<void>;
+  rehydrate: () => Promise<void>;
+  setUser: (user: AuthState['user']) => void;
+  clearError: () => void;
+}
+
+export const useAuthStore = create<AuthStore>()((set, get) => ({
   isAuthenticated: false,
   user: null,
   session: null,
   tokens: null,
   isLoading: false,
   error: null,
+  rehydrationStatus: 'pending',
 
   login: async (credentials: { username: string; password: string }) => {
-    set({ isLoading: true, error: null });
-
+    // No isLoading in store — login loading state is per-form (local useState).
+    // Store only tracks auth outcome, not transient UI state.
     try {
       const response = await apiClient.post<LoginResponse>('/token', credentials);
       const data = response.data;
@@ -39,26 +56,22 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           token_type: data.token_type,
           expires_in: data.expires_in,
         },
-        isLoading: false,
         error: null,
       });
     } catch (error: unknown) {
-      const axiosErr = error as { response?: { data?: { detail?: string } } };
-      const errorMessage = axiosErr.response?.data?.detail || 'Login failed';
+      // Don't set error in store — the form handles its own error display.
+      // Just ensure auth state is clean.
       set({
         isAuthenticated: false,
         user: null,
         session: null,
         tokens: null,
-        isLoading: false,
-        error: errorMessage,
       });
       throw error;
     }
   },
 
   logout: async () => {
-    set({ isLoading: true });
     try {
       await apiClient.post('/logout').catch(() => {});
     } finally {
@@ -74,10 +87,42 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
   },
 
+  rehydrate: async () => {
+    // Try to restore session after page refresh.
+    // Currently: check if in-memory token survives (it won't after refresh).
+    // Future: POST /token/refresh with httpOnly cookie will go here.
+    const token = getAccessToken();
+
+    if (!token) {
+      // No in-memory token → session lost on refresh.
+      // This is expected until POST /token/refresh ships.
+      set({ isAuthenticated: false, rehydrationStatus: 'done' });
+      return;
+    }
+
+    // Token exists in memory (same tab, no refresh) — verify it's still valid
+    try {
+      const response = await apiClient.get('/users/me');
+      set({
+        isAuthenticated: true,
+        user: response.data,
+        rehydrationStatus: 'done',
+      });
+    } catch {
+      clearAccessToken();
+      set({
+        isAuthenticated: false,
+        user: null,
+        session: null,
+        tokens: null,
+        rehydrationStatus: 'done',
+      });
+    }
+  },
+
   refreshToken: async () => {
     const currentTokens = get().tokens;
     if (!currentTokens?.refresh_token) {
-      // No refresh token — force re-login
       await get().logout();
       return;
     }
