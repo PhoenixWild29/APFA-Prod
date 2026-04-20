@@ -5,10 +5,11 @@ Provides reusable dependencies for authentication, authorization,
 and request validation.
 
 Auth paths:
-- Human users: JWT (cookie or Authorization: Bearer <jwt>)
+- Human users: Authorization: Bearer <jwt> (access token in header only)
 - Pipeline keys: Authorization: Bearer apfa_pipe_<token>
   Resolved via api_keys table → user row (type="service", role="pipeline")
 - require_pipeline_or_admin: accepts either path for connector endpoints
+- Refresh tokens: httpOnly cookie, scoped to /token/* (handled in main.py)
 """
 
 import logging
@@ -17,7 +18,7 @@ import time
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import Cookie, Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from jose import JWTError, jwt
 
 from app.config import settings
@@ -30,113 +31,21 @@ logger = logging.getLogger(__name__)
 PIPELINE_KEY_PREFIX = "apfa_pipe_"
 
 
-async def get_current_user_from_cookie(
-    access_token: Optional[str] = Cookie(None, alias="access_token")
-):
+async def get_current_user_hybrid(request: Request):
+    """Authenticate the current user from the Authorization: Bearer header.
+
+    Access tokens are in-memory only (never cookies). Refresh tokens are
+    httpOnly cookies scoped to /token/* — they never reach general endpoints.
+
+    Used by: require_role, require_permission, require_admin.
     """
-    Get current user from httpOnly cookie token.
-
-    This dependency extracts the JWT token from httpOnly cookies
-    instead of the Authorization header, providing enhanced security.
-
-    Args:
-        access_token: JWT token from httpOnly cookie
-
-    Returns:
-        User dict if authenticated
-
-    Raises:
-        HTTPException: 401 if token is invalid or missing
-    """
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    if not access_token:
-        raise credentials_exception
-
-    try:
-        # Decode JWT token
-        payload = jwt.decode(
-            access_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
-        )
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-
-    except JWTError as e:
-        logger.error(f"JWT validation error: {e}")
-        raise credentials_exception
-
-    # Import here to avoid circular imports
-    from app.main import get_user
-
-    user = get_user(username=username)
-    if user is None:
-        raise credentials_exception
-
-    return user
-
-
-async def get_current_user_from_header(authorization: Optional[str] = None):
-    """
-    Get current user from Authorization header (legacy support).
-
-    Args:
-        authorization: Bearer token from Authorization header
-
-    Returns:
-        User dict if authenticated
-
-    Raises:
-        HTTPException: 401 if token is invalid or missing
-    """
-    from app.main import get_current_user
-
-    # Use existing header-based authentication
-    return await get_current_user(authorization)
-
-
-async def get_current_user_hybrid(
-    request: Request,
-    cookie_token: Optional[str] = Cookie(None, alias="access_token"),
-    header_auth: Optional[str] = None,
-):
-    """
-    Hybrid authentication: Try cookie first, fall back to header.
-
-    Supports both httpOnly cookie (preferred) and Authorization header
-    (for backward compatibility and API clients).
-
-    Args:
-        request: FastAPI request object
-        cookie_token: Token from httpOnly cookie
-        header_auth: Token from Authorization header
-
-    Returns:
-        User dict if authenticated
-
-    Raises:
-        HTTPException: 401 if authentication fails
-    """
-    # Try cookie first (preferred)
-    if cookie_token:
-        try:
-            return await get_current_user_from_cookie(cookie_token)
-        except HTTPException:
-            pass  # Fall through to header
-
-    # Fall back to Authorization header
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
+        token = auth_header.split(" ", 1)[1]
         from app.main import get_current_user
 
         return await get_current_user(token)
 
-    # No valid authentication
     raise HTTPException(
         status_code=401,
         detail="Could not validate credentials",
@@ -332,12 +241,9 @@ async def require_pipeline_or_admin(request: Request):
     """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        # Try cookie-based admin auth
+        # No Bearer token — try header-based admin auth
         try:
-            user = await get_current_user_hybrid(
-                request,
-                cookie_token=request.cookies.get("access_token"),
-            )
+            user = await get_current_user_hybrid(request)
             if user.get("role") != "admin":
                 raise HTTPException(status_code=403, detail="Admin access required")
             request.state.auth_source = "admin"

@@ -1791,60 +1791,6 @@ async def register_user(
         )
 
 
-@app.post("/token/cookie", status_code=200)
-async def login_with_cookies(
-    request: UserLoginRequest, response: Response,
-    db: Session = Depends(get_db),
-):
-    """Login with httpOnly cookies. Will be removed in PR 3 (CoWork cleanup)."""
-    user = authenticate_user(request.username, request.password)
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-    access_token = create_access_token(
-        data={"sub": user["username"]}, expires_delta=access_token_expires
-    )
-
-    # Opaque refresh token (DB-backed, same as POST /token)
-    user_id = user.get("user_id", f"user_{user['username']}")
-    raw_refresh, _rt_row = create_db_refresh_token(db, user_id)
-    db.commit()
-
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite=settings.cookie_samesite,
-        max_age=int(access_token_expires.total_seconds()),
-    )
-
-    response.set_cookie(
-        key="refresh_token",
-        value=raw_refresh,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite=settings.cookie_samesite,
-        path="/token",
-        max_age=int(timedelta(days=settings.refresh_token_expire_days).total_seconds()),
-    )
-
-    _clean_u = str(user['username']).replace("\n", "").replace("\r", "")[:200]
-    logger.info(f"User logged in with httpOnly cookies: {_clean_u}")
-
-    return {
-        "message": "Login successful",
-        "username": user["username"],
-        "email": user.get("email"),
-        "role": user.get("role", "standard"),
-    }
-
-
 @app.post("/logout")
 async def logout(
     response: Response,
@@ -1858,7 +1804,6 @@ async def logout(
             revoke_token_family(db, family_id)
             db.commit()
 
-    response.delete_cookie(key="access_token")
     response.delete_cookie(
         key="refresh_token", path="/token",
         secure=settings.cookie_secure,
