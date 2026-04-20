@@ -3,16 +3,22 @@ CSRF (Cross-Site Request Forgery) Protection Middleware
 
 Layered protection model:
 1. Safe methods (GET/HEAD/OPTIONS) bypass validation, set CSRF cookie
-2. Path allowlist for pre-auth endpoints (login, register, password reset,
-   email verify) and webhook endpoints (verified by signature elsewhere)
+2. Path allowlist for pre-auth and token endpoints (login, register,
+   refresh, revoke) and webhook endpoints (verified by signature elsewhere)
 3. Header-auth bypass: requests with Bearer/X-API-Key and no session cookie
    are non-ambient — CORS preflight prevents cross-origin attacks from
    setting these headers, so CSRF is structurally impossible
 4. Otherwise: double-submit cookie validation (cookie value must equal
    X-CSRF-Token header value)
 
-Combined with SameSite=Lax on cookies, this provides defense-in-depth
-without breaking login or webhooks.
+Auth model (PR 1-3):
+- Access tokens: in-memory only (Bearer header) — NOT ambient, no CSRF risk
+- Refresh tokens: httpOnly cookie, path=/token, SameSite=Strict — ambient
+  but scoped to /token/* which is in the exempt list, and further protected
+  by Origin/Referer check in the endpoint itself
+
+Combined with SameSite=Strict on the refresh cookie and Origin/Referer
+validation, this provides defense-in-depth.
 """
 
 import hashlib
@@ -23,15 +29,17 @@ from typing import Iterable, Optional
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# Session cookie names — must match what /token/cookie endpoint sets.
-# Drift here silently fails the header-auth bypass guard clause.
-SESSION_COOKIE_NAMES = {"access_token", "refresh_token"}
+# The only ambient auth cookie is refresh_token (path=/token).
+# Access tokens are in-memory Bearer headers — never cookies.
+SESSION_COOKIE_NAMES = {"refresh_token"}
 
 # Path prefixes that bypass CSRF entirely:
-# - Pre-auth: user has no session yet (login, register, password reset, verify)
+# - /token/*: refresh cookie is scoped here; protected by SameSite +
+#   Origin/Referer check in the endpoint
+# - Pre-auth: user has no session yet (register, password reset, verify)
 # - Webhooks: external services authenticate via signature in the handler
 DEFAULT_EXEMPT_PREFIXES = (
-    "/token",           # /token, /token/oauth2, /token/cookie, /token/refresh
+    "/token",           # /token, /token/oauth2, /token/refresh, /token/revoke
     "/register",        # /register, /register/resend, /register/verify
     "/password-reset",  # /password-reset/request, /password-reset/confirm
     "/verify",          # /verify-email, /verify/{token}

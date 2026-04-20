@@ -88,7 +88,7 @@ def test_bearer_with_session_cookie_still_requires_csrf(client):
         "/protected",
         json={},
         headers={"Authorization": "Bearer fake-jwt"},
-        cookies={"access_token": "fake-session"},
+        cookies={"refresh_token": "fake-session"},
     )
     assert r.status_code == 403
 
@@ -100,7 +100,7 @@ def test_double_submit_with_matching_token_passes(client):
     r = client.post(
         "/protected",
         json={},
-        cookies={"csrf_token": csrf_token, "access_token": "fake-session"},
+        cookies={"csrf_token": csrf_token, "refresh_token": "fake-session"},
         headers={"X-CSRF-Token": csrf_token},
     )
     assert r.status_code == 200
@@ -112,7 +112,7 @@ def test_double_submit_with_mismatched_token_fails(client):
     r = client.post(
         "/protected",
         json={},
-        cookies={"csrf_token": csrf_token, "access_token": "fake-session"},
+        cookies={"csrf_token": csrf_token, "refresh_token": "fake-session"},
         headers={"X-CSRF-Token": "wrong-token"},
     )
     assert r.status_code == 403
