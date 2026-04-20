@@ -32,7 +32,7 @@ export default function RecentConversationsWidget({
         const res = await apiClient.get<Conversation[]>('/conversations', {
           params: { limit: 4 },
         });
-        return res.data;
+        return Array.isArray(res.data) ? res.data : [];
       } catch {
         return [];
       }
