@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -11,7 +9,7 @@ import {
   LineChart,
   ReferenceLine,
 } from 'recharts';
-import { Bell, BellOff, Plus, Trash2, TrendingDown } from 'lucide-react';
+import { Bell, BellOff, Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,36 +25,47 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 
-// Demo rate history — will be GET /rates?history=365d
+// Demo market data — will be fetched from market data API
+const MARKET_HISTORY = Array.from({ length: 52 }, (_, i) => {
+  const date = new Date();
+  date.setDate(date.getDate() - (51 - i) * 7);
+  return {
+    date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    sp500: 4800 + i * 12 + (Math.random() - 0.5) * 60,
+    nasdaq: 15000 + i * 40 + (Math.random() - 0.5) * 200,
+  };
+});
+
+// Demo rate data for the rate tracking section
 const RATE_HISTORY = Array.from({ length: 52 }, (_, i) => {
   const date = new Date();
   date.setDate(date.getDate() - (51 - i) * 7);
   return {
     date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     rate30: 7.2 - i * 0.012 + (Math.random() - 0.5) * 0.15,
-    rate15: 6.5 - i * 0.01 + (Math.random() - 0.5) * 0.12,
   };
 });
 
-interface RateAlert {
+interface PriceAlert {
   id: string;
-  product: '30yr' | '15yr';
+  target: 'sp500' | 'nasdaq' | '30yr';
   threshold: number;
   direction: 'below' | 'above';
   active: boolean;
 }
 
 export default function InsightsPage() {
-  const [alerts, setAlerts] = useState<RateAlert[]>([
-    { id: '1', product: '30yr', threshold: 6.5, direction: 'below', active: true },
+  const [alerts, setAlerts] = useState<PriceAlert[]>([
+    { id: '1', target: 'sp500', threshold: 5500, direction: 'above', active: true },
   ]);
   const [newThreshold, setNewThreshold] = useState('');
-  const [newProduct, setNewProduct] = useState<'30yr' | '15yr'>('30yr');
+  const [newTarget, setNewTarget] = useState<'sp500' | 'nasdaq' | '30yr'>('sp500');
 
+  const currentSP = MARKET_HISTORY[MARKET_HISTORY.length - 1].sp500;
+  const currentNasdaq = MARKET_HISTORY[MARKET_HISTORY.length - 1].nasdaq;
   const currentRate30 = RATE_HISTORY[RATE_HISTORY.length - 1].rate30;
-  const currentRate15 = RATE_HISTORY[RATE_HISTORY.length - 1].rate15;
-  const weekAgoRate30 = RATE_HISTORY[RATE_HISTORY.length - 2].rate30;
-  const delta30 = currentRate30 - weekAgoRate30;
+  const weekAgoSP = MARKET_HISTORY[MARKET_HISTORY.length - 2].sp500;
+  const deltaSP = currentSP - weekAgoSP;
 
   const addAlert = () => {
     const threshold = parseFloat(newThreshold);
@@ -65,9 +74,9 @@ export default function InsightsPage() {
       ...prev,
       {
         id: `alert-${Date.now()}`,
-        product: newProduct,
+        target: newTarget,
         threshold,
-        direction: 'below',
+        direction: newTarget === '30yr' ? 'below' : 'above',
         active: true,
       },
     ]);
@@ -84,39 +93,60 @@ export default function InsightsPage() {
     );
   };
 
+  const targetLabels: Record<string, string> = {
+    sp500: 'S&P 500',
+    nasdaq: 'NASDAQ',
+    '30yr': '30yr Fixed Rate',
+  };
+
+  const getCurrentValue = (target: string) => {
+    if (target === 'sp500') return currentSP;
+    if (target === 'nasdaq') return currentNasdaq;
+    return currentRate30;
+  };
+
+  const formatValue = (target: string, value: number) => {
+    if (target === '30yr') return `${value.toFixed(2)}%`;
+    return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div>
         <h1 className="font-serif text-2xl font-semibold">Insights</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Rate trends and alerts to help you time decisions.
+          Market trends, rate tracking, and alerts to help you time decisions.
         </p>
       </div>
 
-      {/* Current rates */}
+      {/* Current metrics */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs font-medium text-muted-foreground">30-Year Fixed</p>
+          <p className="text-xs font-medium text-muted-foreground">S&P 500</p>
           <p className="mt-1 tabular-nums text-2xl font-semibold">
-            {currentRate30.toFixed(2)}%
+            {currentSP.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </p>
           <p
             className={`mt-0.5 flex items-center gap-1 text-xs font-medium ${
-              delta30 < 0 ? 'text-pos' : 'text-neg'
+              deltaSP > 0 ? 'text-pos' : 'text-neg'
             }`}
           >
-            <TrendingDown className="h-3 w-3" />
+            {deltaSP > 0 ? (
+              <TrendingUp className="h-3 w-3" />
+            ) : (
+              <TrendingDown className="h-3 w-3" />
+            )}
             <span className="tabular-nums">
-              {delta30 > 0 ? '+' : ''}
-              {delta30.toFixed(2)}% this week
+              {deltaSP > 0 ? '+' : ''}
+              {deltaSP.toFixed(0)} this week
             </span>
           </p>
         </div>
         <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs font-medium text-muted-foreground">15-Year Fixed</p>
+          <p className="text-xs font-medium text-muted-foreground">NASDAQ</p>
           <p className="mt-1 tabular-nums text-2xl font-semibold">
-            {currentRate15.toFixed(2)}%
+            {currentNasdaq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </p>
         </div>
         <div className="rounded-xl border bg-card p-4 sm:col-span-1 col-span-2">
@@ -127,10 +157,79 @@ export default function InsightsPage() {
         </div>
       </div>
 
-      {/* Rate history chart */}
+      {/* Market indices chart */}
       <div className="rounded-xl border bg-card p-4">
-        <h2 className="mb-4 text-sm font-semibold">Rate History (52 weeks)</h2>
+        <h2 className="mb-4 text-sm font-semibold">Market Indices (52 weeks)</h2>
         <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={MARKET_HISTORY}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tickLine={false}
+                axisLine={false}
+                interval={7}
+              />
+              <YAxis
+                yAxisId="sp"
+                domain={['dataMin - 100', 'dataMax + 100']}
+                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v: number) => v.toLocaleString()}
+                width={50}
+              />
+              <YAxis yAxisId="nq" hide />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                formatter={(value: number, name: string) => [
+                  value.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+                  name === 'sp500' ? 'S&P 500' : 'NASDAQ',
+                ]}
+              />
+              <Line
+                yAxisId="sp"
+                type="monotone"
+                dataKey="sp500"
+                stroke="#1D8A84"
+                strokeWidth={2}
+                dot={false}
+                name="sp500"
+              />
+              <Line
+                yAxisId="nq"
+                type="monotone"
+                dataKey="nasdaq"
+                stroke="#7C5CBF"
+                strokeWidth={1.5}
+                dot={false}
+                name="nasdaq"
+                strokeDasharray="5 5"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-4 bg-teal-500" /> S&P 500
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-4 border-t-2 border-dashed border-[#7C5CBF]" /> NASDAQ
+          </span>
+        </div>
+      </div>
+
+      {/* Rate tracking section */}
+      <div className="rounded-xl border bg-card p-4">
+        <h2 className="mb-2 text-sm font-semibold">Rate Tracking</h2>
+        <p className="mb-4 text-xs text-muted-foreground">30-Year Fixed Mortgage: <span className="tabular-nums font-medium text-foreground">{currentRate30.toFixed(2)}%</span></p>
+        <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={RATE_HISTORY}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -156,14 +255,10 @@ export default function InsightsPage() {
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                formatter={(value: number, name: string) => [
-                  `${value.toFixed(2)}%`,
-                  name === 'rate30' ? '30yr Fixed' : '15yr Fixed',
-                ]}
+                formatter={(value: number) => [`${value.toFixed(2)}%`, '30yr Fixed']}
               />
-              {/* Alert threshold lines */}
               {alerts
-                .filter((a) => a.active)
+                .filter((a) => a.active && a.target === '30yr')
                 .map((alert) => (
                   <ReferenceLine
                     key={alert.id}
@@ -181,40 +276,19 @@ export default function InsightsPage() {
               <Line
                 type="monotone"
                 dataKey="rate30"
-                stroke="#1D8A84"
+                stroke="#C79A2B"
                 strokeWidth={2}
                 dot={false}
-                name="rate30"
-              />
-              <Line
-                type="monotone"
-                dataKey="rate15"
-                stroke="#7C5CBF"
-                strokeWidth={1.5}
-                dot={false}
-                name="rate15"
-                strokeDasharray="5 5"
               />
             </LineChart>
           </ResponsiveContainer>
-        </div>
-        <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 bg-teal-500" /> 30yr Fixed
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 border-t-2 border-dashed border-[#7C5CBF]" /> 15yr Fixed
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 border-t border-dashed border-gold-500" /> Alert threshold
-          </span>
         </div>
       </div>
 
       {/* Alerts management */}
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Rate Alerts</h2>
+          <h2 className="text-sm font-semibold">Price &amp; Rate Alerts</h2>
           <Dialog>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
@@ -224,44 +298,46 @@ export default function InsightsPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>New Rate Alert</DialogTitle>
+                <DialogTitle>New Alert</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div>
-                  <Label className="text-xs">Product</Label>
+                  <Label className="text-xs">Target</Label>
                   <div className="mt-1.5 flex gap-2">
-                    {(['30yr', '15yr'] as const).map((p) => (
+                    {(['sp500', 'nasdaq', '30yr'] as const).map((t) => (
                       <button
-                        key={p}
-                        onClick={() => setNewProduct(p)}
+                        key={t}
+                        onClick={() => setNewTarget(t)}
                         className={`rounded-md border px-3 py-1.5 text-sm ${
-                          newProduct === p
+                          newTarget === t
                             ? 'border-teal-500 bg-teal-500/10 text-teal-700 dark:text-teal-300'
                             : 'text-muted-foreground'
                         }`}
                       >
-                        {p} Fixed
+                        {targetLabels[t]}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="threshold" className="text-xs">
-                    Alert when rate drops below
+                    {newTarget === '30yr' ? 'Alert when rate drops below' : 'Alert when price reaches'}
                   </Label>
                   <div className="relative mt-1.5">
                     <Input
                       id="threshold"
                       type="number"
-                      step="0.01"
+                      step={newTarget === '30yr' ? '0.01' : '10'}
                       value={newThreshold}
                       onChange={(e) => setNewThreshold(e.target.value)}
-                      placeholder="6.50"
+                      placeholder={newTarget === '30yr' ? '6.50' : '5500'}
                       className="pr-6 tabular-nums"
                     />
-                    <span className="absolute right-3 top-2 text-sm text-muted-foreground">
-                      %
-                    </span>
+                    {newTarget === '30yr' && (
+                      <span className="absolute right-3 top-2 text-sm text-muted-foreground">
+                        %
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -281,73 +357,77 @@ export default function InsightsPage() {
 
         {alerts.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No alerts set. Add one to get notified when rates hit your target.
+            No alerts set. Add one to get notified when prices or rates hit your target.
           </p>
         ) : (
           <div className="space-y-2">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="flex items-center justify-between rounded-lg border p-3"
-              >
-                <div className="flex items-center gap-3">
-                  {alert.active ? (
-                    <Bell className="h-4 w-4 text-gold-500" />
-                  ) : (
-                    <BellOff className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">
-                      {alert.product} Fixed below{' '}
-                      <span className="tabular-nums">{alert.threshold}%</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Currently{' '}
-                      <span className="tabular-nums">
-                        {(alert.product === '30yr' ? currentRate30 : currentRate15).toFixed(2)}%
-                      </span>
-                      {' — '}
-                      {(alert.product === '30yr' ? currentRate30 : currentRate15) <=
-                      alert.threshold ? (
-                        <Badge className="bg-pos/10 text-pos text-[10px]">Triggered</Badge>
-                      ) : (
-                        <span>
-                          {(
-                            (alert.product === '30yr' ? currentRate30 : currentRate15) -
-                            alert.threshold
-                          ).toFixed(2)}
-                          % away
+            {alerts.map((alert) => {
+              const current = getCurrentValue(alert.target);
+              const triggered = alert.target === '30yr'
+                ? current <= alert.threshold
+                : current >= alert.threshold;
+              const distance = Math.abs(current - alert.threshold);
+
+              return (
+                <div
+                  key={alert.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    {alert.active ? (
+                      <Bell className="h-4 w-4 text-gold-500" />
+                    ) : (
+                      <BellOff className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        {targetLabels[alert.target]}{' '}
+                        {alert.target === '30yr' ? 'below' : 'reaches'}{' '}
+                        <span className="tabular-nums">{formatValue(alert.target, alert.threshold)}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Currently{' '}
+                        <span className="tabular-nums">
+                          {formatValue(alert.target, current)}
                         </span>
+                        {' — '}
+                        {triggered ? (
+                          <Badge className="bg-pos/10 text-pos text-[10px]">Triggered</Badge>
+                        ) : (
+                          <span>
+                            {formatValue(alert.target, distance)} away
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => toggleAlert(alert.id)}
+                      aria-label={alert.active ? 'Mute alert' : 'Enable alert'}
+                    >
+                      {alert.active ? (
+                        <BellOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Bell className="h-3.5 w-3.5" />
                       )}
-                    </p>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-neg"
+                      onClick={() => removeAlert(alert.id)}
+                      aria-label="Delete alert"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => toggleAlert(alert.id)}
-                    aria-label={alert.active ? 'Mute alert' : 'Enable alert'}
-                  >
-                    {alert.active ? (
-                      <BellOff className="h-3.5 w-3.5" />
-                    ) : (
-                      <Bell className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-neg"
-                    onClick={() => removeAlert(alert.id)}
-                    aria-label="Delete alert"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

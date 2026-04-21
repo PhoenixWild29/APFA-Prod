@@ -85,6 +85,21 @@ export function useAdvisorStream() {
             onopen: async (response) => {
               const contentType = response.headers.get('content-type') || '';
 
+              // Error responses — show friendly message instead of raw JSON
+              if (!response.ok) {
+                let errorMsg = 'Sorry, I encountered an error processing your request. Please try again.';
+                try {
+                  const errData = await response.json();
+                  if (errData.detail && typeof errData.detail === 'string') {
+                    errorMsg = `Sorry, something went wrong: ${errData.detail}`;
+                  }
+                } catch {}
+                appendChunk(errorMsg);
+                const result = endStream();
+                commitMessage(conversationId, result, queryClient, onNewConversation);
+                return;
+              }
+
               if (contentType.includes('text/event-stream')) {
                 usedSSE = true;
                 return;
@@ -97,7 +112,7 @@ export function useAdvisorStream() {
                   data.advice?.response ||
                   data.response ||
                   data.content ||
-                  JSON.stringify(data);
+                  'I received your question but couldn\'t generate a complete response. Please try again.';
 
                 // Progressive render: reveal text over 600ms
                 const words = text.split(' ');

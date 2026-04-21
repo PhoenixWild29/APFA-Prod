@@ -1,26 +1,26 @@
 import KPICard from './KPICard';
 
-// Placeholder data — will be replaced with real API data
+// Placeholder data — will be replaced with real portfolio API data
 const DEMO_KPIs = [
   {
-    label: 'Net Worth',
+    label: 'Portfolio Value',
     value: '$124,850',
     delta: { value: '+$2,400', direction: 'up' as const },
-    sparkline: [10, 12, 11, 14, 13, 15, 16, 15, 17, 18].map((v) => ({ value: v })),
+    sparkline: [110, 112, 111, 114, 113, 115, 116, 118, 121, 124.8].map((v) => ({ value: v })),
     color: '#1D8A84',
   },
   {
-    label: 'DTI Ratio',
-    value: '34.2%',
-    delta: { value: '-1.8%', direction: 'up' as const },
-    sparkline: [42, 40, 39, 38, 37, 36, 35, 35, 34, 34].map((v) => ({ value: v })),
+    label: 'YTD Return',
+    value: '+8.4%',
+    delta: { value: '+1.2%', direction: 'up' as const },
+    sparkline: [2, 3.1, 2.8, 4.2, 5.0, 5.8, 6.1, 7.0, 7.5, 8.4].map((v) => ({ value: v })),
     color: '#18A06B',
   },
   {
-    label: 'FICO Estimate',
-    value: '742',
-    delta: { value: '+8 pts', direction: 'up' as const },
-    sparkline: [720, 725, 722, 728, 730, 735, 732, 738, 740, 742].map((v) => ({ value: v })),
+    label: 'S&P 500',
+    value: '5,421',
+    delta: { value: '+38 pts', direction: 'up' as const },
+    sparkline: [5200, 5250, 5220, 5280, 5310, 5350, 5340, 5380, 5400, 5421].map((v) => ({ value: v })),
     color: '#C79A2B',
   },
   {
