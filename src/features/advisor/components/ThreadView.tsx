@@ -53,16 +53,16 @@ export default function ThreadView({
                 How can I help you today?
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Ask about mortgages, rates, DTI, affordability, or any
-                financial question.
+                Ask about investments, markets, portfolio strategy, or any
+                financial question. Every answer cites its sources.
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {[
-                'Can I afford a $400K house?',
-                'What\'s my DTI ratio?',
-                'Compare 30yr vs 15yr mortgage',
-                'How would refinancing help me?',
+                'Explain the current rate environment',
+                'What drives equity market valuations?',
+                'Walk me through portfolio diversification',
+                'Analyze my investment documents',
               ].map((prompt) => (
                 <button
                   key={prompt}
