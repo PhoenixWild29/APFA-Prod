@@ -120,7 +120,8 @@ export default function AdvisorPage() {
 
   return (
     <div className="flex h-full">
-      {/* Left rail — hidden on mobile */}
+      {/* Left rail — hidden until /conversations endpoint is built */}
+      {/* TODO: Uncomment when GET/POST/DELETE /conversations ships
       <div className="hidden lg:block">
         <ConversationListPanel
           conversations={conversations}
@@ -130,6 +131,7 @@ export default function AdvisorPage() {
           onNewConversation={handleNewConversation}
         />
       </div>
+      */}
 
       {/* Center: thread + composer */}
       <div className="flex flex-1 flex-col">

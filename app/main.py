@@ -576,7 +576,11 @@ graph.add_edge("orchestrator", END)
 app_graph = graph.compile()
 
 # FastAPI for Deployment
-app = FastAPI()
+app = FastAPI(
+    title="APFA — AI-Powered Financial Advisor",
+    version="1.0.0",
+    description="Investment research and financial analysis powered by RAG and GPT-4o",
+)
 
 # CORS, security, and validation
 # Production: nginx serves frontend and proxies API on the same domain,
@@ -1176,21 +1180,21 @@ async def health_check():
         )
         failed.append("redis_cache")
 
-    # Check Celery (placeholder)
+    # Check Celery (not yet wired for health checks)
     components.append(
         ComponentHealthStatus(
             component="celery_workers",
-            status="healthy",
-            metadata={"note": "Celery integration pending"},
+            status="unknown",
+            metadata={"note": "Health check not configured — Celery runs in separate container"},
         )
     )
 
-    # Check AWS Bedrock (placeholder)
+    # AWS Bedrock (not used — LLM is OpenAI GPT-4o)
     components.append(
         ComponentHealthStatus(
             component="aws_bedrock",
-            status="healthy",
-            metadata={"note": "External service check placeholder"},
+            status="not_configured",
+            metadata={"note": "Not in use — LLM provider is OpenAI GPT-4o"},
         )
     )
 
@@ -1814,6 +1818,24 @@ async def logout(
     )
 
     return {"message": "Logged out successfully"}
+
+
+@app.get("/users/me")
+async def get_current_user_profile(
+    current_user: dict = Depends(get_current_user),
+):
+    """Return the authenticated user's profile.
+
+    Used by the frontend's authStore.rehydrate() to verify the session
+    and restore user state after a page refresh.
+    """
+    return {
+        "user_id": current_user.get("user_id"),
+        "username": current_user.get("username"),
+        "email": current_user.get("email"),
+        "role": current_user.get("role", "standard"),
+        "permissions": current_user.get("permissions", []),
+    }
 
 
 @app.get("/register/verify/{token}")
