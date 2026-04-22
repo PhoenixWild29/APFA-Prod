@@ -95,6 +95,18 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Verify no localhost in production bundle
+        run: |
+          if ! find dist/assets -name '*.js' | grep -q .; then
+            echo "ERROR: No JS files found in dist/assets/ — build may have failed"
+            exit 1
+          fi
+          if grep -rE 'localhost[:/]|127\.0\.0\.1|:8000' dist/assets/ dist/index.html 2>/dev/null; then
+            echo "ERROR: Production bundle contains localhost references — VITE_API_URL was not set correctly"
+            exit 1
+          fi
+          echo "OK: No localhost references in production bundle"
+
       - name: Check bundle size
         run: |
           ls -lh dist/
