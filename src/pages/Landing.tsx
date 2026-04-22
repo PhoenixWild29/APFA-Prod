@@ -195,7 +195,7 @@ export default function Landing() {
             Ready to understand your finances?
           </h2>
           <p className="mt-3 text-ink-300">
-            Free to start. No credit card. Your research, your terms.
+            Your research, your terms.
           </p>
           <Link to="/auth">
             <Button

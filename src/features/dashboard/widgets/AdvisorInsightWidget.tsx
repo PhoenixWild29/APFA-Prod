@@ -13,7 +13,7 @@ export default function AdvisorInsightWidget({ onHide }: AdvisorInsightWidgetPro
 
   // Placeholder — will be GET /users/me/insights/latest
   const insight = {
-    text: 'Paying an extra $200/mo toward your auto loan could save $4,200 in interest and free up $380/mo in 18 months — improving your DTI from 34% to 29%.',
+    text: 'Rebalancing your equity/fixed-income split from 55/45 back to your target 50/50 would realize $1,900 of Q1 gains and reduce sector concentration risk. Consider reviewing in advisor.',
     conversationId: null as string | null,
   };
 

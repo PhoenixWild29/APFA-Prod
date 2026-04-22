@@ -21,7 +21,7 @@ import { TaskCanceller } from '../../components/admin/TaskCanceller';
 import { AuditLogViewer } from '../../components/admin/AuditLogViewer';
 import { DataExporter } from '../../components/admin/DataExporter';
 
-export const SystemMonitoringDashboard: React.FC = () => {
+const SystemMonitoringDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [refreshInterval, setRefreshInterval] = useState<number>(5000);
 
@@ -121,4 +121,6 @@ export const SystemMonitoringDashboard: React.FC = () => {
     </div>
   );
 };
+
+export default SystemMonitoringDashboard;
 

@@ -153,7 +153,7 @@ export default function DocumentsPage() {
             }}
             placeholder={
               searchMode === 'semantic'
-                ? 'Semantic search (e.g., "FHA loan requirements")...'
+                ? 'Semantic search (e.g., "portfolio diversification strategies")...'
                 : 'Filter by name or tag...'
             }
             className="pl-9"

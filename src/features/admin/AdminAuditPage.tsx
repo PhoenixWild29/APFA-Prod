@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 // Placeholder — will wire to audit log API
 const DEMO_EVENTS = [
   { id: '1', action: 'user.login', user: 'admin', timestamp: '2026-04-17T09:30:00Z', details: 'Successful login from 67.205.140.55' },
-  { id: '2', action: 'document.upload', user: 'admin', timestamp: '2026-04-17T09:25:00Z', details: 'Uploaded mortgage_guide.pdf (2.1 MB)' },
-  { id: '3', action: 'advice.generated', user: 'demo_user', timestamp: '2026-04-17T08:12:00Z', details: 'Query: "FHA loan requirements" — 3 sources cited' },
+  { id: '2', action: 'document.upload', user: 'admin', timestamp: '2026-04-17T09:25:00Z', details: 'Uploaded vanguard_capital_markets_2026.pdf (2.1 MB)' },
+  { id: '3', action: 'advice.generated', user: 'demo_user', timestamp: '2026-04-17T08:12:00Z', details: 'Query: "AI infrastructure investment thesis" — 3 sources cited' },
   { id: '4', action: 'index.rebuild', user: 'system', timestamp: '2026-04-16T23:00:00Z', details: 'FAISS index rebuilt: 20 docs, 142 chunks' },
   { id: '5', action: 'user.register', user: 'demo_user', timestamp: '2026-04-16T14:30:00Z', details: 'New account created' },
 ];
