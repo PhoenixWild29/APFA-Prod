@@ -9,43 +9,77 @@ import { persist } from 'zustand/middleware';
 
 export type WidgetId =
   | 'advisor-insight'
-  | 'rate-trend'
-  | 'dti-calculator'
-  | 'loan-comparison'
+  | 'market-index'
+  | 'investment-growth'
+  | 'asset-allocation'
   | 'recent-conversations'
   | 'documents';
+
+interface GrowthCalcInputs {
+  initial?: number;
+  monthly?: number;
+  years?: number;
+  rate?: number;
+}
 
 interface PreferencesState {
   widgetOrder: WidgetId[];
   hiddenWidgets: Set<WidgetId>;
 
-  // DTI calculator saved values
-  monthlyIncome: number;
-  monthlyDebt: number;
+  // Investment Growth calculator saved values
+  growthInitial: number;
+  growthMonthly: number;
+  growthYears: number;
+  growthRate: number;
 
   // Actions
   hideWidget: (id: WidgetId) => void;
   showWidget: (id: WidgetId) => void;
   moveWidget: (id: WidgetId, direction: 'up' | 'down') => void;
-  setDTIValues: (income: number, debt: number) => void;
+  setGrowthValues: (inputs: GrowthCalcInputs) => void;
 }
 
 const DEFAULT_ORDER: WidgetId[] = [
   'advisor-insight',
-  'rate-trend',
-  'dti-calculator',
-  'loan-comparison',
+  'market-index',
+  'investment-growth',
+  'asset-allocation',
   'recent-conversations',
   'documents',
 ];
 
+// Widget ID aliases for backwards compatibility with older persisted state
+// (the dashboard previously used loan-flavored IDs). These get migrated
+// transparently on read.
+const LEGACY_WIDGET_ALIASES: Record<string, WidgetId> = {
+  'rate-trend': 'market-index',
+  'dti-calculator': 'investment-growth',
+  'loan-comparison': 'asset-allocation',
+};
+
+function migrateWidgetIds<T extends string>(ids: T[] | undefined): WidgetId[] {
+  if (!ids || !Array.isArray(ids)) return DEFAULT_ORDER;
+  const mapped = ids
+    .map((id) => (LEGACY_WIDGET_ALIASES[id] as WidgetId) || (id as WidgetId))
+    .filter((id): id is WidgetId => DEFAULT_ORDER.includes(id));
+  // Ensure every default widget is still represented (add any missing at the
+  // end) so migrations don't strip the newly-introduced widgets.
+  const present = new Set(mapped);
+  for (const def of DEFAULT_ORDER) {
+    if (!present.has(def)) mapped.push(def);
+  }
+  return mapped;
+}
+
 export const usePreferencesStore = create<PreferencesState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       widgetOrder: DEFAULT_ORDER,
       hiddenWidgets: new Set<WidgetId>(),
-      monthlyIncome: 0,
-      monthlyDebt: 0,
+      growthInitial: 10000,
+      growthMonthly: 500,
+      growthYears: 20,
+      growthRate: 7,
 
       hideWidget: (id) => {
         set((s) => {
@@ -75,8 +109,16 @@ export const usePreferencesStore = create<PreferencesState>()(
         });
       },
 
-      setDTIValues: (income, debt) => {
-        set({ monthlyIncome: income, monthlyDebt: debt });
+      setGrowthValues: (inputs) => {
+        set((s) => ({
+          growthInitial:
+            inputs.initial !== undefined ? inputs.initial : s.growthInitial,
+          growthMonthly:
+            inputs.monthly !== undefined ? inputs.monthly : s.growthMonthly,
+          growthYears:
+            inputs.years !== undefined ? inputs.years : s.growthYears,
+          growthRate: inputs.rate !== undefined ? inputs.rate : s.growthRate,
+        }));
       },
     }),
     {
@@ -84,15 +126,26 @@ export const usePreferencesStore = create<PreferencesState>()(
       partialize: (state) => ({
         widgetOrder: state.widgetOrder,
         hiddenWidgets: Array.from(state.hiddenWidgets),
-        monthlyIncome: state.monthlyIncome,
-        monthlyDebt: state.monthlyDebt,
+        growthInitial: state.growthInitial,
+        growthMonthly: state.growthMonthly,
+        growthYears: state.growthYears,
+        growthRate: state.growthRate,
       }),
       merge: (persisted: unknown, current) => {
         const p = persisted as Record<string, unknown> | undefined;
+        const persistedOrder = p?.widgetOrder as string[] | undefined;
+        const persistedHidden = p?.hiddenWidgets as string[] | undefined;
         return {
           ...current,
           ...(p || {}),
-          hiddenWidgets: new Set((p?.hiddenWidgets as WidgetId[]) || []),
+          widgetOrder: migrateWidgetIds(persistedOrder),
+          hiddenWidgets: new Set(
+            (persistedHidden || [])
+              .map((id) => LEGACY_WIDGET_ALIASES[id] || id)
+              .filter((id): id is WidgetId =>
+                DEFAULT_ORDER.includes(id as WidgetId)
+              )
+          ),
         };
       },
     }

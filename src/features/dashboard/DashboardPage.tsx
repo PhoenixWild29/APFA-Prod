@@ -6,9 +6,9 @@ import { useAuthStore } from '@/store/authStore';
 import { usePreferencesStore, type WidgetId } from '@/store/preferencesStore';
 import KPIRow from './components/KPIRow';
 import AdvisorInsightWidget from './widgets/AdvisorInsightWidget';
-import RateTrendWidget from './widgets/RateTrendWidget';
-import DTICalculatorWidget from './widgets/DTICalculatorWidget';
-import LoanComparisonWidget from './widgets/LoanComparisonWidget';
+import MarketIndexWidget from './widgets/MarketIndexWidget';
+import InvestmentGrowthCalculatorWidget from './widgets/InvestmentGrowthCalculatorWidget';
+import AssetAllocationWidget from './widgets/AssetAllocationWidget';
 import RecentConversationsWidget from './widgets/RecentConversationsWidget';
 import DocumentsWidget from './widgets/DocumentsWidget';
 
@@ -24,19 +24,21 @@ const WIDGET_MAP: Record<
   React.ComponentType<{ onHide: (id: WidgetId) => void }>
 > = {
   'advisor-insight': AdvisorInsightWidget,
-  'rate-trend': RateTrendWidget,
-  'dti-calculator': DTICalculatorWidget,
-  'loan-comparison': LoanComparisonWidget,
+  'market-index': MarketIndexWidget,
+  'investment-growth': InvestmentGrowthCalculatorWidget,
+  'asset-allocation': AssetAllocationWidget,
   'recent-conversations': RecentConversationsWidget,
   documents: DocumentsWidget,
 };
 
-// Widget sizing: 7-col / 5-col pairs on desktop (12-col grid)
+// Widget sizing on desktop (12-col grid). Advisor insight + Market index make
+// the top row; the investment-growth calculator and asset-allocation view pair
+// below them; recent conversations + documents sit side-by-side at the bottom.
 const WIDGET_SIZES: Record<WidgetId, string> = {
   'advisor-insight': 'lg:col-span-7',
-  'rate-trend': 'lg:col-span-5',
-  'dti-calculator': 'lg:col-span-5',
-  'loan-comparison': 'lg:col-span-7',
+  'market-index': 'lg:col-span-5',
+  'investment-growth': 'lg:col-span-5',
+  'asset-allocation': 'lg:col-span-7',
   'recent-conversations': 'lg:col-span-6',
   documents: 'lg:col-span-6',
 };

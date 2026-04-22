@@ -23,6 +23,75 @@ interface SendMessageOptions {
   onNewConversation?: (id: string) => void;
 }
 
+/**
+ * Convert a non-OK `fetch` Response into a human-readable message.
+ *
+ * The backend returns `{ detail: "..." }` on error. We surface that detail
+ * only when it's a short string — never raw JSON or a nested object — so the
+ * assistant bubble never leaks internals or renders `{"detail":"..."}` verbatim.
+ */
+async function buildFriendlyErrorMessage(response: Response): Promise<string> {
+  const generic =
+    'Sorry, I had trouble generating a response. Please try again in a moment.';
+
+  // 402 = query-limit exceeded, 503 = service warming up, 504 = LLM timeout.
+  const byStatus: Record<number, string> = {
+    401: 'Your session expired. Please sign in again to continue.',
+    402: 'You have reached your query limit for this period. Upgrade your plan to continue.',
+    429: 'You are sending questions a little too quickly. Please wait a moment and try again.',
+    502: 'An upstream service is unavailable. Please try again shortly.',
+    503: 'The advisor is warming up. Please try again in a moment.',
+    504: 'The advisor took too long to respond. Please try again.',
+  };
+  if (byStatus[response.status]) {
+    return byStatus[response.status];
+  }
+
+  try {
+    const errData = await response.json();
+    const detail = errData?.detail;
+    if (typeof detail === 'string' && detail.length > 0 && detail.length < 240) {
+      return `Sorry, something went wrong: ${detail}`;
+    }
+  } catch {
+    /* body wasn't JSON — fall through */
+  }
+  return generic;
+}
+
+/**
+ * Convert an Axios error into a human-readable message for the chat bubble.
+ * Never renders the raw Axios object, which stringifies as an unfriendly blob.
+ */
+function buildFriendlyAxiosErrorMessage(err: unknown): string {
+  const generic =
+    'Sorry, I had trouble generating a response. Please try again in a moment.';
+  const e = err as {
+    response?: { status?: number; data?: { detail?: unknown } };
+    code?: string;
+  };
+  if (e?.code === 'ERR_NETWORK' || e?.code === 'ECONNABORTED') {
+    return 'I could not reach the advisor service. Please check your connection and try again.';
+  }
+  const status = e?.response?.status;
+  if (status) {
+    const byStatus: Record<number, string> = {
+      401: 'Your session expired. Please sign in again to continue.',
+      402: 'You have reached your query limit for this period. Upgrade your plan to continue.',
+      429: 'You are sending questions a little too quickly. Please wait a moment and try again.',
+      502: 'An upstream service is unavailable. Please try again shortly.',
+      503: 'The advisor is warming up. Please try again in a moment.',
+      504: 'The advisor took too long to respond. Please try again.',
+    };
+    if (byStatus[status]) return byStatus[status];
+  }
+  const detail = e?.response?.data?.detail;
+  if (typeof detail === 'string' && detail.length > 0 && detail.length < 240) {
+    return `Sorry, something went wrong: ${detail}`;
+  }
+  return generic;
+}
+
 export function useAdvisorStream() {
   const queryClient = useQueryClient();
   const {
@@ -87,13 +156,7 @@ export function useAdvisorStream() {
 
               // Error responses — show friendly message instead of raw JSON
               if (!response.ok) {
-                let errorMsg = 'Sorry, I encountered an error processing your request. Please try again.';
-                try {
-                  const errData = await response.json();
-                  if (errData.detail && typeof errData.detail === 'string') {
-                    errorMsg = `Sorry, something went wrong: ${errData.detail}`;
-                  }
-                } catch {}
+                const errorMsg = await buildFriendlyErrorMessage(response);
                 appendChunk(errorMsg);
                 const result = endStream();
                 commitMessage(conversationId, result, queryClient, onNewConversation);
@@ -108,7 +171,10 @@ export function useAdvisorStream() {
               // JSON fallback — read the full response and animate
               if (contentType.includes('application/json')) {
                 const data = await response.json();
+                // Backend OptimizedAdviceResponse has `advice: string`. Older
+                // shapes nested it under `.advice.response` — keep both paths.
                 const text =
+                  (typeof data.advice === 'string' ? data.advice : undefined) ||
                   data.advice?.response ||
                   data.response ||
                   data.content ||
@@ -210,7 +276,11 @@ export function useAdvisorStream() {
           });
           const data = response.data;
           const text =
-            data.advice?.response || data.response || data.content || '';
+            (typeof data.advice === 'string' ? data.advice : undefined) ||
+            data.advice?.response ||
+            data.response ||
+            data.content ||
+            'I received your question but couldn\'t generate a complete response. Please try again.';
 
           // Show text immediately
           appendChunk(text);
@@ -232,11 +302,19 @@ export function useAdvisorStream() {
 
           const result = endStream();
           commitMessage(conversationId, result, queryClient, onNewConversation);
-        } catch {
+        } catch (fallbackErr) {
+          // Commit any partial we already have, then render a friendly
+          // error so the user isn't staring at a blank bubble (or worse,
+          // raw JSON from a stringified Axios error).
           const partial = abortStream();
           if (partial) {
             commitPartialMessage(conversationId, partial, queryClient);
+            return;
           }
+          const friendly = buildFriendlyAxiosErrorMessage(fallbackErr);
+          appendChunk(friendly);
+          const result = endStream();
+          commitMessage(conversationId, result, queryClient, onNewConversation);
         }
       }
     },
