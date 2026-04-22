@@ -1070,20 +1070,33 @@ def load_embedder():
 
 def generate_loan_advice(q, dt, embedder, model, tokenizer):
     """
-    Generate loan advice using the multi-agent graph.
+    Generate financial advice using the multi-agent graph.
 
     Args:
-        q: LoanQuery object containing the user query.
+        q: Query object containing the user query.
         dt: DataFrame from RAG index.
         embedder: Embedding model.
         model: LLM model.
         tokenizer: LLM tokenizer.
 
     Returns:
-        str: Generated advice from the agent graph.
+        str: Generated advice content from the agent graph.
     """
     result = app_graph.invoke({"messages": [], "query": q.query})
-    return result["messages"][-1]
+    last_message = result["messages"][-1]
+    # The graph nodes return LangChain message objects (AIMessage/HumanMessage);
+    # extract `.content` so the downstream Pydantic response model (which
+    # requires `advice: str`) validates successfully.
+    if hasattr(last_message, "content"):
+        content = last_message.content
+        # Some LLM providers return content as a list of content blocks.
+        if isinstance(content, list):
+            return "".join(
+                block.get("text", "") if isinstance(block, dict) else str(block)
+                for block in content
+            )
+        return str(content)
+    return str(last_message)
 
 
 @app.get("/health", response_model=EnhancedHealthResponse)
@@ -1119,6 +1132,8 @@ async def health_check():
     components = []
     degraded = []
     failed = []
+    unknown = []
+    not_configured = []
 
     # Check FAISS index
     try:
@@ -1180,23 +1195,40 @@ async def health_check():
         )
         failed.append("redis_cache")
 
-    # Check Celery (not yet wired for health checks)
+    # Check Celery (not yet wired for health checks). Reporting "unknown"
+    # here is deliberately honest: the endpoint doesn't actually ping Celery,
+    # so we must not claim it's healthy. It's surfaced via `unknown_components`
+    # at the response root so callers can distinguish "checked & passing"
+    # from "never actually checked."
     components.append(
         ComponentHealthStatus(
             component="celery_workers",
             status="unknown",
-            metadata={"note": "Health check not configured — Celery runs in separate container"},
+            metadata={
+                "note": (
+                    "Health check not implemented — Celery runs in a separate "
+                    "container and is not pinged by this endpoint."
+                ),
+                "check_performed": False,
+            },
         )
     )
+    unknown.append("celery_workers")
 
-    # AWS Bedrock (not used — LLM is OpenAI GPT-4o)
+    # AWS Bedrock — intentionally not in use. Reported as "not_configured"
+    # (not "healthy") so operators can see at a glance that this deployment
+    # uses OpenAI for LLM inference, not Bedrock.
     components.append(
         ComponentHealthStatus(
             component="aws_bedrock",
             status="not_configured",
-            metadata={"note": "Not in use — LLM provider is OpenAI GPT-4o"},
+            metadata={
+                "note": "Not in use — LLM provider is OpenAI GPT-4o",
+                "check_performed": False,
+            },
         )
     )
+    not_configured.append("aws_bedrock")
 
     # Check Database (PostgreSQL via SQLAlchemy)
     db_status = "healthy"
@@ -1219,11 +1251,22 @@ async def health_check():
         )
     )
 
-    # Determine overall status
+    # Determine overall status.
+    #
+    # Policy:
+    #   - any "unhealthy"     → overall "unhealthy"   (HTTP 503)
+    #   - any "degraded"      → overall "degraded"    (HTTP 200, operational)
+    #   - any "unknown"       → overall "degraded"    (we don't actually know,
+    #                                                  so refuse to claim healthy)
+    #   - otherwise           → overall "healthy"     (HTTP 200)
+    #
+    # "not_configured" components are ignored by the rollup because they are
+    # an intentional absence (e.g. Bedrock not used in this deployment) rather
+    # than a gap in observability.
     if failed:
         overall_status = "unhealthy"
         http_status = 503
-    elif degraded:
+    elif degraded or unknown:
         overall_status = "degraded"
         http_status = 200  # Still operational
     else:
@@ -1236,6 +1279,8 @@ async def health_check():
         components=components,
         degraded_components=degraded,
         failed_components=failed,
+        unknown_components=unknown,
+        not_configured_components=not_configured,
     )
 
     return JSONResponse(content=response.model_dump(), status_code=http_status)
@@ -5892,20 +5937,36 @@ async def generate_advice(
             )
             CACHE_HITS.inc()
 
-            # Return cached response
+            # Return cached response. Parse JSON safely (no eval) and fall back
+            # to a fresh generation if the cached blob is malformed.
             total_time_ms = (time.time() - request_start) * 1000
-            cached_response = eval(cached_result)  # Safe since we control the data
+            cached_response = None
+            try:
+                if isinstance(cached_result, (bytes, bytearray)):
+                    cached_result = cached_result.decode("utf-8")
+                cached_response = OptimizedAdviceResponse.model_validate_json(
+                    cached_result
+                )
+            except Exception as cache_err:
+                logger.warning(
+                    f"Discarding malformed advice cache entry: "
+                    f"{type(cache_err).__name__}"
+                )
+                cached_response = None
 
-            REQUEST_COUNT.labels(
-                method="POST", endpoint="/generate-advice", status="200"
-            ).inc()
-            ACTIVE_REQUESTS.dec()
+            if cached_response is not None:
+                REQUEST_COUNT.labels(
+                    method="POST", endpoint="/generate-advice", status="200"
+                ).inc()
+                ACTIVE_REQUESTS.dec()
 
-            # Update metrics and return
-            RESPONSE_TIME.labels(endpoint="/generate-advice").observe(
-                total_time_ms / 1000
-            )
-            return cached_response
+                # Update metrics and return
+                RESPONSE_TIME.labels(endpoint="/generate-advice").observe(
+                    total_time_ms / 1000
+                )
+                return cached_response
+            # If cached_response is None (malformed cache entry), fall through
+            # to fresh generation below.
 
         CACHE_MISSES.inc()
 
@@ -5997,8 +6058,12 @@ async def generate_advice(
             bias_detection_results=bias_results,
         )
 
-        # Cache result (600s TTL as per requirements)
-        await set_cache(cache_key, str(optimized_response.model_dump()), ttl=600)
+        # Cache result (600s TTL as per requirements). Use JSON so the cache
+        # can be safely re-validated on read (no eval) and remains portable
+        # across processes.
+        await set_cache(
+            cache_key, optimized_response.model_dump_json(), ttl=600
+        )
 
         RESPONSE_TIME.labels(endpoint="/generate-advice").observe(
             total_latency_ms / 1000
@@ -6050,13 +6115,22 @@ async def generate_advice(
         )
     except Exception as e:
         _clean_err = str(e).replace("\n", " ").replace("\r", " ")[:500]
-        logger.error(f"Unexpected error in generate_advice: {_clean_err}")
+        _err_type = type(e).__name__
+        logger.exception(
+            f"Unexpected error in generate_advice ({_err_type}): {_clean_err}"
+        )
         ERROR_COUNT.labels(type="unexpected").inc()
         REQUEST_COUNT.labels(
             method="POST", endpoint="/generate-advice", status="500"
         ).inc()
         ACTIVE_REQUESTS.dec()
-        raise HTTPException(status_code=500, detail="Internal server error")
+        # Surface the exception class (but never the message, which may contain
+        # secrets or PII) so field diagnosis doesn't require grepping container
+        # logs. The message is still written to server logs via logger.exception.
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error ({_err_type}). Please try again.",
+        )
 
 
 @asynccontextmanager

@@ -1,18 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/api/apiClient';
 import { useConversationStore } from '@/store/conversationStore';
 import { useAdvisorStream } from './hooks/useAdvisorStream';
-import ConversationListPanel from './components/ConversationListPanel';
 import ThreadView from './components/ThreadView';
 import Composer from './components/Composer';
-import type { Conversation, ConversationDetail } from '@/types/conversation';
+import type { ConversationDetail } from '@/types/conversation';
+
+// The conversation list sidebar is intentionally hidden until the backend
+// ships GET/POST/DELETE /conversations. Once those endpoints exist, restore
+// the ConversationListPanel import + query below and re-render the aside.
+// See QA report: "Hide conversation sidebar until /conversations endpoint exists".
 
 export default function AdvisorPage() {
   const navigate = useNavigate();
   const { conversationId } = useParams();
-  const [searchQuery, setSearchQuery] = useState('');
 
   const { draft, setDraft } = useConversationStore();
   const {
@@ -24,22 +27,10 @@ export default function AdvisorPage() {
     abortStream,
   } = useAdvisorStream();
 
-  // Fetch conversation list
-  const { data: conversations = [], isLoading: listLoading } = useQuery({
-    queryKey: ['conversations'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get<Conversation[]>('/conversations');
-        return res.data;
-      } catch {
-        // Backend doesn't have /conversations yet — return empty
-        return [];
-      }
-    },
-    staleTime: 60_000,
-  });
-
-  // Fetch current conversation detail
+  // Fetch current conversation detail — only runs when a conversationId is
+  // in the URL. Kept because the detail endpoint is planned for the same
+  // ship window as the list endpoint and the URL-driven load path works
+  // independently of the sidebar.
   const { data: conversation } = useQuery({
     queryKey: ['conversation', conversationId],
     queryFn: async () => {
@@ -57,10 +48,6 @@ export default function AdvisorPage() {
   });
 
   const messages = conversation?.messages ?? [];
-
-  const handleNewConversation = useCallback(() => {
-    navigate('/app/advisor');
-  }, [navigate]);
 
   const handleSend = useCallback(() => {
     const text = draft.trim();
@@ -120,17 +107,16 @@ export default function AdvisorPage() {
 
   return (
     <div className="flex h-full">
-      {/* Left rail — hidden until /conversations endpoint is built */}
-      {/* TODO: Uncomment when GET/POST/DELETE /conversations ships
-      <div className="hidden lg:block">
-        <ConversationListPanel
-          conversations={conversations}
-          isLoading={listLoading}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onNewConversation={handleNewConversation}
-        />
-      </div>
+      {/*
+        Left rail / conversation list is intentionally NOT rendered until the
+        backend ships the /conversations endpoints (GET list, GET detail,
+        POST create, DELETE). Showing an empty sidebar wired to a 404 route
+        created a broken-feeling UI and a noisy Network panel. Once the
+        endpoints exist, restore this block:
+
+          <div className="hidden lg:block">
+            <ConversationListPanel ... />
+          </div>
       */}
 
       {/* Center: thread + composer */}

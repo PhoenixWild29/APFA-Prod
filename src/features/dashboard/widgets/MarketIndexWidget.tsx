@@ -16,42 +16,59 @@ import type { WidgetId } from '@/store/preferencesStore';
 const TIME_RANGES = ['1W', '1M', '3M', '1Y'] as const;
 type TimeRange = (typeof TIME_RANGES)[number];
 
-// Placeholder market index data — will be GET /market-data?index=sp500
-const DEMO_DATA: Record<TimeRange, { date: string; value: number }[]> = {
-  '1W': [
-    { date: 'Mon', value: 5385 },
-    { date: 'Tue', value: 5398 },
-    { date: 'Wed', value: 5371 },
-    { date: 'Thu', value: 5410 },
-    { date: 'Fri', value: 5421 },
-  ],
-  '1M': Array.from({ length: 20 }, (_, i) => ({
-    date: `${i + 1}`,
-    value: 5250 + i * 9 + Math.round((Math.random() - 0.5) * 30),
-  })),
-  '3M': Array.from({ length: 12 }, (_, i) => ({
-    date: `W${i + 1}`,
-    value: 5100 + i * 28 + Math.round((Math.random() - 0.5) * 40),
-  })),
-  '1Y': Array.from({ length: 12 }, (_, i) => ({
-    date: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i],
-    value: 4800 + i * 55 + Math.round((Math.random() - 0.5) * 60),
-  })),
-};
+const INDICES = [
+  { id: 'sp500', label: 'S&P 500', base: 5200, step: 12 },
+  { id: 'nasdaq', label: 'NASDAQ', base: 17000, step: 40 },
+  { id: 'dow', label: 'Dow Jones', base: 38500, step: 25 },
+] as const;
+type IndexId = (typeof INDICES)[number]['id'];
 
-interface RateTrendWidgetProps {
+// Placeholder market index data — swap to GET /market-data?index=<id> once shipped.
+function generateData(indexId: IndexId, range: TimeRange) {
+  const meta = INDICES.find((i) => i.id === indexId) ?? INDICES[0];
+  const points = range === '1W' ? 5 : range === '1M' ? 20 : range === '3M' ? 12 : 12;
+  const step = range === '1Y' ? meta.step * 4 : meta.step;
+
+  return Array.from({ length: points }, (_, i) => {
+    const labels1W = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const labels1Y = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    const date =
+      range === '1W'
+        ? labels1W[i]
+        : range === '1Y'
+          ? labels1Y[i]
+          : range === '3M'
+            ? `W${i + 1}`
+            : `${i + 1}`;
+    return {
+      date,
+      value: meta.base + i * step + Math.round((Math.random() - 0.5) * meta.step * 2),
+    };
+  });
+}
+
+interface MarketIndexWidgetProps {
   onHide: (id: WidgetId) => void;
 }
 
-export default function RateTrendWidget({ onHide }: RateTrendWidgetProps) {
+export default function MarketIndexWidget({ onHide }: MarketIndexWidgetProps) {
   const [range, setRange] = useState<TimeRange>('1M');
-  const data = DEMO_DATA[range];
+  const [indexId, setIndexId] = useState<IndexId>('sp500');
+
+  const data = generateData(indexId, range);
   const currentValue = data[data.length - 1]?.value ?? 0;
+  const firstValue = data[0]?.value ?? currentValue;
+  const change = currentValue - firstValue;
+  const pctChange = firstValue > 0 ? (change / firstValue) * 100 : 0;
+  const label = INDICES.find((i) => i.id === indexId)?.label ?? 'Index';
 
   return (
     <WidgetCard
-      id="rate-trend"
-      title="S&P 500 Index"
+      id="market-index"
+      title="Market Index"
       onHide={onHide}
       action={
         <div className="flex gap-0.5">
@@ -72,9 +89,35 @@ export default function RateTrendWidget({ onHide }: RateTrendWidgetProps) {
         </div>
       }
     >
-      <div className="mb-3">
+      <div className="mb-2 flex gap-1">
+        {INDICES.map((idx) => (
+          <Button
+            key={idx.id}
+            variant="ghost"
+            size="sm"
+            className={cn(
+              'h-6 px-2 text-[10px]',
+              indexId === idx.id && 'bg-muted font-semibold'
+            )}
+            onClick={() => setIndexId(idx.id)}
+          >
+            {idx.label}
+          </Button>
+        ))}
+      </div>
+      <div className="mb-3 flex items-baseline gap-3">
         <span className="tabular-nums text-2xl font-semibold">
           {currentValue.toLocaleString()}
+        </span>
+        <span
+          className={cn(
+            'tabular-nums text-xs font-medium',
+            change >= 0 ? 'text-pos' : 'text-neg'
+          )}
+        >
+          {change >= 0 ? '+' : ''}
+          {change.toLocaleString()} ({pctChange >= 0 ? '+' : ''}
+          {pctChange.toFixed(2)}%)
         </span>
       </div>
       <div className="h-40">
@@ -108,7 +151,7 @@ export default function RateTrendWidget({ onHide }: RateTrendWidgetProps) {
                 borderRadius: 8,
                 fontSize: 12,
               }}
-              formatter={(value: number) => [value.toLocaleString(), 'S&P 500']}
+              formatter={(value: number) => [value.toLocaleString(), label]}
             />
             <Area
               type="monotone"
