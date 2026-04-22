@@ -14,7 +14,7 @@ export const authConfig = {
     endpoints: [
       {
         name: 'apfa-api',
-        endpoint: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+        endpoint: import.meta.env.VITE_API_URL || '',
         custom_header: async () => {
           // Get token from localStorage
           const token = localStorage.getItem('apfa_access_token');

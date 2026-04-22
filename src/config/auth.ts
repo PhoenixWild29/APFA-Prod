@@ -8,7 +8,7 @@
  */
 
 export const authConfig = {
-  apiEndpoint: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  apiEndpoint: import.meta.env.VITE_API_URL || '',
   tokenEndpoint: '/token',
   tokenRefreshThreshold: 300, // 5 minutes before expiry (seconds)
 };

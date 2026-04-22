@@ -1068,16 +1068,14 @@ def load_embedder():
     return embedder
 
 
-def generate_loan_advice(q, dt, embedder, model, tokenizer):
+def generate_loan_advice(q, dt, embedder):
     """
     Generate financial advice using the multi-agent graph.
 
     Args:
         q: Query object containing the user query.
         dt: DataFrame from RAG index.
-        embedder: Embedding model.
-        model: LLM model.
-        tokenizer: LLM tokenizer.
+        embedder: Embedding model (unused here, but kept for interface compat).
 
     Returns:
         str: Generated advice content from the agent graph.
@@ -3047,25 +3045,24 @@ async def preprocess_query_endpoint(request: QueryPreprocessingRequest):
     Example:
         POST /query/preprocess
         {
-            "query": "I need a $200k mortgage at 3.5% for 30 years"
+            "query": "I want to invest $200k in S&P 500 index funds with a 20-year horizon"
         }
 
         Response:
             {
-                "original_query": "I need a $200k mortgage at 3.5% for 30 years",
-                "normalized_query": "I need a 200000 dollars mortgage at 3.5 percent for 30 years",
+                "original_query": "I want to invest $200k in S&P 500 index funds with a 20-year horizon",
+                "normalized_query": "I want to invest 200000 dollars in S&P 500 index funds with a 20 year horizon",
                 "extracted_entities": [
                     {"entity_type": "amount", "value": "$200k", "normalized_value": "$200000", "confidence_score": 0.9},
-                    {"entity_type": "rate", "value": "3.5%", "normalized_value": "3.5%", "confidence_score": 1.0},
-                    {"entity_type": "loan_type", "value": "mortgage", "normalized_value": "mortgage", "confidence_score": 0.9},
-                    {"entity_type": "time_period", "value": "30 years", "normalized_value": "30 years", "confidence_score": 1.0}
+                    {"entity_type": "asset_class", "value": "S&P 500 index funds", "normalized_value": "index_fund", "confidence_score": 0.95},
+                    {"entity_type": "time_period", "value": "20 years", "normalized_value": "20 years", "confidence_score": 1.0}
                 ],
-                "user_intent_category": "loan_inquiry",
-                "context_tags": ["loan_amount_specified", "interest_rate_focused", "specific_loan_type", "term_length_specified"],
+                "user_intent_category": "investment_inquiry",
+                "context_tags": ["investment_amount_specified", "asset_class_specified", "time_horizon_specified"],
                 "processing_metadata": {
-                    "original_length": 48,
-                    "normalized_length": 62,
-                    "entities_found": 4,
+                    "original_length": 69,
+                    "normalized_length": 73,
+                    "entities_found": 3,
                     "processing_time_ms": 5.2
                 }
             }
@@ -4814,7 +4811,7 @@ async def process_advice_async(request_id: str, q: LoanQuery, current_user: dict
         await asyncio.sleep(1)
 
         advice = await asyncio.to_thread(
-            generate_loan_advice, q, rag_df, embedder, model, tokenizer
+            generate_loan_advice, q, rag_df, embedder
         )
 
         await set_request_status(
@@ -5985,7 +5982,7 @@ async def generate_advice(
 
         # Use pre-loaded FAISS index and embedder (eliminates 10-100s bottleneck)
         advice = await asyncio.to_thread(
-            generate_loan_advice, q, rag_df, embedder, model, tokenizer
+            generate_loan_advice, q, rag_df, embedder
         )
 
         (time.time() - agent_processing_start) * 1000

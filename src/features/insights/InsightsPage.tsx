@@ -42,13 +42,13 @@ const RATE_HISTORY = Array.from({ length: 52 }, (_, i) => {
   date.setDate(date.getDate() - (51 - i) * 7);
   return {
     date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    rate30: 7.2 - i * 0.012 + (Math.random() - 0.5) * 0.15,
+    yield10y: 4.3 - i * 0.008 + (Math.random() - 0.5) * 0.1,
   };
 });
 
 interface PriceAlert {
   id: string;
-  target: 'sp500' | 'nasdaq' | '30yr';
+  target: 'sp500' | 'nasdaq' | 'treasury10y';
   threshold: number;
   direction: 'below' | 'above';
   active: boolean;
@@ -59,11 +59,11 @@ export default function InsightsPage() {
     { id: '1', target: 'sp500', threshold: 5500, direction: 'above', active: true },
   ]);
   const [newThreshold, setNewThreshold] = useState('');
-  const [newTarget, setNewTarget] = useState<'sp500' | 'nasdaq' | '30yr'>('sp500');
+  const [newTarget, setNewTarget] = useState<'sp500' | 'nasdaq' | 'treasury10y'>('sp500');
 
   const currentSP = MARKET_HISTORY[MARKET_HISTORY.length - 1].sp500;
   const currentNasdaq = MARKET_HISTORY[MARKET_HISTORY.length - 1].nasdaq;
-  const currentRate30 = RATE_HISTORY[RATE_HISTORY.length - 1].rate30;
+  const currentYield10y = RATE_HISTORY[RATE_HISTORY.length - 1].rate30;
   const weekAgoSP = MARKET_HISTORY[MARKET_HISTORY.length - 2].sp500;
   const deltaSP = currentSP - weekAgoSP;
 
@@ -76,7 +76,7 @@ export default function InsightsPage() {
         id: `alert-${Date.now()}`,
         target: newTarget,
         threshold,
-        direction: newTarget === '30yr' ? 'below' : 'above',
+        direction: newTarget === 'treasury10y' ? 'below' : 'above',
         active: true,
       },
     ]);
@@ -96,17 +96,17 @@ export default function InsightsPage() {
   const targetLabels: Record<string, string> = {
     sp500: 'S&P 500',
     nasdaq: 'NASDAQ',
-    '30yr': '30yr Fixed Rate',
+    'treasury10y': '10yr Treasury Yield',
   };
 
   const getCurrentValue = (target: string) => {
     if (target === 'sp500') return currentSP;
     if (target === 'nasdaq') return currentNasdaq;
-    return currentRate30;
+    return currentYield10y;
   };
 
   const formatValue = (target: string, value: number) => {
-    if (target === '30yr') return `${value.toFixed(2)}%`;
+    if (target === 'treasury10y') return `${value.toFixed(2)}%`;
     return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
   };
 
@@ -228,7 +228,7 @@ export default function InsightsPage() {
       {/* Rate tracking section */}
       <div className="rounded-xl border bg-card p-4">
         <h2 className="mb-2 text-sm font-semibold">Rate Tracking</h2>
-        <p className="mb-4 text-xs text-muted-foreground">30-Year Fixed Mortgage: <span className="tabular-nums font-medium text-foreground">{currentRate30.toFixed(2)}%</span></p>
+        <p className="mb-4 text-xs text-muted-foreground">10-Year Treasury Yield: <span className="tabular-nums font-medium text-foreground">{currentYield10y.toFixed(2)}%</span></p>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={RATE_HISTORY}>
@@ -255,10 +255,10 @@ export default function InsightsPage() {
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                formatter={(value: number) => [`${value.toFixed(2)}%`, '30yr Fixed']}
+                formatter={(value: number) => [`${value.toFixed(2)}%`, '10yr Treasury']}
               />
               {alerts
-                .filter((a) => a.active && a.target === '30yr')
+                .filter((a) => a.active && a.target === 'treasury10y')
                 .map((alert) => (
                   <ReferenceLine
                     key={alert.id}
@@ -275,7 +275,7 @@ export default function InsightsPage() {
                 ))}
               <Line
                 type="monotone"
-                dataKey="rate30"
+                dataKey="yield10y"
                 stroke="#C79A2B"
                 strokeWidth={2}
                 dot={false}
@@ -304,7 +304,7 @@ export default function InsightsPage() {
                 <div>
                   <Label className="text-xs">Target</Label>
                   <div className="mt-1.5 flex gap-2">
-                    {(['sp500', 'nasdaq', '30yr'] as const).map((t) => (
+                    {(['sp500', 'nasdaq', 'treasury10y'] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setNewTarget(t)}
@@ -321,19 +321,19 @@ export default function InsightsPage() {
                 </div>
                 <div>
                   <Label htmlFor="threshold" className="text-xs">
-                    {newTarget === '30yr' ? 'Alert when rate drops below' : 'Alert when price reaches'}
+                    {newTarget === 'treasury10y' ? 'Alert when yield drops below' : 'Alert when price reaches'}
                   </Label>
                   <div className="relative mt-1.5">
                     <Input
                       id="threshold"
                       type="number"
-                      step={newTarget === '30yr' ? '0.01' : '10'}
+                      step={newTarget === 'treasury10y' ? '0.01' : '10'}
                       value={newThreshold}
                       onChange={(e) => setNewThreshold(e.target.value)}
-                      placeholder={newTarget === '30yr' ? '6.50' : '5500'}
+                      placeholder={newTarget === 'treasury10y' ? '6.50' : '5500'}
                       className="pr-6 tabular-nums"
                     />
-                    {newTarget === '30yr' && (
+                    {newTarget === 'treasury10y' && (
                       <span className="absolute right-3 top-2 text-sm text-muted-foreground">
                         %
                       </span>
@@ -363,7 +363,7 @@ export default function InsightsPage() {
           <div className="space-y-2">
             {alerts.map((alert) => {
               const current = getCurrentValue(alert.target);
-              const triggered = alert.target === '30yr'
+              const triggered = alert.target === 'treasury10y'
                 ? current <= alert.threshold
                 : current >= alert.threshold;
               const distance = Math.abs(current - alert.threshold);
@@ -382,7 +382,7 @@ export default function InsightsPage() {
                     <div>
                       <p className="text-sm font-medium">
                         {targetLabels[alert.target]}{' '}
-                        {alert.target === '30yr' ? 'below' : 'reaches'}{' '}
+                        {alert.target === 'treasury10y' ? 'below' : 'reaches'}{' '}
                         <span className="tabular-nums">{formatValue(alert.target, alert.threshold)}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
