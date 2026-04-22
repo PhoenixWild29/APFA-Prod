@@ -43,7 +43,21 @@ DEFAULT_EXEMPT_PREFIXES = (
     "/register",        # /register, /register/resend, /register/verify
     "/password-reset",  # /password-reset/request, /password-reset/confirm
     "/verify",          # /verify-email, /verify/{token}
+    "/generate-advice", # Bearer-only — Depends(get_current_user) validates JWT
+    "/documents",       # Bearer-only — all document endpoints require JWT
+    "/query",           # Bearer-only — query validation/preprocessing
+    "/agents",          # Bearer-only — agent management
+    "/admin",           # Bearer-only — require_admin dependency
+    "/ingest",          # Bearer/API-key — pipeline auth
+    "/users",           # Bearer-only — authenticated user endpoints
+    "/logout",          # Bearer-only — session termination
+    "/roles",           # Bearer-only — RBAC management
+    "/permissions",     # Bearer-only — RBAC management
+    "/retrieval",       # Bearer-only — SSE retrieval events
+    "/metrics",         # Bearer-only or public — no ambient auth
+    "/health",          # Public — no auth needed
     "/api/billing/webhook",  # Stripe — signature-verified in handler
+    "/api/billing",     # Bearer-only — billing endpoints
     "/api/webhooks",    # future webhooks — convention: signature-verified
 )
 
