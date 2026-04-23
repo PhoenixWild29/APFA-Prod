@@ -1068,16 +1068,17 @@ def load_embedder():
     return embedder
 
 
-def generate_loan_advice(q, dt, embedder, model, tokenizer):
+def _run_advice_graph(q):
     """
     Generate financial advice using the multi-agent graph.
 
+    Uses the global app_graph (LangGraph) which internally calls the
+    retriever, analyzer, and orchestrator agents. All dependencies
+    (llm, embedder, faiss_index, rag_df) are module-level globals
+    accessed by the agent nodes directly.
+
     Args:
-        q: Query object containing the user query.
-        dt: DataFrame from RAG index.
-        embedder: Embedding model.
-        model: LLM model.
-        tokenizer: LLM tokenizer.
+        q: Query object containing the user query (.query attribute).
 
     Returns:
         str: Generated advice content from the agent graph.
@@ -4813,9 +4814,7 @@ async def process_advice_async(request_id: str, q: LoanQuery, current_user: dict
         )
         await asyncio.sleep(1)
 
-        advice = await asyncio.to_thread(
-            generate_loan_advice, q, rag_df, embedder, model, tokenizer
-        )
+        advice = await asyncio.to_thread(_run_advice_graph, q)
 
         await set_request_status(
             request_id,
@@ -5984,9 +5983,7 @@ async def generate_advice(
         agent_processing_start = time.time()
 
         # Use pre-loaded FAISS index and embedder (eliminates 10-100s bottleneck)
-        advice = await asyncio.to_thread(
-            generate_loan_advice, q, rag_df, embedder, model, tokenizer
-        )
+        advice = await asyncio.to_thread(_run_advice_graph, q)
 
         (time.time() - agent_processing_start) * 1000
 
@@ -6124,12 +6121,12 @@ async def generate_advice(
             method="POST", endpoint="/generate-advice", status="500"
         ).inc()
         ACTIVE_REQUESTS.dec()
-        # Surface the exception class (but never the message, which may contain
-        # secrets or PII) so field diagnosis doesn't require grepping container
-        # logs. The message is still written to server logs via logger.exception.
+        # Never include exception class name or message in user-facing detail —
+        # that's information disclosure. The full traceback is already in server
+        # logs via logger.exception() above.
         raise HTTPException(
             status_code=500,
-            detail=f"Internal server error ({_err_type}). Please try again.",
+            detail="Internal server error. Please try again.",
         )
 
 
