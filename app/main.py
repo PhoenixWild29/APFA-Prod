@@ -120,8 +120,14 @@ class ExternalServiceError(Exception):
     """Raised when external service calls fail."""
 
 
-async def detect_bias(text: str) -> float:
-    """Stub bias detection — returns 0.0 (no bias detected)."""
+def detect_bias(text: str) -> float:
+    """Stub bias detection — returns 0.0 (no bias detected).
+
+    This is a synchronous stub. When a real implementation arrives
+    (e.g., AIF360, external ML model), convert the entire agent graph
+    to async: make all three node functions async def, use ainvoke(),
+    and await this function. See APFA-Fix-Plan-v4.md for details.
+    """
     return 0.0
 
 
