@@ -12,7 +12,6 @@ export type WidgetId =
   | 'market-index'
   | 'investment-growth'
   | 'asset-allocation'
-  | 'recent-conversations'
   | 'documents';
 
 interface GrowthCalcInputs {
@@ -44,7 +43,6 @@ const DEFAULT_ORDER: WidgetId[] = [
   'market-index',
   'investment-growth',
   'asset-allocation',
-  'recent-conversations',
   'documents',
 ];
 

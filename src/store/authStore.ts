@@ -76,6 +76,11 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       await authClient.post('/token/revoke').catch(() => {});
     } finally {
       clearAccessToken();
+      // Clear conversation messages on logout — user queries are PII
+      // and shouldn't outlive the session, even in memory.
+      const { clearMessages, abortStream } = await import('@/store/conversationStore').then(m => m.useConversationStore.getState());
+      abortStream();
+      clearMessages();
       set({
         isAuthenticated: false,
         user: null,
