@@ -5,22 +5,24 @@
  * 1. SSE streaming (text/event-stream) — real-time chunks
  * 2. JSON fallback — if backend returns application/json, we animate the text
  *
- * Per CoWork spec §6.4: chunks land in useConversationStore, committed to
- * React Query cache on completion.
+ * Messages are committed to the Zustand conversationStore, which persists
+ * across navigation (Dashboard→Advisor) but not across page refreshes.
+ * When /conversations persistence ships, React Query can layer on top.
+ *
+ * Note: the backend LoanQuery model accepts only `query: str` — no
+ * conversation_id or message history. Each request is stateless.
+ * TODO: Add conversation_id threading when backend supports it.
  */
 import { useCallback } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { useQueryClient } from '@tanstack/react-query';
 import { useConversationStore } from '@/store/conversationStore';
 import { getAccessToken } from '@/config/auth';
 import { authConfig } from '@/config/auth';
-import type { Message, Source, ConversationDetail } from '@/types/conversation';
+import type { Message, Source } from '@/types/conversation';
 import apiClient from '@/api/apiClient';
 
 interface SendMessageOptions {
-  conversationId: string | null;
   query: string;
-  onNewConversation?: (id: string) => void;
 }
 
 /**
@@ -102,8 +104,42 @@ function buildFriendlyAxiosErrorMessage(err: unknown): string {
   return generic;
 }
 
+/**
+ * Commit a completed assistant message to the Zustand store.
+ */
+function commitToStore(
+  result: { content: string; sources: Source[]; followUps: string[] },
+  addMessage: (msg: Message) => void
+) {
+  if (!result.content) return;
+  addMessage({
+    id: `msg-${Date.now()}`,
+    role: 'assistant',
+    content: result.content,
+    sources: result.sources,
+    follow_ups: result.followUps,
+    created_at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Commit a partial (aborted/errored) assistant message to the Zustand store.
+ */
+function commitPartialToStore(
+  content: string,
+  addMessage: (msg: Message) => void
+) {
+  if (!content) return;
+  addMessage({
+    id: `msg-partial-${Date.now()}`,
+    role: 'assistant',
+    content,
+    is_partial: true,
+    created_at: new Date().toISOString(),
+  });
+}
+
 export function useAdvisorStream() {
-  const queryClient = useQueryClient();
   const {
     isStreaming,
     streamingContent,
@@ -115,32 +151,23 @@ export function useAdvisorStream() {
     setFollowUps,
     endStream,
     abortStream,
+    addMessage,
   } = useConversationStore();
 
   const sendMessage = useCallback(
-    async ({ conversationId, query, onNewConversation }: SendMessageOptions) => {
+    async ({ query }: SendMessageOptions) => {
       const token = getAccessToken();
       if (!token) return;
 
       const controller = startStream();
 
-      // Optimistically add user message to cache
-      const userMsg: Message = {
-        id: `temp-user-${Date.now()}`,
+      // Add user message to store immediately (optimistic)
+      addMessage({
+        id: `user-${Date.now()}`,
         role: 'user',
         content: query,
         created_at: new Date().toISOString(),
-      };
-
-      if (conversationId) {
-        queryClient.setQueryData<ConversationDetail>(
-          ['conversation', conversationId],
-          (old) => {
-            if (!old) return old;
-            return { ...old, messages: [...old.messages, userMsg] };
-          }
-        );
-      }
+      });
 
       try {
         // Try SSE first
@@ -155,10 +182,7 @@ export function useAdvisorStream() {
               Authorization: `Bearer ${token}`,
               Accept: 'text/event-stream',
             },
-            body: JSON.stringify({
-              query,
-              conversation_id: conversationId,
-            }),
+            body: JSON.stringify({ query }),
             signal: controller.signal,
 
             onopen: async (response) => {
@@ -169,7 +193,7 @@ export function useAdvisorStream() {
                 const errorMsg = await buildFriendlyErrorMessage(response);
                 appendChunk(errorMsg);
                 const result = endStream();
-                commitMessage(conversationId, result, queryClient, onNewConversation);
+                commitToStore(result, addMessage);
                 return;
               }
 
@@ -217,7 +241,7 @@ export function useAdvisorStream() {
 
                 // Commit
                 const result = endStream();
-                commitMessage(conversationId, result, queryClient, onNewConversation);
+                commitToStore(result, addMessage);
                 return;
               }
 
@@ -246,11 +270,12 @@ export function useAdvisorStream() {
                     setFollowUps(followUps);
                   } catch {}
                   break;
-                case 'done':
-                  // Stream complete — commit to cache
+                case 'done': {
+                  // Stream complete — commit to store
                   const result = endStream();
-                  commitMessage(conversationId, result, queryClient, onNewConversation);
+                  commitToStore(result, addMessage);
                   break;
+                }
               }
             },
 
@@ -258,7 +283,7 @@ export function useAdvisorStream() {
               // On error, commit whatever we have as partial
               const partial = abortStream();
               if (partial) {
-                commitPartialMessage(conversationId, partial, queryClient);
+                commitPartialToStore(partial, addMessage);
               }
               throw err; // stop retrying
             },
@@ -267,23 +292,20 @@ export function useAdvisorStream() {
               // If we didn't get a "done" event, commit what we have
               if (useConversationStore.getState().isStreaming) {
                 const result = endStream();
-                commitMessage(conversationId, result, queryClient, onNewConversation);
+                commitToStore(result, addMessage);
               }
             },
           }
         );
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
-          // User aborted — commit partial
+          // User aborted — partial already committed by abortStream
           return;
         }
 
         // Fallback: try regular POST if SSE fails entirely
         try {
-          const response = await apiClient.post('/generate-advice', {
-            query,
-            conversation_id: conversationId,
-          });
+          const response = await apiClient.post('/generate-advice', { query });
           const data = response.data;
           const text =
             (typeof data.advice === 'string' ? data.advice : undefined) ||
@@ -311,20 +333,20 @@ export function useAdvisorStream() {
           }
 
           const result = endStream();
-          commitMessage(conversationId, result, queryClient, onNewConversation);
+          commitToStore(result, addMessage);
         } catch (fallbackErr) {
           // Commit any partial we already have, then render a friendly
           // error so the user isn't staring at a blank bubble (or worse,
           // raw JSON from a stringified Axios error).
           const partial = abortStream();
           if (partial) {
-            commitPartialMessage(conversationId, partial, queryClient);
+            commitPartialToStore(partial, addMessage);
             return;
           }
           const friendly = buildFriendlyAxiosErrorMessage(fallbackErr);
           appendChunk(friendly);
           const result = endStream();
-          commitMessage(conversationId, result, queryClient, onNewConversation);
+          commitToStore(result, addMessage);
         }
       }
     },
@@ -335,7 +357,7 @@ export function useAdvisorStream() {
       setFollowUps,
       endStream,
       abortStream,
-      queryClient,
+      addMessage,
     ]
   );
 
@@ -347,77 +369,4 @@ export function useAdvisorStream() {
     streamingFollowUps,
     abortStream,
   };
-}
-
-function commitMessage(
-  conversationId: string | null,
-  result: { content: string; sources: Source[]; followUps: string[] },
-  queryClient: ReturnType<typeof useQueryClient>,
-  onNewConversation?: (id: string) => void
-) {
-  const assistantMsg: Message = {
-    id: `msg-${Date.now()}`,
-    role: 'assistant',
-    content: result.content,
-    sources: result.sources,
-    follow_ups: result.followUps,
-    created_at: new Date().toISOString(),
-  };
-
-  if (conversationId) {
-    queryClient.setQueryData<ConversationDetail>(
-      ['conversation', conversationId],
-      (old) => {
-        if (!old) return old;
-        return { ...old, messages: [...old.messages, assistantMsg] };
-      }
-    );
-    // Refresh conversation list
-    queryClient.invalidateQueries({ queryKey: ['conversations'] });
-  } else {
-    // New conversation — we'd normally get an ID from the backend
-    // For now, generate a temporary one
-    const newId = `conv-${Date.now()}`;
-    queryClient.setQueryData<ConversationDetail>(['conversation', newId], {
-      id: newId,
-      title: result.content.slice(0, 50) + '...',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      message_count: 2,
-      messages: [
-        {
-          id: `temp-user-${Date.now() - 1}`,
-          role: 'user',
-          content: '',
-          created_at: new Date().toISOString(),
-        },
-        assistantMsg,
-      ],
-    });
-    onNewConversation?.(newId);
-  }
-}
-
-function commitPartialMessage(
-  conversationId: string | null,
-  content: string,
-  queryClient: ReturnType<typeof useQueryClient>
-) {
-  if (!content || !conversationId) return;
-
-  const partialMsg: Message = {
-    id: `msg-partial-${Date.now()}`,
-    role: 'assistant',
-    content,
-    is_partial: true,
-    created_at: new Date().toISOString(),
-  };
-
-  queryClient.setQueryData<ConversationDetail>(
-    ['conversation', conversationId],
-    (old) => {
-      if (!old) return old;
-      return { ...old, messages: [...old.messages, partialMsg] };
-    }
-  );
 }

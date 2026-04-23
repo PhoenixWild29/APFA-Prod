@@ -9,7 +9,9 @@ import AdvisorInsightWidget from './widgets/AdvisorInsightWidget';
 import MarketIndexWidget from './widgets/MarketIndexWidget';
 import InvestmentGrowthCalculatorWidget from './widgets/InvestmentGrowthCalculatorWidget';
 import AssetAllocationWidget from './widgets/AssetAllocationWidget';
-import RecentConversationsWidget from './widgets/RecentConversationsWidget';
+// RecentConversationsWidget hidden until /conversations endpoint exists.
+// Same precedent as conversation sidebar: features without backing endpoints
+// don't get placeholder UI. Re-enable when persistence ships.
 import DocumentsWidget from './widgets/DocumentsWidget';
 
 function getGreeting(): string {
@@ -27,7 +29,6 @@ const WIDGET_MAP: Record<
   'market-index': MarketIndexWidget,
   'investment-growth': InvestmentGrowthCalculatorWidget,
   'asset-allocation': AssetAllocationWidget,
-  'recent-conversations': RecentConversationsWidget,
   documents: DocumentsWidget,
 };
 
@@ -39,8 +40,7 @@ const WIDGET_SIZES: Record<WidgetId, string> = {
   'market-index': 'lg:col-span-5',
   'investment-growth': 'lg:col-span-5',
   'asset-allocation': 'lg:col-span-7',
-  'recent-conversations': 'lg:col-span-6',
-  documents: 'lg:col-span-6',
+  documents: 'lg:col-span-12',
 };
 
 export default function DashboardPage() {

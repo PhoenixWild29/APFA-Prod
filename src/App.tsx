@@ -83,7 +83,6 @@ function App() {
           >
             <Route path="/app" element={<Navigate to="/app/advisor" replace />} />
             <Route path="/app/advisor" element={<AdvisorPage />} />
-            <Route path="/app/advisor/c/:conversationId" element={<AdvisorPage />} />
             <Route path="/app/dashboard" element={<DashboardPage />} />
             <Route path="/app/calculators" element={<div className="p-8"><h1 className="font-serif text-2xl font-semibold">Calculators</h1><p className="mt-2 text-muted-foreground">Investment growth, asset allocation, and retirement projection calculators coming soon.</p></div>} />
             <Route path="/app/calculators/:tool" element={<div className="p-8">Calculator tool — coming soon</div>} />

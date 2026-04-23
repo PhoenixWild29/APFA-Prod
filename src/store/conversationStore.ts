@@ -1,14 +1,21 @@
 /**
- * Conversation Store — transient streaming state.
+ * Conversation Store — session messages + transient streaming state.
  *
- * This store handles the real-time streaming state that breaks
- * the React Query pattern. Completed messages get committed to
- * the React Query cache; this store only holds in-flight data.
+ * Messages persist in Zustand for the browser session (survives
+ * Dashboard→Advisor navigation, lost on page refresh). When the
+ * /conversations backend ships, this store becomes the in-memory
+ * cache layer with React Query on top for persistence.
+ *
+ * Streaming state (content, sources, follow-ups) is transient:
+ * populated while a response streams in, cleared on commit.
  */
 import { create } from 'zustand';
-import type { Source } from '@/types/conversation';
+import type { Message, Source } from '@/types/conversation';
 
 interface ConversationStoreState {
+  // Committed messages (session-only, survives navigation)
+  messages: Message[];
+
   // Current streaming state
   isStreaming: boolean;
   streamingContent: string;
@@ -19,7 +26,11 @@ interface ConversationStoreState {
   // Draft (what the user is typing)
   draft: string;
 
-  // Actions
+  // Message actions
+  addMessage: (msg: Message) => void;
+  clearMessages: () => void;
+
+  // Streaming actions
   startStream: () => AbortController;
   appendChunk: (chunk: string) => void;
   setSources: (sources: Source[]) => void;
@@ -30,12 +41,21 @@ interface ConversationStoreState {
 }
 
 export const useConversationStore = create<ConversationStoreState>()((set, get) => ({
+  messages: [],
   isStreaming: false,
   streamingContent: '',
   streamingSources: [],
   streamingFollowUps: [],
   abortController: null,
   draft: '',
+
+  addMessage: (msg) => {
+    set((s) => ({ messages: [...s.messages, msg] }));
+  },
+
+  clearMessages: () => {
+    set({ messages: [] });
+  },
 
   startStream: () => {
     const controller = new AbortController();
@@ -80,10 +100,29 @@ export const useConversationStore = create<ConversationStoreState>()((set, get) 
   abortStream: () => {
     const { abortController, streamingContent } = get();
     abortController?.abort();
-    set({
-      isStreaming: false,
-      abortController: null,
-    });
+    // Commit partial content before clearing streaming state so the
+    // user sees what was received before they aborted.
+    if (streamingContent) {
+      set((s) => ({
+        messages: [
+          ...s.messages,
+          {
+            id: `msg-partial-${Date.now()}`,
+            role: 'assistant' as const,
+            content: streamingContent,
+            is_partial: true,
+            created_at: new Date().toISOString(),
+          },
+        ],
+        isStreaming: false,
+        abortController: null,
+      }));
+    } else {
+      set({
+        isStreaming: false,
+        abortController: null,
+      });
+    }
     return streamingContent;
   },
 
