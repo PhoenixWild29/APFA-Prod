@@ -47,6 +47,14 @@ async function buildFriendlyErrorMessage(response: Response): Promise<string> {
     return byStatus[response.status];
   }
 
+  // For 5xx errors, always use the generic message — never surface backend
+  // detail strings in the UI. Backend verbosity can change at any time and
+  // should not be the only defense against information disclosure.
+  if (response.status >= 500) {
+    return generic;
+  }
+
+  // For 4xx errors not in the status map, try to extract a safe detail.
   try {
     const errData = await response.json();
     const detail = errData?.detail;
@@ -84,6 +92,8 @@ function buildFriendlyAxiosErrorMessage(err: unknown): string {
       504: 'The advisor took too long to respond. Please try again.',
     };
     if (byStatus[status]) return byStatus[status];
+    // For 5xx, always use generic — never surface backend detail strings.
+    if (status >= 500) return generic;
   }
   const detail = e?.response?.data?.detail;
   if (typeof detail === 'string' && detail.length > 0 && detail.length < 240) {
