@@ -13,7 +13,7 @@ langgraph==1.1.6
 # Pin langgraph-prebuilt explicitly to prevent pip drift. tool_node.py in
 # prebuilt 1.0.9 references ExecutionInfo/ServerInfo which only exist in
 # langgraph 1.1.3+. Both must be kept in sync.
-langgraph-prebuilt==1.0.9
+langgraph-prebuilt==1.0.10
 # Pin ALL transitive langgraph-* siblings explicitly (per CoWork review of PR #111):
 # leaving these unpinned means pip can drift any one of them into a version
 # that's internally inconsistent with langgraph==1.1.6, reproducing the exact
