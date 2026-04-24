@@ -68,6 +68,6 @@ google-auth-oauthlib>=1.1.0
 pypdf>=4.0.0
 python-docx>=1.0.0
 # Finnhub market data
-finnhub-python>=2.4.19
+finnhub-python>=2.4.28
 # YouTube transcript extraction
 youtube-transcript-api>=0.6.1
