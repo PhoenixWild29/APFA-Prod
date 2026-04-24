@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   check-secrets:
     runs-on: ubuntu-latest
@@ -72,7 +76,27 @@ jobs:
           script: |
             set -e
             cd /opt/apfa-prod
-            git pull origin main
+
+            # Log pre-deploy state for rollback and audit trail
+            echo "Pre-deploy SHA: $(git rev-parse HEAD)"
+
+            # Warn if the working directory is dirty (someone SSH'd and
+            # edited files directly — this should be break-glass only)
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "WARNING: Droplet working directory was dirty before deploy — resetting."
+              echo "--- git status ---"
+              git status --short
+              echo "--- git diff (tracked changes being discarded) ---"
+              git diff --stat
+              git diff | head -200 || true
+            fi
+
+            # Force-sync to origin/main. The droplet is a deploy target,
+            # not a workspace — its tree must always mirror main exactly.
+            git fetch origin main
+            echo "Target SHA: $(git rev-parse origin/main)"
+            git reset --hard origin/main
+            git clean -fdx -e '.env' -e '.env.production' -e 'node_modules'
 
             if [ "$FRONTEND" = "true" ]; then
               echo "Rebuilding frontend..."
