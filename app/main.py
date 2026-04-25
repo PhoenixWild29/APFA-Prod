@@ -394,7 +394,7 @@ def get_market_quote(ticker: str) -> str:
 
 
 def get_economic_indicator(indicator: str) -> str:
-    """Get economic indicator (mortgage rates, fed funds rate, CPI, etc.)."""
+    """Get economic indicator (treasury yields, fed funds rate, CPI, etc.)."""
     try:
         db = SessionLocal()
         from app.orm_models import MarketData
@@ -447,7 +447,7 @@ tools = [
         name="get_economic_indicator",
         description=(
             "Get economic indicator value. "
-            "Input: indicator code (e.g. 'MORTGAGE30US' for 30-year mortgage rate, "
+            "Input: indicator code (e.g. 'DGS10' for 10-year Treasury yield, "
             "'FEDFUNDS' for fed funds rate, 'UNRATE' for unemployment). "
             "Returns: current value and timestamp."
         ),
@@ -670,7 +670,7 @@ class LoanQuery(BaseModel):
             try:
                 num_amount = float(amount.replace(",", ""))
                 if num_amount <= 0 or num_amount > 10000000:  # Reasonable loan limits
-                    raise ValueError(f"Invalid loan amount: ${amount}")
+                    raise ValueError(f"Invalid amount: ${amount}")
             except ValueError:
                 raise ValueError(f"Invalid amount format: ${amount}")
 
@@ -3367,7 +3367,7 @@ async def test_multi_agent_system(request: AgentTestRequest):
         {
             "agent_name": "retriever",
             "test_scenarios": ["basic_functionality", "performance_benchmark"],
-            "test_parameters": {"sample_query": "What is a mortgage?"}
+            "test_parameters": {"sample_query": "What drives equity valuations?"}
         }
 
         Response:
@@ -4100,7 +4100,7 @@ async def test_retriever_agent(request: RetrieverTestRequest):
     Example:
         POST /agents/retriever/test
         {
-            "query_text": "What are mortgage interest rates?",
+            "query_text": "What are current Treasury bond yields?",
             "context_requirements": {"min_documents": 3},
             "performance_benchmarks": {"max_latency_ms": 100.0}
         }
@@ -4108,7 +4108,7 @@ async def test_retriever_agent(request: RetrieverTestRequest):
         Response:
             {
                 "test_status": "pass",
-                "query_text": "What are mortgage interest rates?",
+                "query_text": "What are current Treasury bond yields?",
                 "retrieval_accuracy": 0.92,
                 "quality_metrics": {...},
                 "performance_benchmark": {...},
@@ -4230,23 +4230,23 @@ async def get_query_suggestions(partial_query: str):
         HTTPException: 400 if partial query too short
 
     Example:
-        GET /query/suggestions?partial_query=what%20is%20apr
+        GET /query/suggestions?partial_query=what%20is%20pe
 
         Response:
             {
-                "partial_query": "what is apr",
+                "partial_query": "what is pe",
                 "suggestions": [
                     {
-                        "completed_query": "What is a good APR for a mortgage?",
+                        "completed_query": "What is a good P/E ratio for tech stocks?",
                         "relevance_score": 95.0,
                         "suggestion_type": "completion",
-                        "explanation": "Common question about mortgage"
+                        "explanation": "Common question about equity valuation"
                     },
                     {
-                        "completed_query": "What is APR?",
+                        "completed_query": "What is P/E ratio?",
                         "relevance_score": 90.0,
                         "suggestion_type": "terminology",
-                        "explanation": "APR: Annual Percentage Rate - the yearly cost of a loan..."
+                        "explanation": "P/E: Price-to-Earnings ratio - stock price divided by earnings per share..."
                     },
                     ...
                 ],
@@ -4311,11 +4311,11 @@ async def analyze_query_endpoint(
 
     Example:
         POST /query/analyze
-        Body: "What is the best mortgage rate for a $300k home loan?"
+        Body: "What is the best index fund for a $300k portfolio?"
 
         Response:
             {
-                "query_text": "What is the best mortgage rate for a $300k home loan?",
+                "query_text": "What is the best index fund for a $300k portfolio?",
                 "linguistic_analysis": {
                     "sentence_structure": "simple",
                     "readability_score": 75.0,
@@ -4323,7 +4323,7 @@ async def analyze_query_endpoint(
                     "grammatical_complexity": 3
                 },
                 "intent_classification": {
-                    "primary_intent": "rate_inquiry",
+                    "primary_intent": "investment_inquiry",
                     "confidence_score": 0.9,
                     "secondary_intents": ["comparison_request"]
                 },
@@ -4336,10 +4336,10 @@ async def analyze_query_endpoint(
                         "confidence_score": 1.0
                     },
                     {
-                        "entity_type": "loan_type",
-                        "value": "mortgage",
+                        "entity_type": "asset_class",
+                        "value": "index fund",
                         "position_start": 16,
-                        "position_end": 24,
+                        "position_end": 26,
                         "confidence_score": 0.9
                     }
                 ],
@@ -4351,7 +4351,7 @@ async def analyze_query_endpoint(
                 },
                 "processing_recommendations": {
                     "optimal_routing": "retriever → analyzer → orchestrator",
-                    "required_data_sources": ["loan_compliance_docs", "rate_database"],
+                    "required_data_sources": ["investment_research_docs", "market_database"],
                     "estimated_processing_time_ms": 265.0
                 },
                 "metadata": {
@@ -4412,7 +4412,7 @@ async def semantic_search(
     Example:
         POST /documents/semantic-search
         {
-            "search_terms": ["mortgage", "interest rates", "fixed"],
+            "search_terms": ["portfolio", "asset allocation", "diversification"],
             "filters": {"document_type": "pdf"},
             "ranking_algorithm": "relevance",
             "top_k": 10
@@ -4556,8 +4556,8 @@ async def warm_cache(request: CacheWarmRequest, admin: dict = Depends(require_ad
         POST /admin/cache/warm
         {
             "queries": [
-                "What are mortgage rates?",
-                "How to qualify for a loan?",
+                "What are current Treasury yields?",
+                "How to build a diversified portfolio?",
                 ...
             ],
             "ttl_seconds": 3600,

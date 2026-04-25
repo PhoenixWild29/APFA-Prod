@@ -63,7 +63,7 @@ export default function AuthPage() {
 
         {/* Footer */}
         <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>© 2025 APFA - Secure Authentication</p>
+          <p>© 2026 APFA — AI-Powered Financial Advisor</p>
         </div>
       </div>
     </div>
