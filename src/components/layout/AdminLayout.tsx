@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
-  Activity,
   BookOpen,
   Users,
   ScrollText,
@@ -22,8 +21,8 @@ import {
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuthStore } from '@/store/authStore';
 
+// Monitoring hidden — no backend endpoints exist. Re-enable when monitoring ships.
 const ADMIN_NAV = [
-  { to: '/admin/monitoring', icon: Activity, label: 'Monitoring' },
   { to: '/admin/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
   { to: '/admin/users', icon: Users, label: 'Users' },
   { to: '/admin/audit', icon: ScrollText, label: 'Audit Log' },
@@ -54,7 +53,7 @@ export default function AdminLayout() {
       >
         {/* Logo + admin badge */}
         <div className="flex h-14 items-center border-b px-4">
-          <Link to="/admin/monitoring" className="flex items-center gap-2 overflow-hidden">
+          <Link to="/admin" className="flex items-center gap-2 overflow-hidden">
             <Shield className="h-5 w-5 shrink-0 text-teal-700 dark:text-teal-300" />
             {!collapsed && (
               <>
