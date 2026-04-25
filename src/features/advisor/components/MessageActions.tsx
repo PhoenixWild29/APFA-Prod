@@ -26,7 +26,7 @@ export default function MessageActions({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
+    await navigator.clipboard.writeText(content.replace(/▍$/, ''));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
