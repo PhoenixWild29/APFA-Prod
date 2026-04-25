@@ -38,8 +38,12 @@ export default function DocumentsPage() {
     queryKey: ['documents'],
     queryFn: async () => {
       try {
-        const res = await apiClient.get<DocumentItem[]>('/admin/knowledge-base/documents');
-        return Array.isArray(res.data) ? res.data : [];
+        // TODO: replace with user-scoped GET /documents endpoint when built.
+        // Currently calls the admin endpoint which returns 403 for non-admin
+        // users (caught below → empty array). Admin users see the RAG corpus.
+        const res = await apiClient.get('/admin/knowledge-base/documents');
+        const data = res.data;
+        return Array.isArray(data) ? data : Array.isArray(data?.documents) ? data.documents : [];
       } catch {
         return [];
       }

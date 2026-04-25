@@ -2733,62 +2733,29 @@ async def get_knowledge_base_statistics(admin: dict = Depends(require_admin)):
                 "cache_status": "fresh"
             }
     """
-    from app.schemas.kb_statistics import (
-        DailyAggregation,
-        DocumentStatistics,
-        IndexPerformance,
-        KnowledgeBaseStatsResponse,
-        ProcessingMetrics,
-        StorageUtilization,
-    )
+    # Query real stats from the loaded RAG index and FAISS.
+    # Vector count and document count come from the live index;
+    # chunk count and embedding model come from config/data.
+    real_vector_count = len(rag_df) if rag_df is not None else 0
+    real_embedding_model = settings.embedder_model if hasattr(settings, 'embedder_model') else "unknown"
 
-    # In production, query actual statistics from database/monitoring
-    stats = KnowledgeBaseStatsResponse(
-        document_statistics=DocumentStatistics(
-            total_documents=15420,
-            documents_by_type={"PDF": 8500, "Word": 4200, "Text": 2100, "CSV": 620},
-            documents_by_status={"completed": 14850, "processing": 420, "failed": 150},
-            average_file_size_mb=1.2,
-        ),
-        processing_metrics=ProcessingMetrics(
-            total_processing_time_hours=125.5,
-            average_processing_duration_seconds=29.3,
-            success_rate_percent=96.3,
-            failure_rate_percent=0.97,
-        ),
-        index_performance=IndexPerformance(
-            search_response_time_p95_ms=50.0,
-            search_response_time_p99_ms=95.0,
-            index_size_mb=750.5,
-            vector_count=100000,
-            similarity_search_accuracy_percent=94.5,
-        ),
-        storage_utilization=StorageUtilization(
-            total_storage_used_gb=245.8,
-            storage_by_document_type={
-                "PDF": 180.5,
-                "Word": 42.3,
-                "Text": 15.0,
-                "CSV": 8.0,
-            },
-            storage_growth_trend_gb_per_day=2.5,
-        ),
-        last_30_days_trend=[
-            DailyAggregation(
-                date=(datetime.now(timezone.utc) - timedelta(days=i)).strftime(
-                    "%Y-%m-%d"
-                ),
-                documents_processed=500 + i * 10,
-                average_processing_time_seconds=29.0 + i * 0.1,
-                total_storage_gb=240.0 + i * 2.5,
-            )
-            for i in range(30, 0, -1)
-        ],
-        data_freshness_timestamp=datetime.now(timezone.utc).isoformat(),
-        cache_status="fresh",
-    )
+    # Count unique source documents from the RAG dataframe
+    real_doc_count = 0
+    if rag_df is not None and "source_url" in rag_df.columns:
+        real_doc_count = rag_df["source_url"].nunique()
+    elif rag_df is not None and "filename" in rag_df.columns:
+        real_doc_count = rag_df["filename"].nunique()
+    elif rag_df is not None:
+        real_doc_count = real_vector_count  # fallback: 1 vector ≈ 1 chunk
 
-    return stats
+    return {
+        "vector_count": real_vector_count,
+        "total_documents": real_doc_count,
+        "total_chunks": real_vector_count,
+        "embedding_model": real_embedding_model,
+        "index_type": "FAISS IndexFlatIP",
+        "last_reindex": None,  # TODO: store actual reindex timestamp
+    }
 
 
 @app.get("/admin/knowledge-base/documents")
@@ -2834,34 +2801,39 @@ async def list_knowledge_base_documents(
     # Validate page_size
     page_size = min(page_size, 100)
 
-    # Mock data (in production, query database)
-    all_documents = [
-        {
-            "document_id": f"doc_{i}",
-            "filename": f"financial_document_{i}.pdf",
-            "file_size_bytes": 1024000 + i * 1000,
-            "upload_timestamp": (
-                datetime.now(timezone.utc) - timedelta(days=i % 30)
-            ).isoformat(),
-            "processing_status": ["completed", "processing", "failed", "pending"][
-                i % 4
-            ],
-            "file_type": [
-                "application/pdf",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                "text/plain",
-            ][i % 3],
-        }
-        for i in range(1, 15421)
-    ]
+    # Build document list from the real RAG dataframe using vectorized groupby.
+    # Each row in rag_df is a chunk; group by filename to get documents.
+    deduped = []
+    if rag_df is not None:
+        import hashlib as _hl
+
+        fname_col = "filename" if "filename" in rag_df.columns else "source_url" if "source_url" in rag_df.columns else None
+        if fname_col:
+            grouped = rag_df.groupby(fname_col).agg(
+                chunk_count=(fname_col, "count"),
+                source_type=("source_type", "first") if "source_type" in rag_df.columns else (fname_col, lambda _: "unknown"),
+                created_at=("fetched_at", "first") if "fetched_at" in rag_df.columns else (fname_col, lambda _: ""),
+            ).reset_index()
+
+            for _, row in grouped.iterrows():
+                fname = str(row[fname_col])
+                # Stable document ID derived from filename hash (survives reindex)
+                doc_id = _hl.sha1(fname.encode()).hexdigest()[:12]
+                deduped.append({
+                    "document_id": doc_id,
+                    "filename": fname,
+                    "source_type": str(row.get("source_type", "unknown")),
+                    "chunk_count": int(row["chunk_count"]),
+                    "created_at": str(row.get("created_at", "")),
+                })
 
     # Apply pagination
     start = (page - 1) * page_size
     end = start + page_size
-    paginated_docs = all_documents[start:end]
+    paginated_docs = deduped[start:end]
 
-    total_count = len(all_documents)
-    total_pages = (total_count + page_size - 1) // page_size
+    total_count = len(deduped)
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
 
     return {
         "documents": paginated_docs,

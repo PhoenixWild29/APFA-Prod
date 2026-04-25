@@ -14,7 +14,7 @@ interface KBStats {
 }
 
 interface KBDocument {
-  id: string;
+  document_id: string;
   filename: string;
   source_type: string;
   chunk_count: number;
@@ -109,9 +109,9 @@ export default function AdminKnowledgeBasePage() {
             </p>
           </div>
           <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs font-medium text-muted-foreground">Chunks</p>
-            <p className="mt-1 tabular-nums text-2xl font-semibold">
-              {(stats.total_chunks ?? 0).toLocaleString()}
+            <p className="text-xs font-medium text-muted-foreground">Index Type</p>
+            <p className="mt-1 truncate text-sm font-medium">
+              {stats.index_type || 'N/A'}
             </p>
           </div>
           <div className="rounded-xl border bg-card p-4">
@@ -149,7 +149,7 @@ export default function AdminKnowledgeBasePage() {
               </thead>
               <tbody>
                 {documents.map((doc) => (
-                  <tr key={doc.id} className="border-b last:border-0 hover:bg-muted/50">
+                  <tr key={doc.document_id} className="border-b last:border-0 hover:bg-muted/50">
                     <td className="px-4 py-2 font-medium">{doc.filename}</td>
                     <td className="px-4 py-2">
                       <Badge variant="secondary" className="text-[10px]">
