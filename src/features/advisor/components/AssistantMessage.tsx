@@ -28,17 +28,9 @@ function AssistantMessageInner({
       <div className="min-w-0 flex-1">
         {/* Prose body */}
         <div className="prose prose-sm max-w-[760px] dark:prose-invert prose-p:leading-relaxed prose-pre:bg-ink-800 prose-pre:text-ink-100">
-          {isStreaming ? (
-            // Render raw text while streaming to avoid broken markdown
-            <p className="whitespace-pre-wrap">
-              {message.content}
-              <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-foreground/60" />
-            </p>
-          ) : (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.content}
-            </ReactMarkdown>
-          )}
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {isStreaming ? message.content + ' ▍' : message.content}
+          </ReactMarkdown>
         </div>
 
         {/* Partial indicator */}
