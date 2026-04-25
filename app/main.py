@@ -330,8 +330,8 @@ rag_df, faiss_index = None, None
 
 
 # Tools (MCP-compatible)
-def retrieve_loan_data(query: str) -> str:
-    """RAG retrieval for loan compliance/docs."""
+def retrieve_context(query: str) -> str:
+    """RAG retrieval for financial research documents."""
     if faiss_index is None or rag_df is None:
         return "RAG index not available — no data has been ingested yet."
     try:
@@ -343,11 +343,11 @@ def retrieve_loan_data(query: str) -> str:
         return "\n".join(rag_df.iloc[indices[0]]["profile"].tolist())
     except Exception as e:
         logger.error(f"RAG retrieval error: {e}")
-        return "Error retrieving loan data."
+        return "Error retrieving financial data."
 
 
 def simulate_risk(input_data: str) -> str:
-    """Simulate loan risk with LLM."""
+    """Simulate portfolio risk with LLM (stub — bedrock not configured)."""
     try:
         response = bedrock.invoke_agent(
             agentId="loan-risk-agent", sessionId="session-123", inputText=input_data
@@ -424,14 +424,14 @@ def get_economic_indicator(indicator: str) -> str:
 
 tools = [
     Tool.from_function(
-        func=retrieve_loan_data,
-        name="retrieve_loan_data",
-        description="RAG retrieval for loan compliance, regulations, and financial documents.",
+        func=retrieve_context,
+        name="retrieve_context",
+        description="RAG retrieval for financial research, market data, and investment documents.",
     ),
     Tool.from_function(
         func=simulate_risk,
         name="simulate_risk",
-        description="Simulate loan risk with LLM.",
+        description="Simulate portfolio risk analysis (stub — bedrock not configured).",
     ),
     Tool.from_function(
         func=get_market_quote,
@@ -473,7 +473,7 @@ class AgentState(typing.TypedDict):
 def retriever_agent(state):
     """Retrieve relevant financial context via RAG/FAISS."""
     query = state["query"]
-    context = retrieve_loan_data(query)
+    context = retrieve_context(query)
 
     augmented_content = (
         f"Based on the following context, answer the user's question.\n\n"
@@ -653,7 +653,7 @@ class LoanQuery(BaseModel):
     @field_validator("query")
     @classmethod
     def validate_query(cls, v):
-        """Advanced validation for loan queries."""
+        """Advanced validation for financial queries."""
         # Check for profanity
         if predict_prob([v])[0] > 0.8:
             raise ValueError("Query contains inappropriate content")
@@ -3054,21 +3054,20 @@ async def preprocess_query_endpoint(request: QueryPreprocessingRequest):
     Example:
         POST /query/preprocess
         {
-            "query": "I need a $200k mortgage at 3.5% for 30 years"
+            "query": "I want to invest $200k in S&P 500 index funds with a 20-year horizon"
         }
 
         Response:
             {
-                "original_query": "I need a $200k mortgage at 3.5% for 30 years",
-                "normalized_query": "I need a 200000 dollars mortgage at 3.5 percent for 30 years",
+                "original_query": "I want to invest $200k in S&P 500 index funds with a 20-year horizon",
+                "normalized_query": "I want to invest 200000 dollars in S&P 500 index funds with a 20 year horizon",
                 "extracted_entities": [
                     {"entity_type": "amount", "value": "$200k", "normalized_value": "$200000", "confidence_score": 0.9},
-                    {"entity_type": "rate", "value": "3.5%", "normalized_value": "3.5%", "confidence_score": 1.0},
-                    {"entity_type": "loan_type", "value": "mortgage", "normalized_value": "mortgage", "confidence_score": 0.9},
-                    {"entity_type": "time_period", "value": "30 years", "normalized_value": "30 years", "confidence_score": 1.0}
+                    {"entity_type": "asset_class", "value": "S&P 500 index funds", "normalized_value": "index_fund", "confidence_score": 0.95},
+                    {"entity_type": "time_period", "value": "20 years", "normalized_value": "20 years", "confidence_score": 1.0}
                 ],
-                "user_intent_category": "loan_inquiry",
-                "context_tags": ["loan_amount_specified", "interest_rate_focused", "specific_loan_type", "term_length_specified"],
+                "user_intent_category": "investment_inquiry",
+                "context_tags": ["investment_amount_specified", "asset_class_specified", "time_horizon_specified"],
                 "processing_metadata": {
                     "original_length": 48,
                     "normalized_length": 62,
@@ -4125,7 +4124,7 @@ async def test_retriever_agent(request: RetrieverTestRequest):
     try:
         # Perform retrieval
         search_start = time.time()
-        retrieved_docs = retrieve_loan_data(request.query_text)
+        retrieved_docs = retrieve_context(request.query_text)
         search_duration = (time.time() - search_start) * 1000
 
         # Calculate relevance scores (mock for testing)

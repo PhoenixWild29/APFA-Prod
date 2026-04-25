@@ -27,7 +27,8 @@ const InsightsPage = lazy(() => import('@/features/insights/InsightsPage'));
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
 
 // --- Admin pages ---
-const AdminMonitoringPage = lazy(() => import('@/features/admin/AdminMonitoringPage'));
+// AdminMonitoringPage hidden — no backend endpoints exist for the 13 API
+// calls its sub-components make. Re-enable when monitoring backend ships.
 const AdminKnowledgeBasePage = lazy(() => import('@/features/admin/AdminKnowledgeBasePage'));
 const AdminUsersPage = lazy(() => import('@/features/admin/AdminUsersPage'));
 const AdminAuditPage = lazy(() => import('@/features/admin/AdminAuditPage'));
@@ -103,8 +104,8 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/admin" element={<Navigate to="/admin/monitoring" replace />} />
-            <Route path="/admin/monitoring" element={<AdminMonitoringPage />} />
+            <Route path="/admin" element={<Navigate to="/admin/knowledge-base" replace />} />
+            <Route path="/admin/monitoring" element={<Navigate to="/admin/knowledge-base" replace />} />
             <Route path="/admin/knowledge-base" element={<AdminKnowledgeBasePage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/admin/audit" element={<AdminAuditPage />} />
