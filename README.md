@@ -1,6 +1,6 @@
 # APFA - Agentic Personalized Financial Advisor
 
-A production-ready AI-powered financial advisor system built with FastAPI, featuring Retrieval-Augmented Generation (RAG), Large Language Models (LLMs), and multi-agent architecture for secure, scalable loan advice generation.
+A production-ready AI-powered financial advisor system built with FastAPI, featuring Retrieval-Augmented Generation (RAG), Large Language Models (LLMs), and multi-agent architecture for secure, scalable personal finance information generation. Not Financial Advice 
 
 ---
 
