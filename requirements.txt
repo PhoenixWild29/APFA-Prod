@@ -70,4 +70,4 @@ python-docx>=1.0.0
 # Finnhub market data
 finnhub-python>=2.4.28
 # YouTube transcript extraction
-youtube-transcript-api>=0.6.1
+youtube-transcript-api>=1.2.4
