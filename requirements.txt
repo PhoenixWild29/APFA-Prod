@@ -24,7 +24,7 @@ langgraph-sdk==0.3.13
 # Embedding: fastembed uses ONNX runtime (~150MB) instead of torch (~2.2GB+CUDA).
 # Drops Docker image from ~10GB to ~3.5GB. bge-small-en-v1.5 is 384-dim like
 # the previous all-MiniLM-L6-v2 — no validator changes needed.
-fastembed>=0.4.0
+fastembed>=0.8.0
 faiss-cpu>=1.7.4
 deltalake==1.5.0
 # pyarrow is required by deltalake.write_deltalake() to serialize pandas
