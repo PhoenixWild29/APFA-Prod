@@ -6,6 +6,7 @@ Production-ready Agentic Personalized Financial Advisor (APFA) backend
 
 import asyncio
 import logging
+import math
 import os
 import re
 import signal
@@ -136,6 +137,19 @@ logging.basicConfig(
     level=getattr(logging, logging.DEBUG if settings.debug else settings.log_level)
 )
 logger = logging.getLogger(__name__)
+
+# ── Retrieval freshness tuning constants ───────────────────────────
+# Half-lives per content freshness class (days). At age == half_life,
+# the freshness multiplier is exactly 0.5. Tune these after baseline.
+# Pipeline: FAISS top-20 → freshness re-rank → top-5.
+# When a reranker lands, it slots BEFORE freshness: FAISS top-50 → reranker top-20 → freshness → top-5.
+FRESHNESS_HALF_LIVES = {
+    "realtime": 30, "daily": 30,
+    "weekly": 90,   # most likely tuning target (CoWork)
+    "archive": 1095, "static": 1095,
+}
+FRESHNESS_DEFAULT_HALF_LIFE = 365  # unknown class
+FRESHNESS_FLOOR = 0.2  # minimum multiplier so date-less docs aren't killed
 
 # Load secrets from environment (never hardcode in prod)
 MINIO_ENDPOINT = settings.minio_endpoint
@@ -331,7 +345,15 @@ rag_df, faiss_index = None, None
 
 # Tools (MCP-compatible)
 def retrieve_context(query: str) -> str:
-    """RAG retrieval for financial research documents."""
+    """RAG retrieval for financial research documents with freshness weighting.
+
+    Retrieves top-k candidates by cosine similarity, then re-ranks using
+    a freshness decay: score * exp(-age_days / half_life). Half-life is
+    tuned per freshness_class:
+      - realtime/daily: 30 days (news, market data)
+      - weekly: 90 days (research reports, analysis)
+      - archive/static: 1095 days (3 years — regulations, evergreen content)
+    """
     if faiss_index is None or rag_df is None:
         return "RAG index not available — no data has been ingested yet."
     try:
@@ -339,8 +361,69 @@ def retrieve_context(query: str) -> str:
             np.array(list(embedder.embed([query])), dtype=np.float32)
         )
         faiss.normalize_L2(query_emb)
-        _, indices = faiss_index.search(query_emb, k=min(5, len(rag_df)))
-        return "\n".join(rag_df.iloc[indices[0]]["profile"].tolist())
+
+        # Retrieve more candidates than needed for re-ranking
+        top_k = min(20, len(rag_df))
+        distances, indices = faiss_index.search(query_emb, k=top_k)
+
+        # Freshness half-lives and floor are module-level constants
+        # so tuning is a one-line diff, not buried in function body.
+
+        # Re-rank with freshness decay
+        now = datetime.now(timezone.utc)
+        scored = []
+        for rank_idx in range(len(indices[0])):
+            doc_idx = indices[0][rank_idx]
+            if doc_idx < 0 or doc_idx >= len(rag_df):
+                continue
+
+            sim_score = float(distances[0][rank_idx])
+            row = rag_df.iloc[doc_idx]
+
+            # Parse document age — try creation_date first, then ingested_at
+            age_days = 365  # fallback if no date at all
+            for date_col in ("creation_date", "ingested_at", "fetched_at"):
+                date_str = row.get(date_col, "")
+                if date_str and str(date_str) != "nan":
+                    try:
+                        doc_date = datetime.fromisoformat(
+                            str(date_str).replace("Z", "+00:00")
+                        )
+                        if doc_date.tzinfo is None:
+                            doc_date = doc_date.replace(tzinfo=timezone.utc)
+                        age_days = max(0, (now - doc_date).days)
+                        break  # use the first valid date found
+                    except (ValueError, TypeError):
+                        continue
+
+            # Get half-life for this content class
+            freshness_class = str(row.get("freshness_class", "static")).lower()
+            half_life = max(1, FRESHNESS_HALF_LIVES.get(freshness_class, FRESHNESS_DEFAULT_HALF_LIFE))
+
+            # Decay: score * exp(-age * ln2 / half_life) — true half-life
+            # At age == half_life, factor = 0.5 exactly.
+            # Floor at 0.2 so date-less docs aren't penalized too harshly
+            # on a small corpus.
+            freshness_factor = max(FRESHNESS_FLOOR, math.exp(-age_days * 0.693 / half_life))
+            final_score = sim_score * freshness_factor
+
+            scored.append((doc_idx, final_score, sim_score, freshness_factor, row["profile"]))
+
+        # Sort by final score, take top 5
+        scored.sort(key=lambda x: x[1], reverse=True)
+        top_k = scored[:5]
+
+        # Debug logging for retrieval tuning (gated on DEBUG level)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                f"Retrieval re-rank for '{query[:50]}': "
+                + ", ".join(
+                    f"doc{idx}(sim={sim:.3f}×fresh={ff:.2f}={final:.3f})"
+                    for idx, final, sim, ff, _ in top_k
+                )
+            )
+
+        return "\n".join(text for _, _, _, _, text in top_k)
     except Exception as e:
         logger.error(f"RAG retrieval error: {e}")
         return "Error retrieving financial data."
