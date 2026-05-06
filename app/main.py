@@ -6017,7 +6017,6 @@ async def generate_advice(
                 REQUEST_COUNT.labels(
                     method="POST", endpoint="/generate-advice", status="200"
                 ).inc()
-                ACTIVE_REQUESTS.dec()
 
                 # Update metrics and return
                 RESPONSE_TIME.labels(endpoint="/generate-advice").observe(
@@ -6133,7 +6132,6 @@ async def generate_advice(
         REQUEST_COUNT.labels(
             method="POST", endpoint="/generate-advice", status="200"
         ).inc()
-        ACTIVE_REQUESTS.dec()
         return optimized_response
 
     except RAGError as e:
@@ -6143,8 +6141,6 @@ async def generate_advice(
         REQUEST_COUNT.labels(
             method="POST", endpoint="/generate-advice", status="503"
         ).inc()
-        ACTIVE_REQUESTS.dec()
-        # Graceful degradation: return simplified response
         raise HTTPException(
             status_code=503, detail="RAG service unavailable - try again later"
         )
@@ -6155,7 +6151,6 @@ async def generate_advice(
         REQUEST_COUNT.labels(
             method="POST", endpoint="/generate-advice", status="503"
         ).inc()
-        ACTIVE_REQUESTS.dec()
         raise HTTPException(
             status_code=503, detail="LLM service unavailable - try again later"
         )
@@ -6166,10 +6161,20 @@ async def generate_advice(
         REQUEST_COUNT.labels(
             method="POST", endpoint="/generate-advice", status="502"
         ).inc()
-        ACTIVE_REQUESTS.dec()
         raise HTTPException(
             status_code=502, detail="External service error - please retry"
         )
+    except HTTPException as he:
+        # Let intentional HTTP errors from graph nodes (503 rate limit,
+        # 503 LLM unavailable, 504 timeout) and billing (402) propagate
+        # with their correct status codes instead of being swallowed as 500.
+        logger.warning(
+            f"HTTPException in generate_advice: {he.status_code} {he.detail}"
+        )
+        REQUEST_COUNT.labels(
+            method="POST", endpoint="/generate-advice", status=str(he.status_code)
+        ).inc()
+        raise
     except Exception as e:
         _clean_err = str(e).replace("\n", " ").replace("\r", " ")[:500]
         _err_type = type(e).__name__
@@ -6180,7 +6185,6 @@ async def generate_advice(
         REQUEST_COUNT.labels(
             method="POST", endpoint="/generate-advice", status="500"
         ).inc()
-        ACTIVE_REQUESTS.dec()
         # Never include exception class name or message in user-facing detail —
         # that's information disclosure. The full traceback is already in server
         # logs via logger.exception() above.
@@ -6188,6 +6192,8 @@ async def generate_advice(
             status_code=500,
             detail="Internal server error. Please try again.",
         )
+    finally:
+        ACTIVE_REQUESTS.dec()
 
 
 @asynccontextmanager
