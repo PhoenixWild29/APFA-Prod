@@ -367,15 +367,40 @@ def score_response(query_spec: dict, response_text: str) -> dict:
 
 # ── Runner ─────────────────────────────────────────────────────────
 
-def get_auth_token(base_url: str, username: str, password: str) -> str:
-    """Get a Bearer token from the /token endpoint."""
-    resp = requests.post(
-        f"{base_url}/token",
-        json={"username": username, "password": password},
-        timeout=10,
-    )
-    resp.raise_for_status()
-    return resp.json()["access_token"]
+class AuthSession:
+    """Manages JWT auth with automatic refresh before expiry.
+
+    The deployment's JWT TTL is 30 minutes. Without refresh, any eval run
+    longer than 30 min hits a cascade where every request fails with an
+    expired token. This class re-authenticates every 20 minutes proactively.
+    """
+
+    def __init__(self, base_url: str, username: str, password: str):
+        self.base_url = base_url
+        self.username = username
+        self.password = password
+        self.token: str = ""
+        self.token_acquired_at: float = 0
+        self.refresh_interval = 20 * 60  # 20 minutes (JWT TTL is 30 min)
+        self._authenticate()
+
+    def _authenticate(self):
+        resp = requests.post(
+            f"{self.base_url}/token",
+            json={"username": self.username, "password": self.password},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        self.token = resp.json()["access_token"]
+        self.token_acquired_at = time.time()
+
+    def get_token(self) -> str:
+        """Return a valid token, re-authenticating if near expiry."""
+        if time.time() - self.token_acquired_at > self.refresh_interval:
+            print("\n  [auth] Token near expiry, refreshing...", end=" ")
+            self._authenticate()
+            print("OK")
+        return self.token
 
 
 def run_query(base_url: str, token: str, query: str, timeout: int = 60) -> dict:
@@ -393,20 +418,34 @@ def run_query(base_url: str, token: str, query: str, timeout: int = 60) -> dict:
     }
 
 
-def run_trial(base_url: str, token: str, spec: dict) -> dict:
+def run_trial(base_url: str, auth: AuthSession, spec: dict) -> dict:
     """Run a single query and score the response.
 
-    Retries once on error (timeout, 500, rate limit). If both attempts
-    fail, returns an error dict that is excluded from averaged scores.
+    Retries once on error (timeout, 500, rate limit, auth failure).
+    If both attempts fail, returns an error dict with the actual
+    exception type for debugging (not just status_code: None).
     """
     for attempt in range(2):  # retry once
         try:
+            token = auth.get_token()
             resp = run_query(base_url, token, spec["query"])
+
+            # On 401, force re-auth and retry
+            if resp["status_code"] == 401:
+                if attempt == 0:
+                    auth._authenticate()
+                    continue
+                return {"pass": False, "error": "HTTP 401 after re-auth", "is_error": True,
+                        "error_type": "AuthError", "status_code": 401}
+
             if resp["status_code"] >= 500:
                 if attempt == 0:
                     time.sleep(3)
                     continue
-                return {"pass": False, "error": f"HTTP {resp['status_code']}", "is_error": True}
+                return {"pass": False, "error": f"HTTP {resp['status_code']}",
+                        "is_error": True, "error_type": "ServerError",
+                        "status_code": resp["status_code"]}
+
             advice = resp["body"].get("advice", resp["body"].get("error", ""))
             scores = score_response(spec, advice)
             scores["latency_ms"] = resp["latency_ms"]
@@ -414,15 +453,28 @@ def run_trial(base_url: str, token: str, spec: dict) -> dict:
             scores["response_preview"] = advice[:300]
             scores["is_error"] = False
             return scores
+        except requests.exceptions.ConnectionError as e:
+            if attempt == 0:
+                time.sleep(3)
+                continue
+            return {"pass": False, "error": str(e)[:200], "is_error": True,
+                    "error_type": "ConnectionError"}
+        except requests.exceptions.ReadTimeout as e:
+            if attempt == 0:
+                time.sleep(3)
+                continue
+            return {"pass": False, "error": str(e)[:200], "is_error": True,
+                    "error_type": "ReadTimeout"}
         except Exception as e:
             if attempt == 0:
                 time.sleep(3)
                 continue
-            return {"pass": False, "error": str(e), "is_error": True}
-    return {"pass": False, "error": "unreachable", "is_error": True}
+            return {"pass": False, "error": str(e)[:200], "is_error": True,
+                    "error_type": type(e).__name__}
+    return {"pass": False, "error": "unreachable", "is_error": True, "error_type": "Unknown"}
 
 
-def run_eval(base_url: str, token: str, num_trials: int = 3, query_delay: float = 5.0) -> dict:
+def run_eval(base_url: str, auth: AuthSession, num_trials: int = 3, query_delay: float = 5.0) -> dict:
     """Run all benchmark queries with N trials each.
 
     Args:
@@ -446,7 +498,7 @@ def run_eval(base_url: str, token: str, num_trials: int = 3, query_delay: float 
             trial_spec = spec.copy()
             if trial > 0:
                 trial_spec["query"] = f"{spec['query']} (perspective {trial + 1})"
-            trial_result = run_trial(base_url, token, trial_spec)
+            trial_result = run_trial(base_url, auth, trial_spec)
             trial_results.append(trial_result)
             if trial < num_trials - 1:
                 time.sleep(2)  # inter-trial delay
@@ -574,15 +626,15 @@ def main():
     print(f"  Query delay: {args.query_delay}s (estimated run time: ~{est_minutes} min)")
     print()
 
-    # Auth
+    # Auth (with automatic refresh every 20 min — JWT TTL is 30 min)
     print("Authenticating...", end=" ")
-    token = get_auth_token(args.base_url, args.username, args.password)
-    print("OK")
+    auth = AuthSession(args.base_url, args.username, args.password)
+    print("OK (auto-refresh every 20 min)")
     print()
 
     # Run
     print("Running benchmark queries:")
-    report = run_eval(args.base_url, token, num_trials=args.trials, query_delay=args.query_delay)
+    report = run_eval(args.base_url, auth, num_trials=args.trials, query_delay=args.query_delay)
 
     # Summary
     print()
