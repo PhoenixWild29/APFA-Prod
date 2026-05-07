@@ -422,8 +422,16 @@ def run_trial(base_url: str, token: str, spec: dict) -> dict:
     return {"pass": False, "error": "unreachable", "is_error": True}
 
 
-def run_eval(base_url: str, token: str, num_trials: int = 3) -> dict:
-    """Run all benchmark queries with N trials each."""
+def run_eval(base_url: str, token: str, num_trials: int = 3, query_delay: float = 5.0) -> dict:
+    """Run all benchmark queries with N trials each.
+
+    Args:
+        query_delay: Seconds to sleep between queries (not between trials
+            of the same query). Prevents OpenAI rate-limit cascades.
+            The deployment's rate ceiling is ~100-120 calls per 30 min.
+            At 3 trials/query with 5s delay: 222 calls over ~50 min, safely
+            under the ceiling. Set to 0 for local/staging runs with no limit.
+    """
     results = []
     category_scores: dict[str, list] = {}
 
@@ -441,7 +449,7 @@ def run_eval(base_url: str, token: str, num_trials: int = 3) -> dict:
             trial_result = run_trial(base_url, token, trial_spec)
             trial_results.append(trial_result)
             if trial < num_trials - 1:
-                time.sleep(1)  # small delay between trials
+                time.sleep(2)  # inter-trial delay
 
         # Separate successful trials from errors
         valid_trials = [t for t in trial_results if not t.get("is_error")]
@@ -486,7 +494,9 @@ def run_eval(base_url: str, token: str, num_trials: int = 3) -> dict:
         results.append(aggregated)
         category_scores.setdefault(spec["category"], []).append(aggregated)
 
-        time.sleep(1)
+        # Inter-query delay to stay under OpenAI rate ceiling.
+        if i < len(BENCHMARK_QUERIES) - 1 and query_delay > 0:
+            time.sleep(query_delay)
 
     # Category summaries
     category_summary = {}
@@ -520,6 +530,7 @@ def run_eval(base_url: str, token: str, num_trials: int = 3) -> dict:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "base_url": base_url,
         "num_trials": num_trials,
+        "query_delay_seconds": query_delay,
         "total_queries": len(BENCHMARK_QUERIES),
         "passed": total_pass,
         "failed": len(BENCHMARK_QUERIES) - total_pass,
@@ -545,6 +556,8 @@ def main():
     parser.add_argument("--username", default="admin")
     parser.add_argument("--password", default=os.environ.get("APFA_ADMIN_PASSWORD", ""))
     parser.add_argument("--trials", type=int, default=3, help="Number of trials per query (default: 3)")
+    parser.add_argument("--query-delay", type=float, default=5.0,
+                        help="Seconds between queries to stay under OpenAI rate limit (default: 5)")
     parser.add_argument("--output-dir", default="tests/eval_results")
     args = parser.parse_args()
 
@@ -557,6 +570,8 @@ def main():
     print(f"  Queries: {len(BENCHMARK_QUERIES)}")
     print(f"  Trials per query: {args.trials}")
     print(f"  Total API calls: {len(BENCHMARK_QUERIES) * args.trials}")
+    est_minutes = round(len(BENCHMARK_QUERIES) * (args.query_delay + args.trials * 3) / 60)
+    print(f"  Query delay: {args.query_delay}s (estimated run time: ~{est_minutes} min)")
     print()
 
     # Auth
@@ -567,7 +582,7 @@ def main():
 
     # Run
     print("Running benchmark queries:")
-    report = run_eval(args.base_url, token, num_trials=args.trials)
+    report = run_eval(args.base_url, token, num_trials=args.trials, query_delay=args.query_delay)
 
     # Summary
     print()
