@@ -130,6 +130,13 @@ services:
       - STRIPE_PRICE_PRO_MONTHLY=${STRIPE_PRICE_PRO_MONTHLY}
       - STRIPE_PRICE_ENTERPRISE_MONTHLY=${STRIPE_PRICE_ENTERPRISE_MONTHLY}
     working_dir: /opt/apfa
+    volumes:
+      # Mount Google Drive service account credentials into container.
+      # Place the JSON key at /opt/apfa-prod/credentials/gdrive-sa.json on the droplet,
+      # then set GOOGLE_DRIVE_CREDENTIALS_PATH=/opt/apfa/credentials/gdrive-sa.json in .env.
+      # If the file doesn't exist, this mount is a no-op (Docker creates an empty dir,
+      # but the task guard checks the path before attempting to use it).
+      - ./credentials:/opt/apfa/credentials:ro
     depends_on:
       redis:
         condition: service_healthy
