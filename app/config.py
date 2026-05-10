@@ -95,7 +95,7 @@ class Settings(BaseSettings):
     # --- Data Pipeline Connectors ---
 
     # Google Drive connector (service account, read-only, single shared folder)
-    google_drive_credentials_path: str = ""  # Path to service account JSON key
+    google_drive_credentials_path: str = ""  # Set via env var; file mounted at /opt/apfa/credentials/gdrive-sa.json
     google_drive_folder_ids: List[str] = []  # Default folders to sync
 
     # Finnhub market data connector

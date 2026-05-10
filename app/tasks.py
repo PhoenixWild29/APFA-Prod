@@ -250,8 +250,17 @@ def sync_google_drive_task(
 def fetch_finnhub_data_task(
     tickers: List[str] = None,
     data_types: List[str] = None,
+    news_categories: List[str] = None,
 ):
-    """Fetch market data from Finnhub and store in structured table."""
+    """Fetch market data from Finnhub and store in structured table.
+
+    Args:
+        tickers: Stock symbols to fetch. Defaults to settings.finnhub_default_tickers.
+        data_types: Types: "quote", "economic_indicator", "recommendation",
+                    "fundamentals", "news".
+        news_categories: News categories: "general", "forex", "crypto", "merger".
+                         Only used when "news" is in data_types.
+    """
     if not settings.finnhub_api_key:
         return {"status": "error", "detail": "Finnhub API key not configured"}
 
@@ -269,8 +278,9 @@ def fetch_finnhub_data_task(
             embedder=embedder,
             settings=settings,
             redis_client=redis_client,
-            tickers=tickers or settings.finnhub_default_tickers,
-            data_types=data_types or ["quote", "economic_indicator"],
+            tickers=tickers if tickers is not None else settings.finnhub_default_tickers,
+            data_types=data_types if data_types is not None else ["quote", "economic_indicator"],
+            news_categories=news_categories,
         )
     finally:
         db.close()
@@ -427,6 +437,19 @@ def setup_periodic_tasks(sender, **kwargs):
                 data_types=["economic_indicator", "recommendation", "fundamentals"],
             ),
             name="finnhub-daily-fundamentals",
+        )
+        # General market news every 6 hours → RAG summaries → FAISS
+        # news_categories is a separate param from data_types — it triggers
+        # the market_news API in the connector's fetch(), which stores raw
+        # news and generates RAG summaries via generate_summaries().
+        sender.add_periodic_task(
+            crontab(minute=0, hour="*/6"),
+            fetch_finnhub_data_task.s(
+                tickers=[],  # no ticker-specific data, just general news
+                data_types=[],  # no structured data types
+                news_categories=["general"],
+            ),
+            name="finnhub-market-news",
         )
 
     # Google Drive: sync every 6 hours

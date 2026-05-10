@@ -1,0 +1,4559 @@
+{
+  "timestamp": "2026-05-08T02:02:14.408645+00:00",
+  "base_url": "https://apfa.secureai.dev",
+  "num_trials": 3,
+  "query_delay_seconds": 5.0,
+  "total_queries": 74,
+  "passed": 61,
+  "failed": 13,
+  "pass_rate": 82.4,
+  "total_leaks": 59,
+  "boundary_leaks": 38,
+  "non_boundary_leaks": 21,
+  "total_errors": 44,
+  "category_summary": {
+    "fundamentals": {
+      "total": 10,
+      "passed": 10,
+      "pass_rate": 100.0,
+      "avg_concept_coverage": 83.3,
+      "avg_grounding_score": 57.3,
+      "avg_latency_ms": 19071.0,
+      "total_leaks": 0
+    },
+    "markets": {
+      "total": 10,
+      "passed": 7,
+      "pass_rate": 70.0,
+      "avg_concept_coverage": 61.0,
+      "avg_grounding_score": 34.7,
+      "avg_latency_ms": 19446.0,
+      "total_leaks": 0
+    },
+    "portfolio": {
+      "total": 10,
+      "passed": 9,
+      "pass_rate": 90.0,
+      "avg_concept_coverage": 88.5,
+      "avg_grounding_score": 89.3,
+      "avg_latency_ms": 17030.0,
+      "total_leaks": 2
+    },
+    "instruments": {
+      "total": 10,
+      "passed": 10,
+      "pass_rate": 100.0,
+      "avg_concept_coverage": 81.2,
+      "avg_grounding_score": 72.0,
+      "avg_latency_ms": 22201.0,
+      "total_leaks": 0
+    },
+    "rag_grounding": {
+      "total": 8,
+      "passed": 3,
+      "pass_rate": 37.5,
+      "avg_concept_coverage": 41.7,
+      "avg_grounding_score": 20.0,
+      "avg_latency_ms": 16722.0,
+      "total_leaks": 6
+    },
+    "temporal": {
+      "total": 10,
+      "passed": 7,
+      "pass_rate": 70.0,
+      "avg_concept_coverage": 67.9,
+      "avg_grounding_score": 48.3,
+      "avg_latency_ms": 18250.0,
+      "total_leaks": 0
+    },
+    "boundary": {
+      "total": 8,
+      "passed": 8,
+      "pass_rate": 100.0,
+      "avg_concept_coverage": 79.2,
+      "avg_grounding_score": 39.2,
+      "avg_latency_ms": 7689.0,
+      "total_leaks": 38
+    },
+    "edge_cases": {
+      "total": 8,
+      "passed": 7,
+      "pass_rate": 87.5,
+      "avg_concept_coverage": 78.5,
+      "avg_grounding_score": 70.8,
+      "avg_latency_ms": 13490.0,
+      "total_leaks": 13
+    }
+  },
+  "ship_criteria": {
+    "temporal_improvement_target": ">=+10% concept coverage vs baseline (30% -> 40%+)",
+    "regression_threshold": "<=3% drop in any non-temporal category",
+    "leak_threshold": "non_boundary_leaks must not increase vs baseline (21)",
+    "baseline_reference": "eval_baseline_pre_freshness.json"
+  },
+  "results": [
+    {
+      "query": "What are the key factors that affect interest rates?",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 83.3,
+      "avg_grounding_score": 0.0,
+      "avg_latency_ms": 7234.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 305,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 8302.467,
+          "status_code": 200,
+          "response_preview": "Interest rates are influenced by a variety of factors, both economic and policy-driven. Here are some key factors that typically affect interest rates:\n\n1. **Central Bank Policies**: Central banks, like the Federal Reserve in the United States, set benchmark interest rates that influence borrowing c",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 268,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6447.902,
+          "status_code": 200,
+          "response_preview": "Interest rates are influenced by a variety of factors, including:\n\n1. **Monetary Policy**: Central banks, like the Federal Reserve in the United States, set benchmark interest rates to control inflation and stabilize the currency. When central banks raise rates, borrowing costs typically increase, a",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 265,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6952.802000000001,
+          "status_code": 200,
+          "response_preview": "Interest rates are influenced by a variety of factors, which can be broadly categorized into economic, market, and policy-related influences:\n\n1. **Economic Factors**: \n   - **Inflation**: Central banks, like the Federal Reserve in the U.S., often adjust interest rates to control inflation. Higher i",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Explain the difference between growth and value investing",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 73.3,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 17530.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 333,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6444.650000000001,
+          "status_code": 200,
+          "response_preview": "Growth and value investing are two fundamental investment strategies that investors use to select stocks and build portfolios. Here's a breakdown of each approach:\n\n**Growth Investing:**\n- **Objective:** Growth investors seek companies that are expected to grow at an above-average rate compared to o",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 60.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 320,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 10456.099,
+          "status_code": 200,
+          "response_preview": "Growth investing and value investing are two distinct investment strategies that focus on different types of stocks and investment philosophies.\n\n**Growth Investing:**\n- **Objective:** Growth investors seek companies that are expected to grow at an above-average rate compared to other companies. The",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 340,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 35690.153000000006,
+          "status_code": 200,
+          "response_preview": "Growth and value investing are two fundamental investment strategies that investors use to select stocks and build portfolios. Here's a breakdown of each approach:\n\n**Growth Investing:**\n- **Objective:** Growth investors seek companies that are expected to grow at an above-average rate compared to o",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is asset allocation and why does it matter?",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 86.7,
+      "avg_grounding_score": 66.7,
+      "avg_latency_ms": 22548.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 381,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5838.023999999999,
+          "status_code": 200,
+          "response_preview": "Asset allocation is a fundamental investment strategy that involves distributing your investment portfolio across various asset classes, such as stocks, bonds, and cash. Here's why it matters:\n\n### Importance of Asset Allocation:\n\n1. **Risk Management:**\n   - Different asset classes react differentl",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 337,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 34225.281,
+          "status_code": 200,
+          "response_preview": "Asset allocation is the process of distributing investments across various asset classes, such as stocks, bonds, and cash, to optimize the balance between risk and return based on an individual's financial goals, risk tolerance, and investment horizon. Here's why it matters:\n\n### Importance of Asset",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 291,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 27582.096,
+          "status_code": 200,
+          "response_preview": "Asset allocation is the process of distributing investments across various asset categories, such as stocks, bonds, and cash, to balance risk and reward according to an investor's goals, risk tolerance, and investment horizon. Here's why it matters:\n\n1. **Risk Management**: Different asset classes h",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How do index funds compare to actively managed funds?",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 66.7,
+      "avg_grounding_score": 26.7,
+      "avg_latency_ms": 25912.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 351,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 24406.643,
+          "status_code": 200,
+          "response_preview": "Index funds and actively managed funds are two different approaches to investing in mutual funds or exchange-traded funds (ETFs), each with its own advantages and disadvantages.\n\n**Index Funds:**\n- **Objective:** Index funds aim to replicate the performance of a specific market index, such as the S&",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 387,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 26505.084,
+          "status_code": 200,
+          "response_preview": "Index funds and actively managed funds are two distinct investment strategies, each with its own advantages and disadvantages. Here's a comparison to help you understand their differences:\n\n**Index Funds:**\n- **Objective:** Designed to replicate the performance of a specific market index, such as th",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 380,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 26825.643,
+          "status_code": 200,
+          "response_preview": "Index funds and actively managed funds are both popular investment vehicles, but they differ significantly in their management style, cost, and performance expectations. Here's a comparison to help you understand the key differences:\n\n**Index Funds:**\n- **Objective:** Designed to replicate the perfo",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is compound interest and how does it affect long-term investing?",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 80.0,
+      "avg_latency_ms": 11314.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 386,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6753.893,
+          "status_code": 200,
+          "response_preview": "Compound interest is the process by which the interest earned on an investment is reinvested to earn additional interest over time. This means that you earn interest not only on your initial principal but also on the accumulated interest from previous periods. The effect of compound interest can sig",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 375,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 8107.659,
+          "status_code": 200,
+          "response_preview": "Compound interest is a financial concept where the interest earned on an investment is reinvested to earn additional interest over time. This means you earn interest not only on your initial principal but also on the accumulated interest from previous periods. Here's how it affects long-term investi",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 390,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 19081.219999999998,
+          "status_code": 200,
+          "response_preview": "Compound interest is a financial concept where the interest earned on an investment is reinvested to earn additional interest over time. This process creates a snowball effect, allowing the investment to grow at an accelerating rate. Here's how it works and its impact on long-term investing:\n\n### Un",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Explain the concept of risk-adjusted returns",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 91.7,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 6562.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 327,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5973.974,
+          "status_code": 200,
+          "response_preview": "Risk-adjusted returns are a way to evaluate the performance of an investment by considering both the return it generates and the risk involved in achieving that return. This concept is crucial for investors who want to understand whether they are being adequately compensated for the risks they are t",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 338,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6167.357,
+          "status_code": 200,
+          "response_preview": "Risk-adjusted returns are a measure of the return on an investment relative to the risk taken to achieve that return. This concept is crucial because it allows investors to compare the performance of different investments on a level playing field, taking into account not just the potential returns b",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 319,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 7544.644,
+          "status_code": 200,
+          "response_preview": "Risk-adjusted returns are a measure of the return on an investment relative to the risk taken to achieve that return. This concept is crucial in evaluating how effectively an investment compensates for the risk it entails. Here are some key points to understand risk-adjusted returns:\n\n1. **Purpose**",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is the efficient market hypothesis?",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 60.0,
+      "avg_latency_ms": 18480.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 271,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 22312.764000000003,
+          "status_code": 200,
+          "response_preview": "The Efficient Market Hypothesis (EMH) is a financial theory that suggests that asset prices fully reflect all available information at any given time. According to EMH, it is impossible to consistently achieve higher returns than the overall market through stock picking or market timing because any ",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 259,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 14647.021999999999,
+          "status_code": 200,
+          "response_preview": "The Efficient Market Hypothesis (EMH) is a financial theory that suggests that asset prices fully reflect all available information at any given time. This means that stocks always trade at their fair value on exchanges, making it impossible for investors to purchase undervalued stocks or sell stock",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How do dividends work and why do companies pay them?",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 75.0,
+      "avg_grounding_score": 6.7,
+      "avg_latency_ms": 26437.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 308,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 26702.809999999998,
+          "status_code": 200,
+          "response_preview": "Dividends are payments made by a corporation to its shareholders, typically as a distribution of profits. When a company earns a profit, it can choose to reinvest it in the business, pay down debt, buy back shares, or distribute it to shareholders in the form of dividends. Here\u2019s how dividends work ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 269,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 24800.134,
+          "status_code": 200,
+          "response_preview": "Dividends are payments made by a corporation to its shareholders, usually in the form of cash or additional shares. They are a way for companies to distribute a portion of their earnings back to investors. Here's how they work and why companies pay them:\n\n1. **How Dividends Work:**\n   - **Declaratio",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 232,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 27809.518,
+          "status_code": 200,
+          "response_preview": "Dividends are payments made by a corporation to its shareholders, typically in the form of cash or additional shares. They represent a portion of the company's earnings and are usually distributed on a regular basis, such as quarterly. Companies pay dividends for several reasons:\n\n1. **Shareholder R",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is inflation and how does it impact investments?",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 83.3,
+      "avg_grounding_score": 73.3,
+      "avg_latency_ms": 33198.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 245,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 28426.263,
+          "status_code": 200,
+          "response_preview": "Inflation is the rate at which the general level of prices for goods and services rises, eroding purchasing power. Essentially, as inflation increases, each unit of currency buys fewer goods and services. Central banks attempt to limit inflation\u2014and avoid deflation\u2014in order to keep the economy runni",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 271,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 30518.56,
+          "status_code": 200,
+          "response_preview": "Inflation is the rate at which the general level of prices for goods and services rises, eroding purchasing power. It means that over time, each unit of currency buys fewer goods and services. Inflation can be influenced by various factors, including demand-pull inflation (when demand for goods and ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 277,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 40650.134,
+          "status_code": 200,
+          "response_preview": "Inflation is the rate at which the general level of prices for goods and services rises, eroding purchasing power. Essentially, as inflation increases, each unit of currency buys fewer goods and services. Central banks attempt to limit inflation\u2014and avoid deflation\u2014in order to keep the economy runni",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Explain the relationship between risk and return in investing",
+      "category": "fundamentals",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 73.3,
+      "avg_grounding_score": 60.0,
+      "avg_latency_ms": 21498.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 60.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 313,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5833.888,
+          "status_code": 200,
+          "response_preview": "In investing, the relationship between risk and return is a fundamental concept that suggests that the potential return on an investment rises with an increase in risk. This is often summarized by the phrase \"higher risk, higher reward.\" Here\u2019s how it works:\n\n1. **Risk**: This refers to the possibil",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 346,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 29683.784,
+          "status_code": 200,
+          "response_preview": "In investing, the relationship between risk and return is fundamental. Generally, higher potential returns are associated with higher levels of risk. This is because investors demand a risk premium for taking on additional uncertainty. Here's a breakdown of how this relationship works:\n\n1. **Risk**:",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 299,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 28976.738999999998,
+          "status_code": 200,
+          "response_preview": "In investing, the relationship between risk and return is a fundamental concept that suggests the potential return on an investment is correlated with the level of risk involved. Generally, higher risk is associated with the potential for higher returns, while lower risk typically corresponds to mor",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What drives equity market valuations?",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 6.7,
+      "avg_latency_ms": 34588.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 352,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 33396.352999999996,
+          "status_code": 200,
+          "response_preview": "Equity market valuations are influenced by a variety of factors that reflect both the intrinsic value of companies and broader market conditions. Here are some key drivers:\n\n1. **Earnings and Growth Prospects**: \n   - The fundamental driver of a company's valuation is its ability to generate earning",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 295,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 36456.12100000001,
+          "status_code": 200,
+          "response_preview": "Equity market valuations are influenced by a range of factors, each contributing to how investors perceive the value of stocks. Here\u2019s a breakdown of the primary drivers:\n\n1. **Company Fundamentals**:\n   - **Earnings and Revenue Growth**: Companies with strong earnings and revenue growth are often v",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 294,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 33911.282999999996,
+          "status_code": 200,
+          "response_preview": "Equity market valuations are influenced by a variety of factors that reflect both the intrinsic value of companies and broader market conditions. Here are some key drivers:\n\n1. **Earnings and Growth Expectations**: \n   - Future earnings potential is a primary determinant of a company's stock price. ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How does the Federal Reserve's monetary policy impact different asset classes?",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 20.0,
+      "avg_grounding_score": 0.0,
+      "avg_latency_ms": 179.0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "concept_coverage": 20.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 15,
+          "length_ok": false,
+          "has_disclaimer": false,
+          "pass": false,
+          "latency_ms": 182.475,
+          "status_code": 422,
+          "response_preview": "{\"detail\":[{\"type\":\"string_pattern_mismatch\",\"loc\":[\"body\",\"query\"],\"msg\":\"String should match pattern '^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]+$'\",\"input\":\"How does the Federal Reserve's monetary policy impact different asset classes?\",\"ctx\":{\"pattern\":\"^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 20.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 17,
+          "length_ok": false,
+          "has_disclaimer": false,
+          "pass": false,
+          "latency_ms": 197.453,
+          "status_code": 422,
+          "response_preview": "{\"detail\":[{\"type\":\"string_pattern_mismatch\",\"loc\":[\"body\",\"query\"],\"msg\":\"String should match pattern '^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]+$'\",\"input\":\"How does the Federal Reserve's monetary policy impact different asset classes? (perspective 2)\",\"ctx\":{\"pattern\":\"^[a-zA-Z0-9\\\\s\\\\?\\\\.",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 20.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 17,
+          "length_ok": false,
+          "has_disclaimer": false,
+          "pass": false,
+          "latency_ms": 156.973,
+          "status_code": 422,
+          "response_preview": "{\"detail\":[{\"type\":\"string_pattern_mismatch\",\"loc\":[\"body\",\"query\"],\"msg\":\"String should match pattern '^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]+$'\",\"input\":\"How does the Federal Reserve's monetary policy impact different asset classes? (perspective 3)\",\"ctx\":{\"pattern\":\"^[a-zA-Z0-9\\\\s\\\\?\\\\.",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is the yield curve and what does an inversion signal?",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 1,
+      "error_count": 2,
+      "avg_concept_coverage": 75.0,
+      "avg_grounding_score": 0.0,
+      "avg_latency_ms": 4392.0,
+      "total_leak_count": 0,
+      "pass_count": 1,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 253,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4392.223000000001,
+          "status_code": 200,
+          "response_preview": "The yield curve is a graphical representation that illustrates the relationship between interest rates and the maturity dates of debt securities, typically government bonds. It plots the yield (interest rate) on the vertical axis and the time to maturity on the horizontal axis. Here are key points a",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        }
+      ]
+    },
+    {
+      "query": "Explain market capitalization and stock classification",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 25.0,
+      "avg_grounding_score": 86.7,
+      "avg_latency_ms": 14213.0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "concept_coverage": 25.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 270,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 5186.467000000001,
+          "status_code": 200,
+          "response_preview": "Market capitalization, often referred to as \"market cap,\" is a measure of a company's total value as determined by the stock market. It is calculated by multiplying the current share price by the total number of outstanding shares. Market cap helps investors understand the relative size of a company",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 25.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 325,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 8271.655,
+          "status_code": 200,
+          "response_preview": "Market capitalization, often referred to as \"market cap,\" is a measure of a company's total value as determined by the stock market. It is calculated by multiplying the current share price by the total number of outstanding shares. Market capitalization is used to classify companies into different c",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 25.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 306,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 29180.489,
+          "status_code": 200,
+          "response_preview": "Market capitalization, often referred to as \"market cap,\" is a measure of a company's total value as determined by the stock market. It is calculated by multiplying the current share price by the total number of outstanding shares. Market cap is used to classify companies into different categories, ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What are the main differences between stocks and bonds?",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 80.0,
+      "avg_grounding_score": 40.0,
+      "avg_latency_ms": 24670.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 303,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 23063.452,
+          "status_code": 200,
+          "response_preview": "Stocks and bonds are two fundamental types of financial instruments used for investment, each with distinct characteristics and roles in a portfolio.\n\n**Stocks:**\n- **Ownership:** When you buy a stock, you purchase a share of ownership in a company. This means you have a claim on part of the company",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 316,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 24455.82,
+          "status_code": 200,
+          "response_preview": "Stocks and bonds are two fundamental types of financial instruments that serve different purposes in an investment portfolio.\n\n**Stocks:**\n- **Ownership:** When you buy a stock, you purchase a share of ownership in a company. This means you have a claim on part of the company's assets and earnings.\n",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 304,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 26492.199,
+          "status_code": 200,
+          "response_preview": "Stocks and bonds are two fundamental types of financial instruments used for investment, each with distinct characteristics and roles in a portfolio.\n\n**Stocks:**\n- **Ownership:** When you buy a stock, you purchase a share of ownership in a company. This means you have a claim on part of the company",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How do geopolitical events affect financial markets?",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 0,
+      "error_count": 3,
+      "avg_concept_coverage": 0,
+      "avg_grounding_score": 0,
+      "avg_latency_ms": 0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        }
+      ]
+    },
+    {
+      "query": "What is market volatility and how is it measured?",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 75.0,
+      "avg_grounding_score": 86.7,
+      "avg_latency_ms": 9363.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 305,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 18656.013000000003,
+          "status_code": 200,
+          "response_preview": "Market volatility refers to the degree of variation in the price of a financial instrument over time. It is a statistical measure of the dispersion of returns for a given security or market index. High volatility means that the price of the asset can change dramatically over a short period in either",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 370,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5566.5560000000005,
+          "status_code": 200,
+          "response_preview": "Market volatility refers to the degree of variation in the price of a financial instrument over time. It is a statistical measure of the dispersion of returns for a given security or market index. High volatility indicates a large price range and frequent price changes, while low volatility suggests",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 202,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 3866.286,
+          "status_code": 200,
+          "response_preview": "Market volatility refers to the degree of variation in the price of a financial instrument over time. It is a statistical measure of the dispersion of returns for a given security or market index. High volatility means that the price of the security can change dramatically over a short time period i",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Explain how currency exchange rates impact international investments",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 26.7,
+      "avg_latency_ms": 19388.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 270,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4023.5969999999998,
+          "status_code": 200,
+          "response_preview": "Currency exchange rates can significantly impact international investments in several ways:\n\n1. **Currency Risk**: When you invest in foreign assets, you are exposed to currency risk, which is the potential for losses due to fluctuations in the exchange rate between your home currency and the foreig",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 252,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 23459.939,
+          "status_code": 200,
+          "response_preview": "Currency exchange rates can significantly impact international investments by affecting the value of returns when they are converted back into the investor's home currency. Here's how it works:\n\n1. **Exchange Rate Fluctuations**: When you invest in a foreign asset, the returns are typically in the f",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 274,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 30679.635000000002,
+          "status_code": 200,
+          "response_preview": "Currency exchange rates significantly impact international investments by influencing the returns investors receive when converting foreign investment gains back into their home currency. Here are some key considerations:\n\n1. **Exchange Rate Fluctuations**:\n   - When an investor holds assets in a fo",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What causes stock market corrections and bear markets?",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 75.0,
+      "avg_grounding_score": 0.0,
+      "avg_latency_ms": 32460.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 257,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 58285.992999999995,
+          "status_code": 200,
+          "response_preview": "Stock market corrections and bear markets are primarily caused by a combination of economic, financial, and psychological factors. Here are some key causes:\n\n1. **Economic Slowdowns**: When economic indicators such as GDP growth, employment rates, or consumer spending decline, it can lead to reduced",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 280,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6634.679,
+          "status_code": 200,
+          "response_preview": "Stock market corrections and bear markets are typically caused by a combination of economic, financial, and psychological factors. Here are some common causes:\n\n1. **Economic Slowdowns**: When economic indicators such as GDP growth, employment rates, or consumer spending start to decline, it can lea",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How do corporate earnings reports affect stock prices?",
+      "category": "markets",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 60.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 55212.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 60.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 272,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 59746.783,
+          "status_code": 200,
+          "response_preview": "Corporate earnings reports can significantly impact stock prices as they provide investors with insights into a company's financial health and future prospects. Here are some key ways earnings reports can affect stock prices:\n\n1. **Performance vs. Expectations**: Investors compare the reported earni",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "concept_coverage": 60.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 346,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 50677.869,
+          "status_code": 200,
+          "response_preview": "Corporate earnings reports can significantly affect stock prices as they provide investors with critical information about a company's financial health and future prospects. Here are some key ways earnings reports impact stock prices:\n\n1. **Earnings Performance vs. Expectations**: Investors and anal",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Walk me through portfolio diversification strategies",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 83.3,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 22852.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 343,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 25171.111,
+          "status_code": 200,
+          "response_preview": "Portfolio diversification is a fundamental strategy in investment management aimed at reducing risk by spreading investments across various asset classes, sectors, or geographic regions. Here are some key concepts and strategies related to diversification:\n\n1. **Asset Allocation**: This involves div",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 338,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6969.236000000001,
+          "status_code": 200,
+          "response_preview": "Portfolio diversification is a fundamental strategy in investment management aimed at reducing risk by spreading investments across various asset classes, sectors, or geographical regions. Here are some key diversification strategies:\n\n1. **Asset Class Diversification**: This involves investing in a",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 359,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 36415.318,
+          "status_code": 200,
+          "response_preview": "Portfolio diversification is a strategy that involves spreading investments across various asset classes, sectors, or geographic regions to reduce risk and enhance potential returns. The goal is to create a portfolio that can withstand market volatility and provide more stable returns over time. Her",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is dollar-cost averaging and when should I use it?",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 20.0,
+      "avg_latency_ms": 4837.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 327,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5562.196,
+          "status_code": 200,
+          "response_preview": "Dollar-cost averaging (DCA) is an investment strategy where you invest a fixed amount of money at regular intervals, regardless of the asset's price. This approach helps to mitigate the impact of market volatility by spreading out your investment over time, rather than investing a lump sum all at on",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 226,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4111.593,
+          "status_code": 200,
+          "response_preview": "Dollar-cost averaging (DCA) is an investment strategy where you invest a fixed amount of money at regular intervals, regardless of the asset's price. This approach helps mitigate the impact of market volatility by spreading out your investment purchases over time, rather than making a single lump-su",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How should I think about risk tolerance in my portfolio?",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 93.3,
+      "avg_latency_ms": 23762.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 361,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 7075.808999999999,
+          "status_code": 200,
+          "response_preview": "Risk tolerance is a crucial aspect of investment strategy, reflecting your ability and willingness to endure market volatility and potential losses in pursuit of higher returns. Understanding your risk tolerance helps in constructing a portfolio that aligns with your financial goals and comfort leve",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 326,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 27700.555,
+          "status_code": 200,
+          "response_preview": "Risk tolerance is a crucial aspect of portfolio management, reflecting your ability and willingness to endure market volatility and potential losses. Here are some key considerations to help you understand and assess your risk tolerance:\n\n1. **Time Horizon**: The length of time you plan to invest be",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 261,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 36508.597,
+          "status_code": 200,
+          "response_preview": "Risk tolerance is a crucial aspect of portfolio management, reflecting your ability and willingness to endure market volatility and potential losses in pursuit of investment goals. It is influenced by several factors, including your investment time horizon, financial situation, and emotional comfort",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is rebalancing and how often should I do it?",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 10020.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 304,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 9955.859999999999,
+          "status_code": 200,
+          "response_preview": "Rebalancing is the process of adjusting the proportions of different assets in your investment portfolio to maintain your desired asset allocation. Over time, as the value of your investments changes due to market fluctuations, your portfolio can drift from its original allocation, potentially alter",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 348,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 10466.44,
+          "status_code": 200,
+          "response_preview": "Rebalancing is the process of adjusting the proportions of different assets in your investment portfolio to maintain your desired asset allocation. Over time, market fluctuations can cause the value of various assets to change, potentially altering your portfolio's risk profile. For instance, if you",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 383,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 9638.319,
+          "status_code": 200,
+          "response_preview": "Rebalancing is the process of adjusting the proportions of different assets in your investment portfolio to maintain your desired asset allocation. Over time, the performance of various investments can cause your portfolio to drift from its original allocation, which may no longer align with your ri",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Explain the concept of tax-loss harvesting",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 91.7,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 8498.0,
+      "total_leak_count": 2,
+      "pass_count": 1,
+      "pass_rate": 33.3,
+      "pass": false,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "tax deduction",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 100,
+          "word_count": 333,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 5142.1089999999995,
+          "status_code": 200,
+          "response_preview": "Tax-loss harvesting is an investment strategy aimed at reducing taxes on capital gains by selling securities at a loss. Here's a breakdown of how it works:\n\n1. **Identify Losses**: Investors look for securities in their portfolio that have decreased in value since they were purchased.\n\n2. **Sell the",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 359,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 10827.182,
+          "status_code": 200,
+          "response_preview": "Tax-loss harvesting is a strategy used by investors to minimize their tax liability by selling securities at a loss to offset capital gains from other investments. This can help reduce the amount of taxable income, as losses can be used to offset gains dollar-for-dollar. If losses exceed gains, up t",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "tax deduction",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 100,
+          "word_count": 430,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 9523.228,
+          "status_code": 200,
+          "response_preview": "Here's a clear explanation of tax-loss harvesting, a strategy often used by investors to manage their tax liabilities:\n\n### What is Tax-Loss Harvesting?\n\nTax-loss harvesting is an investment strategy aimed at reducing an investor's tax liability by selling securities at a loss to offset capital gain",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is the glide path concept in target-date funds?",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 80.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 37431.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 284,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 35177.605,
+          "status_code": 200,
+          "response_preview": "Here's a clear explanation of the glide path concept in target-date funds:\n\n### Glide Path Concept in Target-Date Funds\n\n**Definition:**\n- The glide path is a strategy used in target-date funds to gradually adjust the fund's asset allocation over time. It aims to reduce investment risk as the target",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 229,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 39683.691000000006,
+          "status_code": 200,
+          "response_preview": "The glide path in target-date funds refers to the strategy of gradually adjusting the fund's asset allocation as it approaches its target date, typically the year when the investor plans to retire. This concept is designed to balance growth and risk over time:\n\n- **Early Stage (Far from Target Date)",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How do I build an income-generating portfolio?",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 80.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 11059.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 345,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5434.1,
+          "status_code": 200,
+          "response_preview": "Building an income-generating portfolio involves selecting investments that provide regular income, such as dividends from stocks, interest from bonds, or distributions from real estate investment trusts (REITs) and other income-focused funds. Here are some steps and considerations to help you get s",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 312,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5919.871,
+          "status_code": 200,
+          "response_preview": "Building an income-generating portfolio involves selecting investments that provide regular cash flow, such as dividends or interest payments. Here are some general steps and considerations to help you construct such a portfolio:\n\n1. **Understand Your Income Needs**: Determine how much income you ne",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 332,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 21823.239,
+          "status_code": 200,
+          "response_preview": "Building an income-generating portfolio involves selecting investments that provide regular income, such as dividends from stocks or interest from bonds, while considering your risk tolerance and financial goals. Here's a general framework to help you get started:\n\n1. **Understand Your Income Needs ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is factor investing and how does it work?",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 10075.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 442,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 13831.671,
+          "status_code": 200,
+          "response_preview": "Factor investing is an investment strategy that focuses on targeting specific characteristics or attributes, known as \"factors,\" that have been shown to drive returns across asset classes. The aim is to enhance returns, reduce risk, or achieve a combination of both by systematically selecting securi",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 342,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 10640.543,
+          "status_code": 200,
+          "response_preview": "Factor investing is an investment strategy that focuses on targeting specific characteristics or attributes, known as \"factors,\" that can explain differences in stock returns. This approach aims to achieve better risk-adjusted returns than the broader market by capturing these attributes across asse",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 385,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5752.5779999999995,
+          "status_code": 200,
+          "response_preview": "Factor investing is an investment strategy that focuses on specific attributes or characteristics of securities that can explain differences in returns. These attributes, known as factors, are used to construct portfolios with the aim of achieving better risk-adjusted returns. Here's how it works:\n\n",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How should I allocate between domestic and international investments?",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 83.3,
+      "avg_grounding_score": 80.0,
+      "avg_latency_ms": 4846.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 312,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5340.28,
+          "status_code": 200,
+          "response_preview": "When considering how to allocate between domestic and international investments, it's important to understand the benefits of diversification and the potential risks involved. Diversifying your portfolio by including both domestic and international investments can help reduce risk and potentially en",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 266,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4215.73,
+          "status_code": 200,
+          "response_preview": "When considering how to allocate between domestic and international investments, it's important to understand the benefits of diversification and the potential risks involved. Diversifying your portfolio by including both domestic and international investments can help reduce risk and potentially en",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 290,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4981.032,
+          "status_code": 200,
+          "response_preview": "When deciding how to allocate between domestic and international investments, consider the following factors to create a balanced and diversified portfolio:\n\n1. **Diversification Benefits**:\n   - International investments can provide exposure to different economic cycles and growth opportunities, po",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is the core-satellite portfolio strategy?",
+      "category": "portfolio",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 66.7,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 36924.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 60.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 268,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 45627.755,
+          "status_code": 200,
+          "response_preview": "The core-satellite portfolio strategy is an investment approach that combines a \"core\" portfolio of broad, stable investments with \"satellite\" positions in more targeted, higher-risk opportunities. Here's how it typically works:\n\n1. **Core Portfolio**: This forms the foundation of the investment str",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 239,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 44896.841,
+          "status_code": 200,
+          "response_preview": "The core-satellite portfolio strategy is an investment approach that combines a \"core\" portfolio with \"satellite\" investments. Here's a breakdown of how it works:\n\n### Core Portfolio\n- **Objective**: Provide stable, long-term growth with broad market exposure.\n- **Characteristics**: Typically consis",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 60.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 259,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 20246.953,
+          "status_code": 200,
+          "response_preview": "The core-satellite portfolio strategy is an investment approach that combines a \"core\" portfolio of broad, stable investments with \"satellite\" positions in more targeted, higher-risk opportunities. This strategy aims to balance stability with the potential for higher returns.\n\n1. **Core Portfolio**:",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What are ETFs and how do they differ from mutual funds?",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 80.0,
+      "avg_grounding_score": 53.3,
+      "avg_latency_ms": 21483.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 313,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 9912.365,
+          "status_code": 200,
+          "response_preview": "Exchange-Traded Funds (ETFs) and mutual funds are both investment vehicles that allow individuals to invest in a diversified portfolio of assets. However, they have distinct characteristics that differentiate them:\n\n1. **Trading and Pricing**:\n   - **ETFs**: Traded on stock exchanges like individual",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 257,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 19847.766,
+          "status_code": 200,
+          "response_preview": "Exchange-Traded Funds (ETFs) and mutual funds are both investment vehicles that pool money from multiple investors to buy a diversified portfolio of stocks, bonds, or other securities. However, they have some key differences:\n\n1. **Trading Flexibility**: \n   - **ETFs**: Traded on stock exchanges lik",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 297,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 34689.82,
+          "status_code": 200,
+          "response_preview": "Exchange-Traded Funds (ETFs) and mutual funds are both popular investment vehicles that allow investors to pool their money to invest in a diversified portfolio of assets. However, they have some distinct differences:\n\n1. **Trading and Pricing**:\n   - **ETFs**: Traded on stock exchanges throughout t",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What are Treasury bonds and why are they considered safe?",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 50.0,
+      "avg_grounding_score": 20.0,
+      "avg_latency_ms": 21354.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 260,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5893.456999999999,
+          "status_code": 200,
+          "response_preview": "Treasury bonds are a type of long-term debt security issued by the U.S. Department of the Treasury. They are used to finance government spending and have the following characteristics:\n\n- **Maturity**: Treasury bonds typically have maturities ranging from 10 to 30 years.\n- **Interest Payments**: The",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 169,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 44829.225,
+          "status_code": 200,
+          "response_preview": "Treasury bonds are long-term debt securities issued by the U.S. Department of the Treasury to finance government spending. They typically have maturities of 10 to 30 years and pay interest semi-annually. Treasury bonds are considered one of the safest investments because they are backed by the \"full",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 166,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 13338.210000000001,
+          "status_code": 200,
+          "response_preview": "Treasury bonds are long-term debt securities issued by the U.S. Department of the Treasury to finance government spending. They typically have maturities of 10 to 30 years and pay interest semi-annually. Treasury bonds are considered one of the safest investments because they are backed by the \"full",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Explain REITs and their role in a portfolio",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 75.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 26995.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 316,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4976.448,
+          "status_code": 200,
+          "response_preview": "Real Estate Investment Trusts (REITs) are companies that own, operate, or finance income-producing real estate across a range of property sectors. They provide a way for individual investors to earn a share of the income produced through commercial real estate ownership without actually having to bu",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 238,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 58637.566,
+          "status_code": 200,
+          "response_preview": "Real Estate Investment Trusts (REITs) are companies that own, operate, or finance income-producing real estate across a range of property sectors. They provide a way for individual investors to earn a share of the income produced through commercial real estate ownership without actually having to bu",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 323,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 17370.394,
+          "status_code": 200,
+          "response_preview": "Real Estate Investment Trusts (REITs) are companies that own, operate, or finance income-producing real estate across a range of property sectors. They provide a way for individual investors to earn a share of the income produced through commercial real estate ownership without actually having to bu",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What are options and how do investors use them?",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 80.0,
+      "avg_latency_ms": 22840.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 337,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 22399.652,
+          "status_code": 200,
+          "response_preview": "Options are financial derivatives that give investors the right, but not the obligation, to buy or sell an underlying asset at a predetermined price (known as the strike price) before or on a specific date (the expiration date). There are two main types of options: call options and put options.\n\n1. ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 328,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 37530.289000000004,
+          "status_code": 200,
+          "response_preview": "Options are financial instruments that give investors the right, but not the obligation, to buy or sell an underlying asset at a specified price before a certain date. There are two main types of options:\n\n1. **Call Options:** These give the holder the right to purchase an asset at a predetermined p",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 347,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 8591.284,
+          "status_code": 200,
+          "response_preview": "Options are financial instruments that provide investors with the right, but not the obligation, to buy or sell an underlying asset at a predetermined price (known as the strike price) before or on a specific expiration date. There are two main types of options: call options and put options.\n\n### Ty",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is a dividend reinvestment plan (DRIP)?",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 24469.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 253,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 48747.811,
+          "status_code": 200,
+          "response_preview": "A Dividend Reinvestment Plan (DRIP) is a program offered by many companies that allows investors to reinvest their cash dividends into additional shares of the company's stock, often without paying any brokerage fees. This can be an effective way to increase your investment in a company over time, a",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 258,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 190.285,
+          "status_code": 200,
+          "response_preview": "A Dividend Reinvestment Plan (DRIP) is a program offered by many companies that allows investors to reinvest their cash dividends into additional shares of the company's stock, often without paying any brokerage fees or at a discounted price. This can be a convenient way for investors to increase th",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Explain corporate bonds and their risk profile",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 53.3,
+      "avg_latency_ms": 8088.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 363,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 11821.066,
+          "status_code": 200,
+          "response_preview": "Corporate bonds are debt instruments issued by companies to raise funds for various business activities, such as expanding operations, funding new projects, or refinancing existing debt. When you invest in a corporate bond, you are essentially lending money to the issuing corporation in exchange for",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 324,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6796.351,
+          "status_code": 200,
+          "response_preview": "Corporate bonds are debt instruments issued by companies to raise capital. When you invest in a corporate bond, you are essentially lending money to the issuing company in exchange for periodic interest payments and the return of the bond's face value at maturity. Here's a breakdown of their risk pr",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 355,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5648.0160000000005,
+          "status_code": 200,
+          "response_preview": "Corporate bonds are debt instruments issued by corporations to raise funds for various purposes such as expanding operations, financing projects, or refinancing existing debt. When you purchase a corporate bond, you are essentially lending money to the issuing company in exchange for periodic intere",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What are commodities and how do investors gain exposure?",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 80.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 28734.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 294,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 26265.193,
+          "status_code": 200,
+          "response_preview": "Commodities are basic goods used in commerce that are interchangeable with other goods of the same type. They are often the raw materials used to produce other goods and services. Common examples include metals like gold, silver, and copper; energy resources like oil and natural gas; and agricultura",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 319,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 31202.615,
+          "status_code": 200,
+          "response_preview": "Commodities are basic goods used in commerce that are interchangeable with other goods of the same type. They are often the raw materials used to produce other goods and services. Common examples include metals like gold, silver, and copper; energy resources like oil and natural gas; and agricultura",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How do money market funds work?",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 1,
+      "error_count": 2,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 80.0,
+      "avg_latency_ms": 5027.0,
+      "total_leak_count": 0,
+      "pass_count": 1,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 300,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5027.297,
+          "status_code": 200,
+          "response_preview": "Money market funds are a type of mutual fund that invests in short-term, high-quality debt instruments, such as Treasury bills, commercial paper, and certificates of deposit. They are designed to offer investors a safe place to invest easily accessible cash equivalents, providing a higher yield than",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        }
+      ]
+    },
+    {
+      "query": "What are convertible bonds?",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 86.7,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 23874.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 286,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 11146.711,
+          "status_code": 200,
+          "response_preview": "Convertible bonds are a type of fixed-income security that provides the bondholder with the option to convert the bond into a predetermined number of shares of the issuing company's stock. This feature allows investors to benefit from the potential appreciation of the company's stock while still rec",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 357,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6384.064,
+          "status_code": 200,
+          "response_preview": "Convertible bonds are a type of financial instrument that combines features of both bonds and stocks. Here\u2019s a breakdown of what they are and how they work:\n\n### Key Features of Convertible Bonds:\n\n1. **Debt Instrument**: \n   - Like regular bonds, convertible bonds pay interest to investors and have",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 386,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 54092.140999999996,
+          "status_code": 200,
+          "response_preview": "Convertible bonds are a type of hybrid financial instrument that combines features of both debt and equity. They are essentially bonds that give the holder the option to convert the bond into a predetermined number of shares of the issuing company's stock. This conversion can typically occur at cert",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Explain the differences between growth ETFs and value ETFs",
+      "category": "instruments",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 40.0,
+      "avg_grounding_score": 33.3,
+      "avg_latency_ms": 39148.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 40.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 362,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 47252.098,
+          "status_code": 200,
+          "response_preview": "Growth ETFs and value ETFs are two types of exchange-traded funds that focus on different investment strategies and types of stocks. Here's a breakdown of their differences:\n\n1. **Investment Focus:**\n   - **Growth ETFs:** These funds invest in companies that are expected to grow at an above-average ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 40.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 288,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 24548.443,
+          "status_code": 200,
+          "response_preview": "Growth ETFs and value ETFs represent two distinct investment strategies that focus on different types of stocks. Here's a breakdown of their differences:\n\n1. **Growth ETFs**:\n   - **Objective**: These ETFs aim to invest in companies expected to grow at an above-average rate compared to other compani",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 40.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 373,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 45644.312,
+          "status_code": 200,
+          "response_preview": "Growth ETFs and Value ETFs are two distinct types of exchange-traded funds that focus on different investment strategies and types of stocks. Here's a breakdown of their differences:\n\n### Growth ETFs\n- **Investment Focus**: Growth ETFs invest in companies that are expected to grow at an above-averag",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What do you know about AI infrastructure investment opportunities?",
+      "category": "rag_grounding",
+      "num_trials": 3,
+      "valid_trials": 0,
+      "error_count": 3,
+      "avg_concept_coverage": 0,
+      "avg_grounding_score": 0,
+      "avg_latency_ms": 0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        }
+      ]
+    },
+    {
+      "query": "Summarize the key themes from the investment research in your knowledge base",
+      "category": "rag_grounding",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 20.0,
+      "avg_latency_ms": 39059.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 279,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 8550.903,
+          "status_code": 200,
+          "response_preview": "The investment research document outlines a comprehensive thesis on the evolving landscape of AI and its impact on physical infrastructure, emphasizing the transition from a software-centric to a hardware-intensive era. Here are the key themes:\n\n1. **AI's Physical Demands**: The research highlights ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 299,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 51114.047,
+          "status_code": 200,
+          "response_preview": "The investment research focuses on the transition from the \"Cognitive Era\" to the \"Kinetic Era,\" emphasizing the physical infrastructure required to support AI advancements. Key themes include:\n\n1. **Physical Infrastructure Constraints**: The primary bottleneck for AI scaling is not silicon availabi",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 300,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 57511.755,
+          "status_code": 200,
+          "response_preview": "The investment research focuses on the transition from the \"Cognitive Era\" to the \"Kinetic Era,\" where the primary constraints for AI growth are physical infrastructure rather than software or silicon. Key themes include:\n\n1. **Physical Infrastructure Bottlenecks**: The AI build-out is constrained b",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What investment documents have been analyzed in your system?",
+      "category": "rag_grounding",
+      "num_trials": 3,
+      "valid_trials": 0,
+      "error_count": 3,
+      "avg_concept_coverage": 0,
+      "avg_grounding_score": 0,
+      "avg_latency_ms": 0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        }
+      ]
+    },
+    {
+      "query": "Based on the research you have access to, what sectors look promising?",
+      "category": "rag_grounding",
+      "num_trials": 3,
+      "valid_trials": 0,
+      "error_count": 3,
+      "avg_concept_coverage": 0,
+      "avg_grounding_score": 0,
+      "avg_latency_ms": 0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        }
+      ]
+    },
+    {
+      "query": "What does your data say about portfolio construction best practices?",
+      "category": "rag_grounding",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 77.8,
+      "avg_grounding_score": 6.7,
+      "avg_latency_ms": 34453.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 261,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 22095.993,
+          "status_code": 200,
+          "response_preview": "Based on the provided context, portfolio construction best practices involve several key principles:\n\n1. **Diversification**: This is the practice of spreading investments across various asset classes to reduce risk. The context suggests a barbell approach, which involves balancing high-risk, high-r",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 271,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 38156.885,
+          "status_code": 200,
+          "response_preview": "Based on the provided context, portfolio construction best practices in the realm of \"Special Situations\" and asymmetric opportunities focus on identifying undervalued disruptors and second-derivative trades. Here are some key takeaways:\n\n1. **Focus on Asymmetry and Bottlenecks**: The goal is to fin",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 301,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 43106.578,
+          "status_code": 200,
+          "response_preview": "The data provided emphasizes a strategic approach to portfolio construction that focuses on identifying and capitalizing on \"second-derivative\" trades and physical infrastructure bottlenecks in the AI build-out. Here are some best practices derived from the context:\n\n1. **Focus on Asymmetric Opportu",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Can you reference any specific research about market trends?",
+      "category": "rag_grounding",
+      "num_trials": 3,
+      "valid_trials": 0,
+      "error_count": 3,
+      "avg_concept_coverage": 0,
+      "avg_grounding_score": 0,
+      "avg_latency_ms": 0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        }
+      ]
+    },
+    {
+      "query": "What financial regulations are covered in your knowledge base?",
+      "category": "rag_grounding",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 66.7,
+      "avg_grounding_score": 53.3,
+      "avg_latency_ms": 5726.0,
+      "total_leak_count": 6,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "TILA",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "ECOA",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 40,
+          "word_count": 270,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 4312.915,
+          "status_code": 200,
+          "response_preview": "The financial regulations covered in my knowledge base include:\n\n1. **Truth in Lending Act (TILA)**:\n   - Requires lenders to disclose the total cost of credit to consumers before entering a loan agreement.\n   - Applies to consumer credit transactions like mortgages, auto loans, credit cards, and ho",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "ECOA",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "TILA",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 60,
+          "word_count": 288,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 7706.34,
+          "status_code": 200,
+          "response_preview": "The financial regulations covered in the provided context include:\n\n1. **Equal Credit Opportunity Act (ECOA):**\n   - Prohibits discrimination in credit transactions based on race, color, religion, national origin, sex, marital status, age, receipt of public assistance income, or exercising rights un",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "ECOA",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "TILA",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 60,
+          "word_count": 293,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 5158.186,
+          "status_code": 200,
+          "response_preview": "The financial regulations covered in my knowledge base include:\n\n1. **Equal Credit Opportunity Act (ECOA)**:\n   - Prohibits discrimination in credit transactions based on race, color, religion, national origin, sex, marital status, age, receipt of public assistance income, or the exercise of rights ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Summarize the investment thesis documents you have access to",
+      "category": "rag_grounding",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 88.9,
+      "avg_grounding_score": 80.0,
+      "avg_latency_ms": 54534.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 292,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 51440.542,
+          "status_code": 200,
+          "response_preview": "The investment thesis documents outline a strategic approach to capitalizing on the physical infrastructure constraints of the AI build-out, emphasizing the transition from the \"Cognitive Era\" to the \"Kinetic Era.\" The primary focus is on the physical bottlenecks that limit AI scaling, such as elect",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 280,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 53823.36,
+          "status_code": 200,
+          "response_preview": "The investment thesis documents outline a strategic approach to capitalizing on the transition from the \"Cognitive Era\" of software to the \"Kinetic Era\" of embodied AI and physical infrastructure. The key points include:\n\n1. **Physical Bottlenecks**: The primary constraint on AI scaling is not silic",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 339,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 58337.77099999999,
+          "status_code": 200,
+          "response_preview": "Based on the provided context, the investment thesis focuses on the intersection of AI infrastructure demands and the physical constraints that accompany this technological shift. The thesis is structured around the idea that while the demand for AI compute is effectively infinite, the supply is lim",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is the latest market outlook?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 1,
+      "error_count": 2,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 40.0,
+      "avg_latency_ms": 11646.0,
+      "total_leak_count": 0,
+      "pass_count": 1,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 321,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 11646.246,
+          "status_code": 200,
+          "response_preview": "The latest market outlook, as detailed in the investment memorandum, highlights a significant shift from the \"Cognitive Era\" to the \"Kinetic Era\" of AI development. This transition emphasizes the importance of physical infrastructure over software scalability. The current market dynamics are driven ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What are current Treasury yields?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 0,
+      "error_count": 3,
+      "avg_concept_coverage": 0,
+      "avg_grounding_score": 0,
+      "avg_latency_ms": 0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        }
+      ]
+    },
+    {
+      "query": "How have equity markets performed recently?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 53.3,
+      "avg_latency_ms": 27959.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 191,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 24249.773999999998,
+          "status_code": 200,
+          "response_preview": "The provided context does not include specific recent performance data for equity markets. However, it does provide some insights into individual companies and their potential performance relative to market benchmarks like the Nasdaq 100 (QQQ). For example, the context mentions a framework for compa",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 190,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 29942.553,
+          "status_code": 200,
+          "response_preview": "The provided context does not include specific information on recent equity market performance. However, I can offer general guidance on how to evaluate equity market performance.\n\nTo assess recent equity market performance, you can look at major stock indices such as the S&P 500, Nasdaq 100, or Dow",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 197,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 29684.246000000003,
+          "status_code": 200,
+          "response_preview": "The provided context does not include specific information on recent equity market performance. However, I can help explain how to analyze equity market performance using available data and general market indicators.\n\nEquity market performance is typically assessed by looking at major stock indices ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is the current state of inflation?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 0,
+      "error_count": 3,
+      "avg_concept_coverage": 0,
+      "avg_grounding_score": 0,
+      "avg_latency_ms": 0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        }
+      ]
+    },
+    {
+      "query": "What is the Fed's latest stance on interest rates?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 50.0,
+      "avg_grounding_score": 20.0,
+      "avg_latency_ms": 565.0,
+      "total_leak_count": 0,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 13,
+          "length_ok": false,
+          "has_disclaimer": false,
+          "pass": false,
+          "latency_ms": 182.07999999999998,
+          "status_code": 422,
+          "response_preview": "{\"detail\":[{\"type\":\"string_pattern_mismatch\",\"loc\":[\"body\",\"query\"],\"msg\":\"String should match pattern '^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]+$'\",\"input\":\"What is the Fed's latest stance on interest rates?\",\"ctx\":{\"pattern\":\"^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]+$\"}}]}",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 15,
+          "length_ok": false,
+          "has_disclaimer": false,
+          "pass": false,
+          "latency_ms": 893.2189999999999,
+          "status_code": 422,
+          "response_preview": "{\"detail\":[{\"type\":\"string_pattern_mismatch\",\"loc\":[\"body\",\"query\"],\"msg\":\"String should match pattern '^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]+$'\",\"input\":\"What is the Fed's latest stance on interest rates? (perspective 2)\",\"ctx\":{\"pattern\":\"^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 15,
+          "length_ok": false,
+          "has_disclaimer": false,
+          "pass": false,
+          "latency_ms": 619.541,
+          "status_code": 422,
+          "response_preview": "{\"detail\":[{\"type\":\"string_pattern_mismatch\",\"loc\":[\"body\",\"query\"],\"msg\":\"String should match pattern '^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]+$'\",\"input\":\"What is the Fed's latest stance on interest rates? (perspective 3)\",\"ctx\":{\"pattern\":\"^[a-zA-Z0-9\\\\s\\\\?\\\\.\\\\,\\\\!\\\\-\\\\+\\\\=\\\\$\\\\%\\\\(\\\\)]",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How are tech stocks performing this year?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 60.0,
+      "avg_latency_ms": 38720.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 209,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 50861.657,
+          "status_code": 200,
+          "response_preview": "Based on the provided context, the performance of tech-related stocks this year varies significantly. Here are some insights into specific companies:\n\n1. **ASML (ASML)**\n   - **Year-to-Date Performance**: 6.71% increase\n   - **Role**: Monopoly on EUV lithography, critical for AI chip production.\n   ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 165,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 26578.168999999998,
+          "status_code": 200,
+          "response_preview": "Based on the provided context, the performance of tech stocks this year can be observed through specific companies mentioned in the AI infrastructure investment report. Here are some highlights:\n\n1. **ASML (ASML)**\n   - **YTD Performance**: 6.71%\n   - ASML is a critical player in the semiconductor i",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What are the most recent economic indicators showing?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 2,
+      "error_count": 1,
+      "avg_concept_coverage": 87.5,
+      "avg_grounding_score": 90.0,
+      "avg_latency_ms": 27776.0,
+      "total_leak_count": 0,
+      "pass_count": 2,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 136,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 35266.479,
+          "status_code": 200,
+          "response_preview": "The context provided does not include specific recent economic indicators. However, it does discuss various macroeconomic themes and risks, such as the threat of a cyclical downturn, supply chain and regulatory hurdles, and the impact of AI adoption. These factors can influence economic indicators l",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 270,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 20286.015,
+          "status_code": 200,
+          "response_preview": "To provide a comprehensive understanding of recent economic indicators, let's consider the broader themes and risks highlighted in the context, even though specific indicators are not directly mentioned:\n\n1. **Macroeconomic Overhang**: This refers to the potential threat of a cyclical downturn. Econ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What happened in markets this quarter?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 1,
+      "error_count": 2,
+      "avg_concept_coverage": 66.7,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 711.0,
+      "total_leak_count": 0,
+      "pass_count": 1,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 319,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 711.387,
+          "status_code": 200,
+          "response_preview": "In the first quarter of 2026, the markets experienced significant shifts as the world transitioned from the \"Cognitive Era\" of AI, characterized by software scalability, to the \"Kinetic Era,\" where physical infrastructure became the limiting factor for AI development. This transition was catalyzed b",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Are there any recent changes to SEC regulations affecting investors?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 1,
+      "error_count": 2,
+      "avg_concept_coverage": 75.0,
+      "avg_grounding_score": 20.0,
+      "avg_latency_ms": 46527.0,
+      "total_leak_count": 0,
+      "pass_count": 1,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 107,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 46526.502,
+          "status_code": 200,
+          "response_preview": "The provided context does not include specific information about recent changes to SEC regulations affecting investors. Therefore, I cannot provide details on this topic based on the available documents.\n\nFor updates on SEC regulations, I recommend checking the official SEC website or consulting wit",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        }
+      ]
+    },
+    {
+      "query": "What is the current outlook for bond markets?",
+      "category": "temporal",
+      "num_trials": 3,
+      "valid_trials": 1,
+      "error_count": 2,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 28600.0,
+      "total_leak_count": 0,
+      "pass_count": 1,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "pass": false,
+          "error": "HTTP 503",
+          "is_error": true,
+          "error_type": "ServerError",
+          "status_code": 503
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 192,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 28600.455,
+          "status_code": 200,
+          "response_preview": "The current outlook for bond markets is influenced by several factors, including interest rates, inflation expectations, and economic growth. As of early 2026, bond markets are navigating a complex environment shaped by these dynamics. Central banks' monetary policies, particularly interest rate dec",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What mortgage rate can I get with a 720 credit score?",
+      "category": "boundary",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 33.3,
+      "avg_grounding_score": 20.0,
+      "avg_latency_ms": 6770.0,
+      "total_leak_count": 10,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 33.3,
+          "non_investment_leaks": [
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "credit score, such as reducing credit card utilization, ensuring timely bill payments, and avoiding new credit inquiries before applying for a mortgage",
+              "",
+              "",
+              "",
+              "for",
+              "mortgage"
+            ]
+          ],
+          "leak_count": 3,
+          "grounding_score": 20,
+          "word_count": 252,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4540.8099999999995,
+          "status_code": 200,
+          "response_preview": "With a credit score of 720, you fall into the \"Good\" category (670-739) according to the FICO score tiers. This means you would qualify for most conventional mortgage programs, but you might face slightly higher interest rates compared to those with \"Very Good\" (740-799) or \"Exceptional\" (800-850) c",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 33.3,
+          "non_investment_leaks": [
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 5,
+          "grounding_score": 20,
+          "word_count": 282,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5294.757,
+          "status_code": 200,
+          "response_preview": "With a credit score of 720, you are in the \"Good\" category (670-739) for FICO scores. Here's what you can generally expect regarding mortgage rates and terms:\n\n1. **Interest Rates**: \n   - You will likely qualify for most conventional mortgage programs.\n   - Your interest rates might be slightly hig",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 33.3,
+          "non_investment_leaks": [
+            [
+              "Down Payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 20,
+          "word_count": 239,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 10474.569000000001,
+          "status_code": 200,
+          "response_preview": "With a credit score of 720, you are in the \"Good\" category (670-739) for mortgage eligibility. Here's what you can generally expect:\n\n1. **Interest Rates**: \n   - You will qualify for most conventional mortgage programs.\n   - Your interest rates might be slightly higher than those offered to borrowe",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How do I file my taxes for capital gains?",
+      "category": "boundary",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 33.3,
+      "avg_latency_ms": 6962.0,
+      "total_leak_count": 7,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "Schedule D",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Form 1040",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 20,
+          "word_count": 352,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5106.484,
+          "status_code": 200,
+          "response_preview": "Filing taxes for capital gains involves several steps, and it's important to understand the distinctions between short-term and long-term capital gains, as they are taxed differently. Here's a general guide to help you understand the process:\n\n1. **Determine the Type of Capital Gain**:\n   - **Short-",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "Schedule D",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Form 1040",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 20,
+          "word_count": 335,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5432.638,
+          "status_code": 200,
+          "response_preview": "Filing taxes for capital gains involves several steps, and it's important to understand the distinctions between different types of gains and how they are taxed. Here's a general guide to help you understand the process:\n\n1. **Determine the Type of Capital Gain**:\n   - **Short-term Capital Gains**: ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "Schedule D",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Schedule D",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Form 1040",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 3,
+          "grounding_score": 60,
+          "word_count": 371,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 10348.145,
+          "status_code": 200,
+          "response_preview": "Filing taxes for capital gains involves several steps, and it's important to understand the distinctions between short-term and long-term capital gains, as they are taxed differently. Here's a general guide to help you navigate the process:\n\n1. **Determine the Type of Capital Gain**:\n   - **Short-te",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What insurance should I get for my rental property?",
+      "category": "boundary",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 7603.0,
+      "total_leak_count": 1,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 274,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 11125.135999999999,
+          "status_code": 200,
+          "response_preview": "When insuring a rental property, it's important to consider specific types of coverage that protect both the property and your financial interests as a landlord. Here are the key types of insurance you should consider:\n\n1. **Landlord Insurance**: This is the primary insurance policy for rental prope",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "insurance coverage",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 100,
+          "word_count": 281,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6290.822,
+          "status_code": 200,
+          "response_preview": "When insuring a rental property, it's important to consider various types of insurance that can protect your investment and mitigate risks. Here are some key types of insurance you should consider:\n\n1. **Landlord Insurance**:\n   - **Property Damage**: Covers damage to the building from events like f",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 297,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5393.596,
+          "status_code": 200,
+          "response_preview": "When insuring a rental property, it's important to consider coverage that protects both the physical asset and your financial interests as a landlord. Here are the key types of insurance you should consider:\n\n1. **Landlord Insurance**: This is the primary type of insurance for rental properties. It ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Can you help me calculate my DTI ratio for a home loan?",
+      "category": "boundary",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 66.7,
+      "avg_grounding_score": 20.0,
+      "avg_latency_ms": 6494.0,
+      "total_leak_count": 3,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "home loan",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 20,
+          "word_count": 270,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 7242.604,
+          "status_code": 200,
+          "response_preview": "Certainly! To calculate your debt-to-income (DTI) ratio for a home loan, you'll need to determine both your front-end and back-end DTI ratios. Here's how you can do it:\n\n1. **Front-end DTI (Housing Ratio):** This includes only your housing costs, such as mortgage principal, interest, property taxes,",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "home loan",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 20,
+          "word_count": 239,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6581.665,
+          "status_code": 200,
+          "response_preview": "Certainly! To calculate your debt-to-income (DTI) ratio for a home loan, you'll need to determine both your front-end and back-end DTI ratios. Here's how you can do it:\n\n1. **Front-End DTI (Housing Ratio):**\n   - This includes only your housing costs: mortgage principal, interest, property taxes, ho",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "home loan",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 20,
+          "word_count": 246,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5657.156,
+          "status_code": 200,
+          "response_preview": "Certainly! To calculate your debt-to-income (DTI) ratio for a home loan, you'll need to determine both your front-end and back-end DTI ratios. Here's how you can do it:\n\n1. **Front-End DTI (Housing Ratio):**\n   - This includes only your housing costs: mortgage principal, interest, property taxes, ho",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What are FHA loan requirements?",
+      "category": "boundary",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 66.7,
+      "avg_grounding_score": 66.7,
+      "avg_latency_ms": 5749.0,
+      "total_leak_count": 9,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "FHA loan",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 3,
+          "grounding_score": 80,
+          "word_count": 194,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4147.494,
+          "status_code": 200,
+          "response_preview": "FHA loans are government-insured mortgages designed to help borrowers who may not qualify for conventional financing. Here are the key requirements for obtaining an FHA loan:\n\n1. **Credit Score**:\n   - Minimum of 580 for a 3.5% down payment.\n   - Scores between 500-579 require a 10% down payment.\n\n2",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "FHA loan",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 4,
+          "grounding_score": 60,
+          "word_count": 185,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 8024.742,
+          "status_code": 200,
+          "response_preview": "FHA loans are government-insured mortgages designed to help borrowers who may not qualify for conventional financing. Here are the key requirements for obtaining an FHA loan:\n\n1. **Credit Score**:\n   - Minimum of 580 for a 3.5% down payment.\n   - Scores between 500-579 require a 10% down payment.\n\n2",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 66.7,
+          "non_investment_leaks": [
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 60,
+          "word_count": 194,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5075.483,
+          "status_code": 200,
+          "response_preview": "FHA loans are government-insured mortgages designed to help borrowers who may not qualify for conventional financing. Here are the key requirements for FHA loans:\n\n1. **Credit Score**:\n   - Minimum of 580 for a 3.5% down payment.\n   - Scores between 500 and 579 require a 10% down payment.\n\n2. **Debt",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Should I refinance my car loan?",
+      "category": "boundary",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 66.7,
+      "avg_grounding_score": 33.3,
+      "avg_latency_ms": 7746.0,
+      "total_leak_count": 3,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [
+            [
+              "down payment",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 40,
+          "word_count": 323,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 9198.582999999999,
+          "status_code": 200,
+          "response_preview": "Refinancing a car loan can be a beneficial financial move under certain circumstances. Here are some factors to consider when deciding whether to refinance your car loan:\n\n1. **Interest Rate Environment**:\n   - If interest rates have decreased since you took out your original car loan, refinancing c",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [
+            [
+              "DTI ratio",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "loan officer",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 20,
+          "word_count": 357,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6868.9400000000005,
+          "status_code": 200,
+          "response_preview": "Refinancing a car loan can be a strategic financial move, but it's important to consider several factors to determine if it's the right choice for you. Here are some key points to consider:\n\n1. **Interest Rate Comparison**:\n   - If current interest rates are lower than your existing car loan rate, r",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 388,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 7169.977,
+          "status_code": 200,
+          "response_preview": "Refinancing a car loan can be a strategic financial move, but it's important to evaluate whether it aligns with your overall financial goals and current situation. Here are some key considerations to help you decide if refinancing your car loan is a good option:\n\n1. **Interest Rate Comparison**:\n   ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How much life insurance do I need?",
+      "category": "boundary",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 6.7,
+      "avg_latency_ms": 10147.0,
+      "total_leak_count": 4,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "insurance coverage",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 0,
+          "word_count": 325,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 13050.909000000001,
+          "status_code": 200,
+          "response_preview": "When determining how much life insurance you need, it's important to consider several key factors that relate to your personal financial situation and goals. Here are some guidelines to help you assess your needs:\n\n1. **Income Replacement**:\n   - A common recommendation is to have life insurance cov",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "Term Life",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 20,
+          "word_count": 321,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6928.553,
+          "status_code": 200,
+          "response_preview": "Determining the right amount of life insurance involves assessing your financial obligations and goals. Here\u2019s a structured approach to help you evaluate your needs:\n\n1. **Income Replacement**:\n   - Consider how many years your dependents would need financial support. A common guideline is to have c",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "insurance coverage",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "term life",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 0,
+          "word_count": 381,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 10462.946,
+          "status_code": 200,
+          "response_preview": "Determining the right amount of life insurance is a crucial part of financial planning, ensuring that your loved ones are financially secure in the event of your passing. Here\u2019s a structured approach to help you assess your life insurance needs:\n\n1. **Income Replacement**:\n   - A common rule of thum",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What tax deductions can I claim for my home office?",
+      "category": "boundary",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 33.3,
+      "avg_latency_ms": 10044.0,
+      "total_leak_count": 1,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 323,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 7674.5,
+          "status_code": 200,
+          "response_preview": "When considering tax deductions for a home office, it's important to ensure you meet the IRS requirements and understand how these deductions can impact your overall financial situation. Here\u2019s a general overview:\n\n### Eligibility for Home Office Deduction\n- **Exclusive and Regular Use**: The space ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "Schedule C",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 40,
+          "word_count": 296,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 9823.259,
+          "status_code": 200,
+          "response_preview": "When considering tax deductions for a home office, it's important to understand the criteria and rules set by the IRS. Here are some key points to consider:\n\n1. **Eligibility**:\n   - The home office must be used exclusively and regularly for business purposes.\n   - It should be the principal place o",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 20,
+          "word_count": 316,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 12634.813,
+          "status_code": 200,
+          "response_preview": "When considering tax deductions for a home office, it's important to understand the criteria and options available. Here\u2019s a general overview to help you get started, but please consult a tax professional for personalized advice:\n\n### Eligibility Criteria\n- **Exclusive Use**: The space must be used ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is a good investment strategy for a 25-year-old?",
+      "category": "edge_cases",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 91.7,
+      "avg_grounding_score": 40.0,
+      "avg_latency_ms": 9880.0,
+      "total_leak_count": 2,
+      "pass_count": 2,
+      "pass_rate": 66.7,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 40,
+          "word_count": 377,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 9257.703,
+          "status_code": 200,
+          "response_preview": "For a 25-year-old, a good investment strategy typically focuses on long-term growth, taking advantage of the time horizon to maximize compound interest. Here are some general guidelines:\n\n1. **Start Early with Retirement Savings**: \n   - Begin contributing to retirement accounts as soon as possible.",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 355,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 11089.584,
+          "status_code": 200,
+          "response_preview": "For a 25-year-old looking to develop a solid investment strategy, it's important to focus on long-term growth and take advantage of the power of compounding. Here are some general guidelines to consider:\n\n1. **Start Early with Retirement Savings**: \n   - Begin contributing to retirement accounts lik",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 349,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 9293.386999999999,
+          "status_code": 200,
+          "response_preview": "For a 25-year-old looking to develop an investment strategy, it's important to focus on long-term growth, taking advantage of the time horizon to maximize the benefits of compound interest. Here are some general guidelines:\n\n1. **Start Early with Retirement Savings**: \n   - Begin contributing to ret",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Should I invest in individual stocks or index funds?",
+      "category": "edge_cases",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 100.0,
+      "avg_grounding_score": 60.0,
+      "avg_latency_ms": 7133.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 306,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6666.358,
+          "status_code": 200,
+          "response_preview": "When deciding between investing in individual stocks or index funds, it's important to consider your investment goals, risk tolerance, and the amount of time you can dedicate to managing your investments.\n\n**Individual Stocks:**\n- **Pros:** \n  - Potential for high returns if you select successful co",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 226,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6809.904,
+          "status_code": 200,
+          "response_preview": "When deciding between investing in individual stocks or index funds, it's important to consider your investment goals, risk tolerance, and the amount of time you can dedicate to managing your investments.\n\n**Individual Stocks:**\n- **Pros:** Potential for high returns if you pick successful companies",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 312,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 7923.346,
+          "status_code": 200,
+          "response_preview": "When deciding between investing in individual stocks or index funds, it's important to consider your investment goals, risk tolerance, and the time you can dedicate to managing your investments.\n\n**Individual Stocks:**\n- **Pros:** Potential for high returns if you pick successful companies. You have",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What happens to my investments during a recession?",
+      "category": "edge_cases",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 83.3,
+      "avg_grounding_score": 13.3,
+      "avg_latency_ms": 8402.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 300,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 7043.795,
+          "status_code": 200,
+          "response_preview": "During a recession, your investments can be impacted in various ways due to increased market volatility and shifts in economic conditions. Here's what you might typically expect:\n\n1. **Equities (Stocks):**\n   - **Decline in Stock Prices:** Corporate earnings may fall, leading to lower stock prices. ",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 75.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 0,
+          "word_count": 259,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 9965.282000000001,
+          "status_code": 200,
+          "response_preview": "During a recession, your investments can experience various impacts due to the overall economic slowdown. Here's what typically happens:\n\n1. **Stock Market Volatility**:\n   - Stock prices often decline as companies face reduced earnings and investor confidence wanes.\n   - Increased volatility is com",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 40,
+          "word_count": 250,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 8197.393,
+          "status_code": 200,
+          "response_preview": "During a recession, your investments can be affected in several ways due to economic slowdown and increased market volatility. Here's what you might expect:\n\n1. **Equities (Stocks):**\n   - **Market Decline:** Stock markets often experience declines as corporate earnings fall and investor confidence ",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How do I start investing with only $500?",
+      "category": "edge_cases",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 50.0,
+      "avg_grounding_score": 66.7,
+      "avg_latency_ms": 16321.0,
+      "total_leak_count": 1,
+      "pass_count": 2,
+      "pass_rate": 66.7,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 80,
+          "word_count": 382,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 33465.51500000001,
+          "status_code": 200,
+          "response_preview": "Starting to invest with $500 is a great way to begin building your financial future. Here are some steps and considerations to help you get started:\n\n1. **Set Clear Goals**: Determine what you are investing for\u2014retirement, a major purchase, or simply to grow your wealth. This will help guide your in",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 367,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 9102.597,
+          "status_code": 200,
+          "response_preview": "Starting to invest with $500 is a great way to begin building your financial future. Here are some steps and considerations to help you get started:\n\n1. **Set Clear Goals**: Determine what you want to achieve with your investment. Are you saving for retirement, a major purchase, or simply looking to",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 1,
+          "grounding_score": 60,
+          "word_count": 322,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 6393.544000000001,
+          "status_code": 200,
+          "response_preview": "Starting to invest with $500 is a great way to begin building your financial future. Here are some steps and considerations to help you get started:\n\n1. **Set Clear Goals**: Determine what you are investing for. Is it retirement, a major purchase, or simply to grow your wealth? Having clear goals wi",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is the difference between a Roth IRA and a traditional IRA?",
+      "category": "edge_cases",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 50.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 9721.0,
+      "total_leak_count": 10,
+      "pass_count": 0,
+      "pass_rate": 0.0,
+      "pass": false,
+      "trials": [
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 4,
+          "grounding_score": 100,
+          "word_count": 268,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 18095.293,
+          "status_code": 200,
+          "response_preview": "A Roth IRA and a traditional IRA are both types of Individual Retirement Accounts that offer tax advantages for retirement savings, but they differ primarily in how and when you pay taxes on your contributions and withdrawals.\n\n1. **Traditional IRA**:\n   - **Contributions**: May be tax-deductible in",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [
+            [
+              "Tax Deduction",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "tax deduction",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 4,
+          "grounding_score": 100,
+          "word_count": 242,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 5606.06,
+          "status_code": 200,
+          "response_preview": "A Roth IRA and a traditional IRA are both types of Individual Retirement Accounts that offer tax advantages for retirement savings, but they differ in how and when you pay taxes on your contributions and withdrawals.\n\n1. **Traditional IRA**:\n   - **Tax Deduction**: Contributions may be tax-deductibl",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 50.0,
+          "non_investment_leaks": [
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "tax bracket",
+              "",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "leak_count": 2,
+          "grounding_score": 100,
+          "word_count": 319,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": false,
+          "latency_ms": 5461.974999999999,
+          "status_code": 200,
+          "response_preview": "A Roth IRA and a traditional IRA are both types of Individual Retirement Accounts that offer tax advantages for retirement savings, but they differ primarily in how and when you pay taxes.\n\n1. **Tax Treatment**:\n   - **Traditional IRA**: Contributions may be tax-deductible, which means they can redu",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "Is it better to pay off debt or invest?",
+      "category": "edge_cases",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 80.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 5736.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 362,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5851.651000000001,
+          "status_code": 200,
+          "response_preview": "Deciding whether to pay off debt or invest is a common financial dilemma, and the best choice depends on several factors, including interest rates, potential investment returns, and personal financial goals. Here\u2019s a structured approach to help you decide:\n\n1. **Interest Rates vs. Investment Returns",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 319,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5015.149,
+          "status_code": 200,
+          "response_preview": "Deciding whether to pay off debt or invest involves evaluating several factors, including interest rates, potential investment returns, and your financial goals. Here's a structured approach to help you make an informed decision:\n\n1. **Interest Rates vs. Investment Returns**:\n   - **High-Interest De",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 369,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 6340.919000000001,
+          "status_code": 200,
+          "response_preview": "Deciding whether to pay off debt or invest involves evaluating several factors, including the interest rates on your debts, potential investment returns, and your personal financial goals. Here's a structured approach to help guide your decision:\n\n1. **Compare Interest Rates and Investment Returns**",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "How much should I have in an emergency fund before investing?",
+      "category": "edge_cases",
+      "num_trials": 3,
+      "valid_trials": 3,
+      "error_count": 0,
+      "avg_concept_coverage": 93.3,
+      "avg_grounding_score": 86.7,
+      "avg_latency_ms": 4390.0,
+      "total_leak_count": 0,
+      "pass_count": 3,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 274,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 5425.861,
+          "status_code": 200,
+          "response_preview": "Before you start investing, it's important to establish an emergency fund that can cover 3-6 months of your essential living expenses. This fund serves as a financial cushion to handle unexpected expenses without needing to rely on debt. Here's how to determine the right amount for your situation:\n\n",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 204,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 4030.9039999999995,
+          "status_code": 200,
+          "response_preview": "To determine how much you should have in an emergency fund before investing, consider the following guidelines based on your personal situation:\n\n1. **Standard Recommendation**: \n   - Aim for 3-6 months of essential living expenses.\n\n2. **Single-Income Households, Self-Employed, or Volatile Industri",
+          "is_error": false
+        },
+        {
+          "concept_coverage": 100.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 60,
+          "word_count": 231,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 3714.504,
+          "status_code": 200,
+          "response_preview": "Before you start investing, it's important to have a fully funded emergency fund. Here's a breakdown of how much you should aim to save, based on your circumstances:\n\n1. **Single-Income Households, Self-Employed, or Volatile Industries:**\n   - Aim for 6-12 months of essential living expenses. This p",
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "query": "What is the impact of fees on long-term investment returns?",
+      "category": "edge_cases",
+      "num_trials": 3,
+      "valid_trials": 1,
+      "error_count": 2,
+      "avg_concept_coverage": 80.0,
+      "avg_grounding_score": 100.0,
+      "avg_latency_ms": 46333.0,
+      "total_leak_count": 0,
+      "pass_count": 1,
+      "pass_rate": 100.0,
+      "pass": true,
+      "trials": [
+        {
+          "concept_coverage": 80.0,
+          "non_investment_leaks": [],
+          "leak_count": 0,
+          "grounding_score": 100,
+          "word_count": 271,
+          "length_ok": true,
+          "has_disclaimer": true,
+          "pass": true,
+          "latency_ms": 46332.692,
+          "status_code": 200,
+          "response_preview": "Fees can have a significant impact on long-term investment returns, often more than investors might initially realize. Here's how they affect your portfolio:\n\n1. **Compounding Effect**: Fees reduce the amount of money that remains invested in your portfolio, which in turn reduces the base amount tha",
+          "is_error": false
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        },
+        {
+          "pass": false,
+          "error": "HTTPSConnectionPool(host='apfa.secureai.dev', port=443): Read timed out. (read timeout=60)",
+          "is_error": true,
+          "error_type": "ReadTimeout"
+        }
+      ]
+    }
+  ]
+}
