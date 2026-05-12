@@ -37,7 +37,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 600s  # 10 min — embedding 1000+ docs on cold start takes time
     restart: unless-stopped
 
   redis:
