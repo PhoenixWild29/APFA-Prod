@@ -266,46 +266,75 @@ def load_rag_index():
                 f"Embedding {stale_count}/{len(df)} documents "
                 f"(cache hit on {len(df) - stale_count})"
             )
-            stale_texts = df.loc[needs_embed, "profile"].tolist()
-            new_embeddings = np.array(list(embedder.embed(stale_texts)), dtype=np.float32)
 
-            # Update only the stale rows — use pd.Series to avoid ndarray shape mismatch
             import pandas as pd
-
-            df.loc[needs_embed, "embedding_vector"] = pd.Series(
-                [vec.tolist() for vec in new_embeddings],
-                index=df.index[needs_embed],
-            )
-            df.loc[needs_embed, "embedding_model"] = settings.embedder_model
-            df.loc[needs_embed, "content_hash"] = current_hashes[needs_embed]
-            df.loc[needs_embed, "embedded_at"] = (
-                datetime.now(timezone.utc).isoformat()
-            )
-
-            # Merge updated rows back by chunk_id — never overwrite the
-            # entire table, which would delete rows from other connectors.
-            # Uses DELTA_SCHEMA for type-safe Arrow conversion.
             from app.connectors.base import get_delta_schema
             from app.services.delta_writer import _df_to_arrow
 
-            update_df = df.loc[needs_embed].copy()
             schema = get_delta_schema()
-            update_table = _df_to_arrow(update_df, schema)
-            dt.merge(
-                source=update_table,
-                predicate="s.chunk_id = t.chunk_id",
-                source_alias="s",
-                target_alias="t",
-            ).when_matched_update(
-                updates={
-                    "embedding_vector": "s.embedding_vector",
-                    "embedding_model": "s.embedding_model",
-                    "content_hash": "s.content_hash",
-                    "embedded_at": "s.embedded_at",
-                }
-            ).execute()
+            stale_indices = df.index[needs_embed]
+
+            # Embed in batches with per-batch DeltaTable write-back.
+            # If Docker kills the container mid-embed, restart picks up
+            # from where it left off (already-merged batches have valid
+            # embeddings and pass the cache check on next load).
+            EMBED_BATCH_SIZE = 100
+            total_batches = (len(stale_indices) + EMBED_BATCH_SIZE - 1) // EMBED_BATCH_SIZE
+
+            for batch_num in range(total_batches):
+                batch_start = batch_num * EMBED_BATCH_SIZE
+                batch_idx = stale_indices[batch_start:batch_start + EMBED_BATCH_SIZE]
+                batch_texts = df.loc[batch_idx, "profile"].tolist()
+
+                logger.info(
+                    f"Embedding batch {batch_num + 1}/{total_batches} "
+                    f"({len(batch_idx)} docs, {batch_start}/{stale_count} done)"
+                )
+
+                batch_embeddings = np.array(
+                    list(embedder.embed(batch_texts)), dtype=np.float32
+                )
+
+                # Update DataFrame for this batch
+                df.loc[batch_idx, "embedding_vector"] = pd.Series(
+                    [vec.tolist() for vec in batch_embeddings],
+                    index=batch_idx,
+                )
+                df.loc[batch_idx, "embedding_model"] = settings.embedder_model
+                df.loc[batch_idx, "content_hash"] = current_hashes[batch_idx]
+                df.loc[batch_idx, "embedded_at"] = (
+                    datetime.now(timezone.utc).isoformat()
+                )
+
+                # Merge THIS BATCH back to DeltaTable immediately.
+                # Uses UPSERT by chunk_id so restarts don't create duplicates.
+                try:
+                    update_df = df.loc[batch_idx].copy()
+                    update_table = _df_to_arrow(update_df, schema)
+                    dt.merge(
+                        source=update_table,
+                        predicate="s.chunk_id = t.chunk_id",
+                        source_alias="s",
+                        target_alias="t",
+                    ).when_matched_update(
+                        updates={
+                            "embedding_vector": "s.embedding_vector",
+                            "embedding_model": "s.embedding_model",
+                            "content_hash": "s.content_hash",
+                            "embedded_at": "s.embedded_at",
+                        }
+                    ).execute()
+                except Exception as merge_err:
+                    logger.warning(
+                        f"Batch {batch_num + 1} DeltaTable merge failed: "
+                        f"{type(merge_err).__name__}: {merge_err}"
+                    )
+                    # Continue — embeddings are in the DataFrame even if
+                    # they didn't persist to DeltaTable. Next restart will
+                    # re-embed this batch but not the already-saved ones.
+
             logger.info(
-                f"Embedding cache merged for {stale_count} rows (by chunk_id)"
+                f"Embedding complete: {stale_count} docs in {total_batches} batches"
             )
         else:
             logger.info("Using cached embeddings from DeltaTable (all rows valid)")
