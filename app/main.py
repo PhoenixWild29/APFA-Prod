@@ -308,30 +308,33 @@ def load_rag_index():
 
                 # Merge THIS BATCH back to DeltaTable immediately.
                 # Uses UPSERT by chunk_id so restarts don't create duplicates.
-                try:
-                    update_df = df.loc[batch_idx].copy()
-                    update_table = _df_to_arrow(update_df, schema)
-                    dt.merge(
-                        source=update_table,
-                        predicate="s.chunk_id = t.chunk_id",
-                        source_alias="s",
-                        target_alias="t",
-                    ).when_matched_update(
-                        updates={
-                            "embedding_vector": "s.embedding_vector",
-                            "embedding_model": "s.embedding_model",
-                            "content_hash": "s.content_hash",
-                            "embedded_at": "s.embedded_at",
-                        }
-                    ).execute()
-                except Exception as merge_err:
-                    logger.warning(
-                        f"Batch {batch_num + 1} DeltaTable merge failed: "
-                        f"{type(merge_err).__name__}: {merge_err}"
-                    )
-                    # Continue — embeddings are in the DataFrame even if
-                    # they didn't persist to DeltaTable. Next restart will
-                    # re-embed this batch but not the already-saved ones.
+                # update_df has ALL columns (full row from df.loc), so
+                # update_all is safe — non-embedding columns round-trip
+                # with their original values.
+                update_df = df.loc[batch_idx].copy()
+                update_table = _df_to_arrow(update_df, schema)
+
+                # Log schema once (first batch) for debugging type mismatches
+                if batch_num == 0:
+                    logger.info(f"Merge source schema: {update_table.schema}")
+                    logger.info(f"DeltaTable target schema: {dt.schema()}")
+
+                # Use when_matched_update_all() instead of column-level
+                # when_matched_update(updates={...}). The column-level form
+                # requires DataFusion SQL expression type casting, which fails
+                # when FixedSizeList<Float32>[384] vs List<Float32> mismatch
+                # occurs in the Delta Log schema. update_all bypasses this by
+                # doing a full-row update from the source DataFrame.
+                dt.merge(
+                    source=update_table,
+                    predicate="s.chunk_id = t.chunk_id",
+                    source_alias="s",
+                    target_alias="t",
+                ).when_matched_update_all().execute()
+
+                logger.info(
+                    f"Batch {batch_num + 1}/{total_batches} merged to DeltaTable"
+                )
 
             logger.info(
                 f"Embedding complete: {stale_count} docs in {total_batches} batches"
