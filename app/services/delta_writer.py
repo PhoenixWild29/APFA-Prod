@@ -390,3 +390,100 @@ def _signal_faiss_rebuild(redis_client=None) -> None:
         logger.debug("FAISS rebuild signal set")
     except Exception as e:
         logger.warning(f"Could not signal FAISS rebuild via Redis: {e}")
+
+
+def migrate_delta_schema(settings) -> bool:
+    """One-time migration: add missing columns to an existing DeltaTable.
+
+    The original seed script created the table with only 8 columns.
+    The full schema (from get_delta_schema()) has 21 columns including
+    embedding_vector, content_hash, embedding_model, etc. Without
+    these columns, embedding cache never persists and every restart
+    re-embeds the entire corpus from scratch.
+
+    Safety:
+    - Only ADDS columns, never removes or alters existing ones
+    - Reads all rows, adds missing columns with null, overwrites
+    - Logs pre/post version and row counts for audit trail
+    - Idempotent: skips if schema already matches
+    - Should run BEFORE load_rag_index() and BEFORE any connector writes
+
+    Returns True if migration ran, False if skipped.
+    """
+    from app.connectors.base import get_delta_schema
+    from app.storage import get_delta_storage_options
+    from deltalake import DeltaTable
+    import deltalake as dl
+
+    storage_opts = get_delta_storage_options()
+
+    try:
+        dt = DeltaTable(settings.delta_table_path, storage_options=storage_opts)
+    except Exception:
+        logger.info("migration.skip: DeltaTable does not exist yet — will be created by seed")
+        return False
+
+    target_schema = get_delta_schema()
+    current_col_names = set(c.name for c in dt.schema().fields)
+    target_col_names = set(f.name for f in target_schema)
+
+    missing = target_col_names - current_col_names
+    extra = current_col_names - target_col_names
+
+    if extra:
+        # Safety: never silently drop columns
+        logger.error(
+            f"migration.abort: DeltaTable has columns not in target schema: {extra}. "
+            "Refusing to migrate — manual intervention required."
+        )
+        return False
+
+    if not missing:
+        logger.info("migration.skip: schema_matches=true")
+        return False
+
+    # Migration needed
+    pre_version = dt.version()
+    df = dt.to_pandas()
+    row_count = len(df)
+
+    logger.info(
+        f"migration.start: pre_version={pre_version} row_count={row_count} "
+        f"current_columns={sorted(current_col_names)} "
+        f"missing_columns={sorted(missing)}"
+    )
+
+    # Add missing columns with null defaults
+    for col_name in missing:
+        df[col_name] = None
+
+    # Convert to Arrow with the full schema
+    arrow_table = _df_to_arrow(df, target_schema)
+
+    logger.info(f"migration.read: rows_read={len(df)}")
+
+    # Overwrite with full schema
+    dl.write_deltalake(
+        settings.delta_table_path,
+        arrow_table,
+        mode="overwrite",
+        storage_options=storage_opts,
+    )
+
+    # Verify
+    dt_new = DeltaTable(settings.delta_table_path, storage_options=storage_opts)
+    post_version = dt_new.version()
+    post_row_count = len(dt_new.to_pandas())
+
+    if post_row_count != row_count:
+        logger.error(
+            f"migration.ERROR: row count changed! pre={row_count} post={post_row_count}. "
+            "Data may have been lost. Check Delta time-travel for recovery."
+        )
+    else:
+        logger.info(
+            f"migration.complete: post_version={post_version} rows={post_row_count} "
+            f"added_columns={sorted(missing)}"
+        )
+
+    return True

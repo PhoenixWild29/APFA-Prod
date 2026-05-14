@@ -139,6 +139,8 @@ services:
       # but the task guard checks the path before attempting to use it).
       - ./credentials:/opt/apfa/credentials:ro
     depends_on:
+      apfa:
+        condition: service_healthy  # wait for migration + RAG index load
       redis:
         condition: service_healthy
       postgres:
