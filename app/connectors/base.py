@@ -185,11 +185,22 @@ class RAGSource(ABC):
         """
         ...
 
-    def sync(self, embedder, settings, redis_client=None, **kwargs) -> dict:
-        """Full sync pipeline: fetch → transform → ingest.
+    # Tunable per subclass — controls how many documents are transformed
+    # and ingested in one batch. Prevents OOM when processing large corpora.
+    # Override in subclasses for different document size profiles.
+    INGEST_BATCH_SIZE = 10
 
-        Returns ingestion stats dict.
+    def sync(self, embedder, settings, redis_client=None, **kwargs) -> dict:
+        """Full sync pipeline: fetch → transform → ingest (batched).
+
+        Processes documents in batches of INGEST_BATCH_SIZE to cap peak
+        memory usage. Each batch is independently transformed, embedded,
+        and written to DeltaTable. If a batch fails, the error is logged
+        and remaining batches continue (partial-success semantics).
+
+        Returns aggregated ingestion stats dict.
         """
+        import gc
         from app.services.delta_writer import ingest_chunks
 
         logger.info(f"Starting {self.source_type} sync")
@@ -197,19 +208,47 @@ class RAGSource(ABC):
         raw_docs = self.fetch(**kwargs)
         logger.info(f"Fetched {len(raw_docs)} raw documents")
 
-        records = self.transform(raw_docs)
-        logger.info(f"Transformed into {len(records)} chunks")
+        total_stats = {"inserted": 0, "skipped": 0, "errors": 0}
+        batch_size = self.INGEST_BATCH_SIZE
+        total_batches = (len(raw_docs) + batch_size - 1) // batch_size
 
-        chunk_dicts = [r.to_dict() for r in records]
-        stats = ingest_chunks(chunk_dicts, embedder, settings, redis_client)
+        for batch_num in range(total_batches):
+            batch_start = batch_num * batch_size
+            batch_docs = raw_docs[batch_start:batch_start + batch_size]
+
+            try:
+                records = self.transform(batch_docs)
+                chunk_dicts = [r.to_dict() for r in records]
+
+                logger.info(
+                    f"Batch {batch_num + 1}/{total_batches}: "
+                    f"{len(batch_docs)} docs → {len(chunk_dicts)} chunks"
+                )
+
+                stats = ingest_chunks(chunk_dicts, embedder, settings, redis_client)
+                total_stats["inserted"] += stats["inserted"]
+                total_stats["skipped"] += stats["skipped"]
+                total_stats["errors"] += stats["errors"]
+
+            except Exception as e:
+                logger.error(
+                    f"Batch {batch_num + 1}/{total_batches} failed: "
+                    f"{type(e).__name__}: {e}"
+                )
+                total_stats["errors"] += len(batch_docs)
+                # Continue with remaining batches — don't abort the whole sync
+
+            # Release batch memory before next iteration
+            del batch_docs
+            gc.collect()
 
         logger.info(
             f"{self.source_type} sync complete: "
-            f"inserted={stats['inserted']}, "
-            f"skipped={stats['skipped']}, "
-            f"errors={stats['errors']}"
+            f"inserted={total_stats['inserted']}, "
+            f"skipped={total_stats['skipped']}, "
+            f"errors={total_stats['errors']}"
         )
-        return stats
+        return total_stats
 
 
 @dataclass

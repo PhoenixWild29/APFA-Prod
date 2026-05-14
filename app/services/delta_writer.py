@@ -127,7 +127,10 @@ def ingest_chunks(
     schema = get_delta_schema()
     stats = {"inserted": 0, "skipped": 0, "errors": 0}
 
-    # Load existing content hashes for dedup
+    # Load existing content hashes for dedup — column-pruned read.
+    # Only read content_hash and external_id columns, not the full table
+    # (which includes embedding vectors, text, metadata — 100MB+ at scale).
+    # Uses PyArrow directly for true column projection (not late-projection).
     existing_hashes: set[str] = set()
     existing_external_ids: set[str] = set()
     table_exists = False
@@ -135,14 +138,24 @@ def ingest_chunks(
         from deltalake import DeltaTable
 
         dt = DeltaTable(settings.delta_table_path, storage_options=storage_opts)
-        existing_df = dt.to_pandas()
         table_exists = True
-        if "content_hash" in existing_df.columns:
-            existing_hashes = set(existing_df["content_hash"].dropna().tolist())
-        if "external_id" in existing_df.columns:
-            existing_external_ids = set(
-                existing_df["external_id"].dropna().tolist()
-            )
+        # Column-pruned read via PyArrow — only touches the Parquet columns needed
+        dedup_cols = []
+        dt_col_names = [f.name for f in dt.schema().fields]
+        if "content_hash" in dt_col_names:
+            dedup_cols.append("content_hash")
+        if "external_id" in dt_col_names:
+            dedup_cols.append("external_id")
+        if dedup_cols:
+            dedup_table = dt.to_pyarrow_table(columns=dedup_cols)
+            if "content_hash" in dedup_cols:
+                existing_hashes = set(
+                    v for v in dedup_table["content_hash"].to_pylist() if v is not None
+                )
+            if "external_id" in dedup_cols:
+                existing_external_ids = set(
+                    v for v in dedup_table["external_id"].to_pylist() if v is not None
+                )
     except Exception:
         pass
 
@@ -168,10 +181,18 @@ def ingest_chunks(
         )
         return stats
 
-    # Embed the new chunks
+    # Embed the new chunks in batches to cap ONNX peak memory.
+    # Without batching, ONNX allocates one large activation tensor for all
+    # chunks — 1500 chunks can spike to 400MB+ of working memory.
+    EMBED_BATCH_SIZE = 64
     texts = [c["text"] for c in new_chunks]
     try:
-        embeddings = np.array(list(embedder.embed(texts)), dtype=np.float32)
+        all_embeddings = []
+        for batch_start in range(0, len(texts), EMBED_BATCH_SIZE):
+            batch = texts[batch_start:batch_start + EMBED_BATCH_SIZE]
+            batch_emb = np.array(list(embedder.embed(batch)), dtype=np.float32)
+            all_embeddings.append(batch_emb)
+        embeddings = np.concatenate(all_embeddings, axis=0) if all_embeddings else np.array([], dtype=np.float32)
     except Exception as e:
         logger.error(f"Embedding failed: {e}")
         stats["errors"] = len(new_chunks)
