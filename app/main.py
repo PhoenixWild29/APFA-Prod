@@ -319,12 +319,12 @@ def load_rag_index():
                     logger.info(f"Merge source schema: {update_table.schema}")
                     logger.info(f"DeltaTable target schema: {dt.schema()}")
 
-                # Use when_matched_update_all() instead of column-level
-                # when_matched_update(updates={...}). The column-level form
-                # requires DataFusion SQL expression type casting, which fails
-                # when FixedSizeList<Float32>[384] vs List<Float32> mismatch
-                # occurs in the Delta Log schema. update_all bypasses this by
-                # doing a full-row update from the source DataFrame.
+                # FOOTGUN WARNING: when_matched_update_all() silently drops
+                # columns that don't exist in the TARGET DeltaTable schema.
+                # If you add a column to get_delta_schema(), run
+                # migrate_delta_schema() first to add it to the target table.
+                # Without migration, the merge "succeeds" but new columns
+                # are silently discarded.
                 dt.merge(
                     source=update_table,
                     predicate="s.chunk_id = t.chunk_id",
@@ -6328,7 +6328,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"RAG seed failed (non-fatal): {e}")
 
-    # Load RAG index (after seed ensures data exists)
+    # Migrate DeltaTable schema if needed (adds missing embedding columns).
+    # Must run BEFORE load_rag_index() and BEFORE any connector writes.
+    # One-time: subsequent boots skip if schema already matches.
+    try:
+        from app.services.delta_writer import migrate_delta_schema
+        if migrate_delta_schema(settings):
+            logger.info("DeltaTable schema migration completed")
+    except Exception as e:
+        logger.warning(f"DeltaTable schema migration failed (non-fatal): {e}")
+
+    # Load RAG index (after seed + migration ensure data/schema exists)
     global rag_df, faiss_index
     try:
         rag_df, faiss_index = load_rag_index()
