@@ -96,7 +96,7 @@ jobs:
             git fetch origin main
             echo "Target SHA: $(git rev-parse origin/main)"
             git reset --hard origin/main
-            git clean -fdx -e '.env' -e '.env.production' -e 'node_modules'
+            git clean -fdx -e '.env' -e '.env.production' -e 'node_modules' -e 'credentials'
 
             if [ "$FRONTEND" = "true" ]; then
               echo "Rebuilding frontend..."
