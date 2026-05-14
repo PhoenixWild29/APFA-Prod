@@ -106,7 +106,12 @@ services:
   # --- Data Pipeline Workers ---
   celery-worker:
     build: .
-    command: celery -A app.tasks worker --loglevel=info --concurrency=2 --max-memory-per-child=500000
+    # concurrency=1: ingest tasks are CPU+memory heavy (embedding). No benefit
+    # from parallelism at 6h sync intervals. Prevents two embedding tasks
+    # competing for memory.
+    # max-memory-per-child=1500000: 1.5GB in KB (Celery convention). Embedder
+    # model (130MB) + ONNX inference (300-400MB) + DataFrames needs headroom.
+    command: celery -A app.tasks worker --loglevel=info --concurrency=1 --max-memory-per-child=1500000
     env_file:
       - path: .env
         required: false
