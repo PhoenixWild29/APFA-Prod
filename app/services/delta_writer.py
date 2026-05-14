@@ -462,11 +462,14 @@ def migrate_delta_schema(settings) -> bool:
 
     logger.info(f"migration.read: rows_read={len(df)}")
 
-    # Overwrite with full schema
+    # Overwrite with full schema. schema_mode="overwrite" is required
+    # because the target table has fewer columns than the source —
+    # without it, Delta refuses to write ("number of fields does not match").
     dl.write_deltalake(
         settings.delta_table_path,
         arrow_table,
         mode="overwrite",
+        schema_mode="overwrite",
         storage_options=storage_opts,
     )
 
