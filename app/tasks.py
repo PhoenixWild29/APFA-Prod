@@ -318,6 +318,40 @@ def ingest_youtube_task(
 
 
 # ---------------------------------------------------------------------------
+# Perplexity research connector task
+# ---------------------------------------------------------------------------
+
+
+@celery_app.task(name="run_perplexity_research")
+def run_perplexity_research_task(agenda_override: List[dict] = None):
+    """Run the Perplexity research agenda and ingest results into RAG corpus.
+
+    Each research question produces a sourced brief that gets chunked,
+    embedded, and written to DeltaTable. Content is filtered for
+    investment relevance before ingestion.
+    """
+    if not settings.perplexity_api_key:
+        return {"status": "error", "detail": "Perplexity API key not configured"}
+
+    from app.connectors.perplexity_connector import PerplexityResearchConnector
+
+    connector = PerplexityResearchConnector(
+        api_key=settings.perplexity_api_key,
+        model=settings.perplexity_model,
+        dry_run=settings.perplexity_dry_run,
+    )
+    embedder = _get_embedder()
+    redis_client = _get_redis()
+
+    return connector.sync(
+        embedder=embedder,
+        settings=settings,
+        redis_client=redis_client,
+        agenda=agenda_override,
+    )
+
+
+# ---------------------------------------------------------------------------
 # FAISS index management
 # ---------------------------------------------------------------------------
 
@@ -460,6 +494,15 @@ def setup_periodic_tasks(sender, **kwargs):
                 folder_ids=settings.google_drive_folder_ids,
             ),
             name="google-drive-sync",
+        )
+
+    # Perplexity research: daily at 5 AM UTC
+    # Runs the research agenda, produces sourced briefs, ingests into RAG.
+    if settings.perplexity_api_key:
+        sender.add_periodic_task(
+            crontab(hour=5, minute=0),
+            run_perplexity_research_task.s(),
+            name="perplexity-daily-research",
         )
 
 

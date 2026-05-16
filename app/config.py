@@ -102,6 +102,13 @@ class Settings(BaseSettings):
     finnhub_api_key: str = ""
     finnhub_default_tickers: List[str] = ["SPY", "QQQ", "DIA", "TLT"]
 
+    # Perplexity research connector
+    # Get API key from https://perplexity.ai/settings/api
+    # Add to .env: PERPLEXITY_API_KEY=pplx-xxxxxxxx
+    perplexity_api_key: str = ""
+    perplexity_model: str = "sonar-pro"  # or "sonar" for cheaper
+    perplexity_dry_run: bool = True  # True = log only, don't write to corpus. Flip to False after verifying output.
+
     # YouTube transcript connector
     youtube_transcript_clean: bool = True  # LLM-clean auto-captions
 
