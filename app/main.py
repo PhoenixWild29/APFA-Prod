@@ -376,7 +376,7 @@ rag_df, faiss_index = None, None
 
 
 # Tools (MCP-compatible)
-def retrieve_context(query: str) -> str:
+def retrieve_context(query: str) -> tuple[str, float]:
     """RAG retrieval for financial research documents with freshness weighting.
 
     Retrieves top-k candidates by cosine similarity, then re-ranks using
@@ -455,10 +455,13 @@ def retrieve_context(query: str) -> str:
                 )
             )
 
-        return "\n".join(text for _, _, _, _, text in top_k)
+        context = "\n".join(text for _, _, _, _, text in top_k)
+        avg_confidence = sum(score for _, score, _, _, _ in top_k) / len(top_k) if top_k else 0.0
+
+        return context, avg_confidence
     except Exception as e:
         logger.error(f"RAG retrieval error: {e}")
-        return "Error retrieving financial data."
+        return "Error retrieving financial data.", 0.0
 
 
 def simulate_risk(input_data: str) -> str:
@@ -537,9 +540,15 @@ def get_economic_indicator(indicator: str) -> str:
         return f"Error retrieving indicator {indicator}."
 
 
+def _retrieve_context_text_only(query: str) -> str:
+    """Wrapper for Tool registration — returns context text only (no confidence score)."""
+    context, _ = retrieve_context(query)
+    return context
+
+
 tools = [
     Tool.from_function(
-        func=retrieve_context,
+        func=_retrieve_context_text_only,
         name="retrieve_context",
         description="RAG retrieval for financial research, market data, and investment documents.",
     ),
@@ -579,24 +588,140 @@ import typing
 from typing import Any, Dict, List
 
 
-class AgentState(typing.TypedDict):
+class AgentState(typing.TypedDict, total=False):
     messages: typing.List[Any]
     query: str
+    retrieval_confidence: float  # avg FAISS cosine score from retriever
+    perplexity_context: str  # live web context from Perplexity (Phase 3)
 
 
 @trace.get_tracer(__name__).start_as_current_span("Retriever Agent")
 def retriever_agent(state):
     """Retrieve relevant financial context via RAG/FAISS."""
     query = state["query"]
-    context = retrieve_context(query)
+    context, confidence = retrieve_context(query)
 
     augmented_content = (
         f"Based on the following context, answer the user's question.\n\n"
-        f"Context:\n{context}\n\n"
+        f"[CURATED] Context from research corpus:\n{context}\n\n"
         f"User question: {query}"
     )
 
-    return {"messages": [HumanMessage(content=augmented_content)]}
+    return {
+        "messages": [HumanMessage(content=augmented_content)],
+        "query": state["query"],
+        "retrieval_confidence": confidence,
+    }
+
+
+import threading
+from cachetools import TTLCache
+
+# Thread-safe TTL cache for Perplexity real-time responses.
+# Prevents redundant API calls for similar queries within 5 minutes.
+_perplexity_rt_cache = TTLCache(maxsize=100, ttl=300)
+_perplexity_rt_lock = threading.Lock()
+
+
+def perplexity_researcher(state):
+    """Conditionally augment retrieval with live Perplexity data.
+
+    Only fires when:
+    1. PERPLEXITY_REALTIME_ENABLED=true
+    2. FAISS confidence is below threshold (corpus doesn't answer well)
+    3. Perplexity API key is configured
+
+    Falls back to FAISS-only on timeout, error, or content filter rejection.
+    """
+    # Check feature flag
+    if not settings.perplexity_realtime_enabled or not settings.perplexity_api_key:
+        return state
+
+    confidence = state.get("retrieval_confidence", 1.0)
+    threshold = settings.perplexity_confidence_threshold
+
+    if confidence >= threshold:
+        logger.info(
+            f"perplexity_rt: skipped (confidence={confidence:.3f} >= threshold={threshold})"
+        )
+        return state
+
+    query = state.get("query", "")
+    cache_key = hashlib.sha256(query.encode()).hexdigest()[:16]
+
+    # Check cache (thread-safe)
+    with _perplexity_rt_lock:
+        cached = _perplexity_rt_cache.get(cache_key)
+    if cached is not None:
+        logger.info(f"perplexity_rt: cache_hit for '{query[:40]}...'")
+        state["perplexity_context"] = cached
+        return state
+
+    # Call Perplexity with timeout
+    try:
+        from app.services.perplexity_client import PerplexityClient
+        from app.connectors.perplexity_connector import _passes_content_filter
+
+        client = PerplexityClient(
+            api_key=settings.perplexity_api_key,
+            model=settings.perplexity_model,
+        )
+
+        # Override timeout on the underlying httpx client
+        import httpx
+        client.client.timeout = httpx.Timeout(settings.perplexity_realtime_timeout)
+
+        result = client.research(
+            query=query,
+            system_prompt=(
+                "Provide current, factual financial data and market information. "
+                "Focus on investment-relevant facts. Cite your sources. "
+                "Do NOT provide investment advice."
+            ),
+        )
+
+        content = result["content"]
+
+        # Content filter — prevent non-investment content from entering context
+        passes, filter_hits = _passes_content_filter(content)
+        if not passes:
+            logger.warning(
+                f"perplexity_rt: content_filtered query='{query[:40]}' hits={filter_hits[:3]}"
+            )
+            return state
+
+        # Cache the result (thread-safe)
+        with _perplexity_rt_lock:
+            _perplexity_rt_cache[cache_key] = content
+
+        state["perplexity_context"] = content
+
+        # Append live context to messages for the analyzer
+        citations = result.get("citations", [])
+        citation_str = ", ".join(citations[:5]) if citations else "web sources"
+        live_context = (
+            f"\n\n[LIVE] Real-time data from web sources ({citation_str}):\n"
+            f"{content}"
+        )
+        state["messages"] = state.get("messages", []) + [
+            HumanMessage(content=live_context)
+        ]
+
+        logger.info(
+            f"perplexity_rt: augmented query='{query[:40]}' "
+            f"confidence={confidence:.3f} "
+            f"chars={len(content)} "
+            f"citations={len(citations)} "
+            f"latency={result['latency_ms']}ms"
+        )
+
+    except Exception as e:
+        # Fallback to FAISS-only — Perplexity failure is never fatal
+        logger.warning(
+            f"perplexity_rt: fallback (FAISS-only) error={type(e).__name__}: {e}"
+        )
+
+    return state
 
 
 @trace.get_tracer(__name__).start_as_current_span("Analyzer Agent")
@@ -688,10 +813,12 @@ def orchestrator_agent(state):
 
 graph = StateGraph(AgentState)
 graph.add_node("retriever", retriever_agent)
+graph.add_node("perplexity", perplexity_researcher)  # Phase 3: real-time augmentation
 graph.add_node("analyzer", analyzer_agent)
 graph.add_node("orchestrator", orchestrator_agent)
 graph.add_edge(START, "retriever")
-graph.add_edge("retriever", "analyzer")
+graph.add_edge("retriever", "perplexity")  # sequential: check FAISS confidence first
+graph.add_edge("perplexity", "analyzer")
 graph.add_edge("analyzer", "orchestrator")
 graph.add_edge("orchestrator", END)
 app_graph = graph.compile()
@@ -4211,11 +4338,11 @@ async def test_retriever_agent(request: RetrieverTestRequest):
     try:
         # Perform retrieval
         search_start = time.time()
-        retrieved_docs = retrieve_context(request.query_text)
+        retrieved_docs, retrieval_confidence = retrieve_context(request.query_text)
         search_duration = (time.time() - search_start) * 1000
 
-        # Calculate relevance scores (mock for testing)
-        relevance_scores = [0.92, 0.88, 0.85, 0.82, 0.78][: len(retrieved_docs)]
+        # Calculate relevance scores
+        relevance_scores = [retrieval_confidence] if retrieval_confidence else [0.0]
         avg_relevance = (
             sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
         )

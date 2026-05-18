@@ -109,6 +109,11 @@ class Settings(BaseSettings):
     perplexity_model: str = "sonar-pro"  # or "sonar" for cheaper
     perplexity_dry_run: bool = True  # True = log only, don't write to corpus. Flip to False after verifying output.
 
+    # Perplexity real-time augmentation (Phase 3)
+    perplexity_realtime_enabled: bool = False  # Enable live Perplexity queries at advisor request time
+    perplexity_confidence_threshold: float = 0.65  # FAISS avg cosine above this = skip Perplexity
+    perplexity_realtime_timeout: float = 5.0  # seconds — fallback to FAISS-only if slower
+
     # YouTube transcript connector
     youtube_transcript_clean: bool = True  # LLM-clean auto-captions
 
