@@ -202,6 +202,7 @@ class PerplexityResearchConnector(RAGSource):
                 # Store citation URLs at chunk level for provenance
                 citation_urls = doc.get("citations", [])
 
+                import json as _json
                 records.append(NormalizedRecord(
                     external_id=f"perplexity:{query_hash}:{date_str}:{chunk_idx}",
                     source_type="perplexity_research",
@@ -214,13 +215,12 @@ class PerplexityResearchConnector(RAGSource):
                     content_kind="research_brief",
                     text=chunk_text,
                     ttl_hours=doc.get("ttl_hours", 48),
-                    structured_data={},
-                    attribution={
+                    metadata_json=_json.dumps({
                         "query": doc["query"],
                         "citations": citation_urls,
                         "category": doc["category"],
                         "source": "perplexity_api",
-                    },
+                    }),
                 ))
                 total_chunks += 1
 
