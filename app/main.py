@@ -387,7 +387,7 @@ def retrieve_context(query: str) -> tuple[str, float]:
       - archive/static: 1095 days (3 years — regulations, evergreen content)
     """
     if faiss_index is None or rag_df is None:
-        return "RAG index not available — no data has been ingested yet."
+        return "RAG index not available — no data has been ingested yet.", 0.0
     try:
         query_emb = _as_faiss_array(
             np.array(list(embedder.embed([query])), dtype=np.float32)
@@ -600,6 +600,11 @@ def retriever_agent(state):
     """Retrieve relevant financial context via RAG/FAISS."""
     query = state["query"]
     context, confidence = retrieve_context(query)
+
+    logger.info(
+        f"retriever_agent: query='{query[:50]}' confidence={confidence:.4f} "
+        f"threshold={settings.perplexity_confidence_threshold}"
+    )
 
     augmented_content = (
         f"Based on the following context, answer the user's question.\n\n"

@@ -111,7 +111,7 @@ class Settings(BaseSettings):
 
     # Perplexity real-time augmentation (Phase 3)
     perplexity_realtime_enabled: bool = False  # Enable live Perplexity queries at advisor request time
-    perplexity_confidence_threshold: float = 0.65  # FAISS avg cosine above this = skip Perplexity
+    perplexity_confidence_threshold: float = 0.85  # FAISS avg cosine above this = skip Perplexity. 0.85 = very confident, most queries trigger Perplexity for freshness.
     perplexity_realtime_timeout: float = 5.0  # seconds — fallback to FAISS-only if slower
 
     # YouTube transcript connector
