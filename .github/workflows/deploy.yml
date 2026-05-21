@@ -42,7 +42,11 @@ jobs:
       - name: Detect changed file types
         id: diff
         run: |
-          git diff --name-only HEAD~1 HEAD 2>/dev/null > /tmp/changed.txt || git show --name-only --format="" HEAD > /tmp/changed.txt
+          # Robust changed-file detection for both normal commits and merge commits.
+          # `git diff-tree` works correctly for merge commits (lists files from both parents).
+          git diff-tree --no-commit-id --name-only -r HEAD > /tmp/changed.txt 2>/dev/null || \
+            git diff --name-only HEAD~1 HEAD > /tmp/changed.txt 2>/dev/null || \
+            git show --name-only --format="" HEAD > /tmp/changed.txt
           echo "Changed files:"
           cat /tmp/changed.txt
 
