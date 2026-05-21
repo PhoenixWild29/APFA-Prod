@@ -37,14 +37,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Detect changed file types
         id: diff
         run: |
           # Robust changed-file detection for both normal commits and merge commits.
-          # `git diff-tree` works correctly for merge commits (lists files from both parents).
-          git diff-tree --no-commit-id --name-only -r HEAD > /tmp/changed.txt 2>/dev/null || \
+          # `git diff HEAD^..HEAD` reliably captures PR changes merged into main.
+          # fetch-depth: 0 ensures all parents are available in shallow CI clone.
+          git diff --name-only HEAD^..HEAD > /tmp/changed.txt 2>/dev/null || \
             git diff --name-only HEAD~1 HEAD > /tmp/changed.txt 2>/dev/null || \
             git show --name-only --format="" HEAD > /tmp/changed.txt
           echo "Changed files:"
