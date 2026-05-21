@@ -601,10 +601,13 @@ def retriever_agent(state):
     query = state["query"]
     context, confidence = retrieve_context(query)
 
-    logger.info(
-        f"retriever_agent: query='{query[:50]}' confidence={confidence:.4f} "
-        f"threshold={settings.perplexity_confidence_threshold}"
-    )
+    logger.info(json.dumps({
+        "event": "retriever_agent",
+        "query": query[:120],
+        "confidence": round(confidence, 4),
+        "threshold": settings.perplexity_confidence_threshold,
+        "perplexity_called": confidence < settings.perplexity_confidence_threshold,
+    }))
 
     augmented_content = (
         f"Based on the following context, answer the user's question.\n\n"
