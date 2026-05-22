@@ -3,7 +3,7 @@ langchain-core==1.2.19
 # langchain-huggingface removed — local HuggingFace LLM replaced with
 # OpenAI API via langchain-openai. sentence-transformers (embedder) is
 # replaced by fastembed (ONNX backend, no torch dependency).
-langchain-openai>=0.3.0
+langchain-openai>=1.2.2
 # langgraph 1.1.2 was broken — its internal tool_node.py imports ExecutionInfo
 # and ServerInfo from langgraph.runtime, but runtime.py in 1.1.2 does not define
 # those symbols. Confirmed via wheel inspection: they exist in 1.1.6's runtime.py.
