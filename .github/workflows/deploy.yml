@@ -51,20 +51,35 @@ jobs:
           echo "Changed files:"
           cat /tmp/changed.txt
 
-          if grep -qE '^(src|public)/|package(-lock)?\\.json$|^Dockerfile\\.frontend$|^vite\\.config\\.ts$|^tailwind\\.config\\.js$|^\\.prettierrc\\.cjs$|^\\.eslintrc\\.cjs$|^postcss\\.config\\.js$|^index\\.html$' /tmp/changed.txt; then
-            echo "frontend=true" >> $GITHUB_OUTPUT
-          else
-            echo "frontend=false" >> $GITHUB_OUTPUT
+          FE_PATTERN='^(src|public)/|package(-lock)?\.json$|^Dockerfile\.frontend$|^vite\.config\.ts$|^tailwind\.config\.js$|^\.prettierrc\.cjs$|^\.eslintrc\.cjs$|^postcss\.config\.js$|^index\.html$|^tsconfig(\..*)?\.json$|^\.env\.production$'
+          BE_PATTERN='^app/|^requirements\.txt$|^Dockerfile$|^docker-compose\.yml$|^nginx\.conf$|^entrypoint\.sh$|^migrations/'
+          IGNORE_PATTERN='^README|^docs/|^\.github/|^LICENSE$|\.md$|^CHANGELOG|^monitoring/|^tests/'
+
+          FRONTEND_DETECTED=false
+          if grep -qE "$FE_PATTERN" /tmp/changed.txt; then
+            FRONTEND_DETECTED=true
           fi
 
-          if grep -qE '^app/|^requirements\\.txt$|^Dockerfile$|^docker-compose\\.yml$|^nginx\\.conf$' /tmp/changed.txt; then
-            echo "backend=true" >> $GITHUB_OUTPUT
-          else
-            echo "backend=false" >> $GITHUB_OUTPUT
+          BACKEND_DETECTED=false
+          if grep -qE "$BE_PATTERN" /tmp/changed.txt; then
+            BACKEND_DETECTED=true
           fi
 
           MIGRATION=$(grep -E '^migrations/' /tmp/changed.txt | head -1 || true)
           echo "migration_file=$MIGRATION" >> $GITHUB_OUTPUT
+
+          if [ "$FRONTEND_DETECTED" = "false" ] && [ "$BACKEND_DETECTED" = "false" ]; then
+            UNRECOGNIZED=$(grep -vE "$IGNORE_PATTERN" /tmp/changed.txt | grep -vE "$FE_PATTERN|$BE_PATTERN" || true)
+            if [ -n "$UNRECOGNIZED" ]; then
+              echo "WARNING: unrecognized files changed — rebuilding both as safety fallback:"
+              echo "$UNRECOGNIZED"
+              FRONTEND_DETECTED=true
+              BACKEND_DETECTED=true
+            fi
+          fi
+
+          echo "frontend=$FRONTEND_DETECTED" >> $GITHUB_OUTPUT
+          echo "backend=$BACKEND_DETECTED" >> $GITHUB_OUTPUT
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -81,6 +96,9 @@ jobs:
           script: |
             set -e
             cd /opt/apfa-prod
+
+            echo "========== Deploy detection =========="
+            echo "FRONTEND=$FRONTEND  BACKEND=$BACKEND  MIGRATION=$MIGRATION"
 
             # Log pre-deploy state for rollback and audit trail
             echo "Pre-deploy SHA: $(git rev-parse HEAD)"
@@ -113,10 +131,8 @@ jobs:
             fi
 
             if [ "$BACKEND" = "true" ]; then
-              echo "Rebuilding backend container..."
-              docker compose up -d --build apfa
-              # Alembic migrations now run automatically via entrypoint.sh
-              # before uvicorn starts — no separate exec needed.
+              echo "Rebuilding backend containers..."
+              docker compose up -d --build apfa celery-worker celery-beat
             fi
 
             if [ -n "$MIGRATION" ]; then
@@ -129,7 +145,6 @@ jobs:
       # directly, proving the container is alive and responding.
       # TODO: Replace with https://apfa.secureai.dev/health after DNS + SSL (APFA-014)
       - name: Health check
-        if: steps.diff.outputs.backend == 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DROPLET_IP }}
@@ -161,12 +176,18 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FRONTEND: ${{ steps.diff.outputs.frontend }}
+          BACKEND: ${{ steps.diff.outputs.backend }}
           MIGRATION: ${{ steps.diff.outputs.migration_file }}
         run: |
+          REBUILT=""
+          [ "$FRONTEND" = "true" ] && REBUILT="${REBUILT}frontend "
+          [ "$BACKEND" = "true" ] && REBUILT="${REBUILT}backend "
+          [ -z "$REBUILT" ] && REBUILT="none "
           if [ -n "$MIGRATION" ]; then
-            MSG="💰 APFA-Prod Auto-deploy complete - health check passed. *Migration needed:* $MIGRATION - run manually on Droplet."
+            MSG="💰 APFA-Prod deploy complete — rebuilt: ${REBUILT}— health check passed. *Migration needed:* $MIGRATION"
           else
-            MSG="💰 APFA-Prod Auto-deploy complete - health check passed. Sprint deployed successfully."
+            MSG="💰 APFA-Prod deploy complete — rebuilt: ${REBUILT}— health check passed."
           fi
           curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
