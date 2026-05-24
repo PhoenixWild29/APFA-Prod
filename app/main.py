@@ -601,12 +601,17 @@ def retriever_agent(state):
     query = state["query"]
     context, confidence = retrieve_context(query)
 
+    below_threshold = confidence < settings.perplexity_confidence_threshold
+    api_key_present = bool(settings.perplexity_api_key)
     logger.info(json.dumps({
         "event": "retriever_agent",
         "query": query[:120],
         "confidence": round(confidence, 4),
         "threshold": settings.perplexity_confidence_threshold,
-        "perplexity_called": confidence < settings.perplexity_confidence_threshold,
+        "below_threshold": below_threshold,
+        "realtime_enabled": settings.perplexity_realtime_enabled,
+        "api_key_present": api_key_present,
+        "perplexity_eligible": below_threshold and settings.perplexity_realtime_enabled and api_key_present,
     }))
 
     augmented_content = (
@@ -641,31 +646,37 @@ def perplexity_researcher(state):
 
     Falls back to FAISS-only on timeout, error, or content filter rejection.
     """
-    # Check feature flag
-    if not settings.perplexity_realtime_enabled or not settings.perplexity_api_key:
-        return state
-
+    query = state.get("query", "")
     confidence = state.get("retrieval_confidence", 1.0)
     threshold = settings.perplexity_confidence_threshold
 
-    if confidence >= threshold:
-        logger.info(
-            f"perplexity_rt: skipped (confidence={confidence:.3f} >= threshold={threshold})"
-        )
+    def _log_outcome(outcome, **extra):
+        logger.info(json.dumps({
+            "event": "perplexity_researcher",
+            "outcome": outcome,
+            "query": query[:120],
+            "confidence": round(confidence, 4),
+            "threshold": threshold,
+            **extra,
+        }))
+
+    if not settings.perplexity_realtime_enabled or not settings.perplexity_api_key:
+        _log_outcome("skipped_disabled")
         return state
 
-    query = state.get("query", "")
+    if confidence >= threshold:
+        _log_outcome("skipped_threshold")
+        return state
+
     cache_key = hashlib.sha256(query.encode()).hexdigest()[:16]
 
-    # Check cache (thread-safe)
     with _perplexity_rt_lock:
         cached = _perplexity_rt_cache.get(cache_key)
     if cached is not None:
-        logger.info(f"perplexity_rt: cache_hit for '{query[:40]}...'")
+        _log_outcome("cache_hit")
         state["perplexity_context"] = cached
         return state
 
-    # Call Perplexity with timeout
     try:
         from app.services.perplexity_client import PerplexityClient
         from app.connectors.perplexity_connector import _passes_content_filter
@@ -675,7 +686,6 @@ def perplexity_researcher(state):
             model=settings.perplexity_model,
         )
 
-        # Override timeout on the underlying httpx client
         import httpx
         client.client.timeout = httpx.Timeout(settings.perplexity_realtime_timeout)
 
@@ -690,21 +700,16 @@ def perplexity_researcher(state):
 
         content = result["content"]
 
-        # Content filter — prevent non-investment content from entering context
         passes, filter_hits = _passes_content_filter(content)
         if not passes:
-            logger.warning(
-                f"perplexity_rt: content_filtered query='{query[:40]}' hits={filter_hits[:3]}"
-            )
+            _log_outcome("content_filtered", filter_hits=filter_hits[:3])
             return state
 
-        # Cache the result (thread-safe)
         with _perplexity_rt_lock:
             _perplexity_rt_cache[cache_key] = content
 
         state["perplexity_context"] = content
 
-        # Append live context to messages for the analyzer
         citations = result.get("citations", [])
         citation_str = ", ".join(citations[:5]) if citations else "web sources"
         live_context = (
@@ -715,19 +720,13 @@ def perplexity_researcher(state):
             HumanMessage(content=live_context)
         ]
 
-        logger.info(
-            f"perplexity_rt: augmented query='{query[:40]}' "
-            f"confidence={confidence:.3f} "
-            f"chars={len(content)} "
-            f"citations={len(citations)} "
-            f"latency={result['latency_ms']}ms"
-        )
+        _log_outcome("augmented",
+                     chars=len(content),
+                     citations=len(citations),
+                     latency_ms=result["latency_ms"])
 
     except Exception as e:
-        # Fallback to FAISS-only — Perplexity failure is never fatal
-        logger.warning(
-            f"perplexity_rt: fallback (FAISS-only) error={type(e).__name__}: {e}"
-        )
+        _log_outcome("error", error=f"{type(e).__name__}: {e}")
 
     return state
 
