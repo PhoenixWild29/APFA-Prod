@@ -602,7 +602,7 @@ def retriever_agent(state):
     context, confidence = retrieve_context(query)
 
     below_threshold = confidence < settings.perplexity_confidence_threshold
-    api_key_present = bool(settings.perplexity_api_key)
+    has_credentials = len(settings.perplexity_api_key) > 0
     logger.info(json.dumps({
         "event": "retriever_agent",
         "query": query[:120],
@@ -610,8 +610,8 @@ def retriever_agent(state):
         "threshold": settings.perplexity_confidence_threshold,
         "below_threshold": below_threshold,
         "realtime_enabled": settings.perplexity_realtime_enabled,
-        "api_key_present": api_key_present,
-        "perplexity_eligible": below_threshold and settings.perplexity_realtime_enabled and api_key_present,
+        "has_credentials": has_credentials,
+        "perplexity_eligible": below_threshold and settings.perplexity_realtime_enabled and has_credentials,
     }))
 
     augmented_content = (
