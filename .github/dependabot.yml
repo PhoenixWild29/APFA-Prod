@@ -5,6 +5,11 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
       # langchain + langgraph must be upgraded together (coordinated stack)
       - dependency-name: "langchain"
@@ -23,6 +28,11 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
       # ESLint 9+ requires flat config migration — separate task, not a bump
       - dependency-name: "eslint"
