@@ -14,9 +14,19 @@ updates:
       - dependency-name: "opentelemetry-api"
       - dependency-name: "opentelemetry-sdk"
       - dependency-name: "opentelemetry-exporter-otlp"
+      # langchain-openai 1.x breaks imports against pinned stack — needs dedicated upgrade sprint
+      - dependency-name: "langchain-openai"
+        versions: [">=1.0.0"]
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # ESLint 9+ requires flat config migration — separate task, not a bump
+      - dependency-name: "eslint"
+        versions: [">=9.0.0"]
+      # Vite 8 is unvalidated major build tool upgrade — defer to dedicated session
+      - dependency-name: "vite"
+        versions: [">=8.0.0"]
