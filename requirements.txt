@@ -62,7 +62,7 @@ alembic>=1.13
 # --- Data Pipeline Connectors ---
 # Google Drive: service account auth + Drive API
 google-api-python-client>=2.196.0
-google-auth>=2.23.0
+google-auth>=2.53.0
 google-auth-oauthlib>=1.4.0
 # Document extraction (PDFs, DOCX)
 pypdf>=6.12.1
