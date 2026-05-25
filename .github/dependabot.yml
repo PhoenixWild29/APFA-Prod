@@ -12,16 +12,12 @@ updates:
           - "patch"
     ignore:
       # langchain + langgraph must be upgraded together (coordinated stack)
-      - dependency-name: "langchain"
-      - dependency-name: "langchain-core"
-      - dependency-name: "langgraph"
-      - dependency-name: "langchain-huggingface"
-      - dependency-name: "opentelemetry-api"
-      - dependency-name: "opentelemetry-sdk"
-      - dependency-name: "opentelemetry-exporter-otlp"
-      # langchain-openai 1.x breaks imports against pinned stack — needs dedicated upgrade sprint
-      - dependency-name: "langchain-openai"
-        versions: [">=1.0.0"]
+      # Wildcard covers all siblings: langchain-core, langchain-huggingface, langchain-openai, etc.
+      - dependency-name: "langchain*"
+      # langgraph ecosystem: langgraph, langgraph-prebuilt, langgraph-checkpoint, langgraph-sdk
+      - dependency-name: "langgraph*"
+      # OpenTelemetry packages are pinned together
+      - dependency-name: "opentelemetry-*"
 
   - package-ecosystem: "npm"
     directory: "/"
@@ -37,6 +33,15 @@ updates:
       # ESLint 9+ requires flat config migration — separate task, not a bump
       - dependency-name: "eslint"
         versions: [">=9.0.0"]
+      # eslint-plugin-react-refresh 0.5+ requires eslint 9+ peer — blocked until eslint migration
+      - dependency-name: "eslint-plugin-react-refresh"
+        versions: [">=0.5.0"]
       # Vite 8 is unvalidated major build tool upgrade — defer to dedicated session
       - dependency-name: "vite"
         versions: [">=8.0.0"]
+      # Jest 30 requires test config migration — dedicated session
+      - dependency-name: "jest"
+        versions: [">=30.0.0"]
+      # tailwind-merge 3.x changes merge strategy — needs visual verification, not automated bump
+      - dependency-name: "tailwind-merge"
+        versions: [">=3.0.0"]
