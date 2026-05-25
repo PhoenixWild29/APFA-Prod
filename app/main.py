@@ -895,7 +895,7 @@ class LoanQuery(BaseModel):
         ...,
         min_length=5,
         max_length=500,
-        pattern=r"^[a-zA-Z0-9\s\?\.\,\!\-\+\=\$\%\(\)]+$",
+        pattern=r"^[a-zA-Z0-9\s\?\.\,\!\-\+\=\$\%\(\)&'/:\"#]+$",
     )
 
     @field_validator("query")
@@ -936,6 +936,9 @@ class LoanQuery(BaseModel):
         # Sanitize HTML/script content
         if re.search(r"<[^>]+>", v):
             raise ValueError("HTML content not allowed")
+
+        if re.search(r"(javascript|vbscript)\s*:", v, re.IGNORECASE):
+            raise ValueError("Script content not allowed")
 
         # Check for excessive repetition
         words = v.lower().split()
