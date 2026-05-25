@@ -5,6 +5,7 @@ Production-ready Agentic Personalized Financial Advisor (APFA) backend
 """
 
 import asyncio
+import hashlib
 import logging
 import math
 import os
@@ -223,8 +224,6 @@ def load_rag_index():
         # Per-row embedding cache: only re-embed rows where content changed
         # or embedding is missing. Uses merge by chunk_id to avoid overwriting
         # rows added by data pipeline connectors.
-        import hashlib as _hl
-
         # Ensure embedding columns exist
         for col, default in [
             ("embedding_vector", None),
@@ -237,7 +236,7 @@ def load_rag_index():
 
         # Compute current content hashes
         current_hashes = df["profile"].apply(
-            lambda p: _hl.sha256(p.encode()).hexdigest()
+            lambda p: hashlib.sha256(p.encode()).hexdigest()
         )
 
         # Identify rows needing (re-)embedding: missing vector, model changed,
@@ -3054,8 +3053,6 @@ async def list_knowledge_base_documents(
     # Each row in rag_df is a chunk; group by filename to get documents.
     deduped = []
     if rag_df is not None:
-        import hashlib as _hl
-
         fname_col = "filename" if "filename" in rag_df.columns else "source_url" if "source_url" in rag_df.columns else None
         if fname_col:
             grouped = rag_df.groupby(fname_col).agg(
@@ -3066,8 +3063,7 @@ async def list_knowledge_base_documents(
 
             for _, row in grouped.iterrows():
                 fname = str(row[fname_col])
-                # Stable document ID derived from filename hash (survives reindex)
-                doc_id = _hl.sha1(fname.encode()).hexdigest()[:12]
+                doc_id = hashlib.sha1(fname.encode()).hexdigest()[:12]
                 deduped.append({
                     "document_id": doc_id,
                     "filename": fname,
