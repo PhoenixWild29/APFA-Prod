@@ -929,7 +929,7 @@ class LoanQuery(BaseModel):
         for amount in amounts:
             try:
                 num_amount = float(amount.replace(",", ""))
-                if num_amount <= 0 or num_amount > 10000000:  # Reasonable loan limits
+                if num_amount < 0 or num_amount > 10000000:  # Reasonable loan limits
                     raise ValueError(f"Invalid amount: ${amount}")
             except ValueError:
                 raise ValueError(f"Invalid amount format: ${amount}")
