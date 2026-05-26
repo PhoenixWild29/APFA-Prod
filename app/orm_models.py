@@ -2,13 +2,12 @@
 
 These are the database-backed models. Pydantic models in app/models/ remain as
 request/response schemas — they are not replaced by these.
-
-APFA-013 scope: only the User model. Other in-memory stores (audit_trail_db,
-request_status_db, reindex_operations, embeddings_cache) stay in-memory and
-will be migrated in future sprints.
 """
+import uuid
+
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Float,
@@ -21,6 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.database import Base
 
@@ -226,4 +226,55 @@ class RefreshToken(Base):
     __table_args__ = (
         Index("idx_refresh_tokens_family", "family_id"),
         Index("idx_refresh_tokens_user", "user_id"),
+    )
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title = Column(String(200), nullable=False, default="New conversation")
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_conversations_user_id", "user_id"),
+        Index("idx_conversations_updated", "user_id", updated_at.desc()),
+    )
+
+
+class ConversationMessage(Base):
+    __tablename__ = "conversation_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role = Column(String(10), nullable=False)
+    content = Column(Text, nullable=False)
+    sources = Column(JSONB, nullable=True)
+    follow_ups = Column(JSONB, nullable=True)
+    feedback = Column(String(4), nullable=True)
+    seq = Column(Integer, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'assistant')", name="ck_message_role"),
+        CheckConstraint(
+            "feedback IS NULL OR feedback IN ('up', 'down')",
+            name="ck_message_feedback",
+        ),
+        Index("idx_messages_conversation_seq", "conversation_id", "seq"),
     )

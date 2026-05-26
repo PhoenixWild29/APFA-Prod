@@ -1,36 +1,23 @@
-/**
- * Conversation Store — session messages + transient streaming state.
- *
- * Messages persist in Zustand for the browser session (survives
- * Dashboard→Advisor navigation, lost on page refresh). When the
- * /conversations backend ships, this store becomes the in-memory
- * cache layer with React Query on top for persistence.
- *
- * Streaming state (content, sources, follow-ups) is transient:
- * populated while a response streams in, cleared on commit.
- */
 import { create } from 'zustand';
 import type { Message, Source } from '@/types/conversation';
 
 interface ConversationStoreState {
-  // Committed messages (session-only, survives navigation)
+  activeConversationId: string | null;
   messages: Message[];
 
-  // Current streaming state
   isStreaming: boolean;
   streamingContent: string;
   streamingSources: Source[];
   streamingFollowUps: string[];
   abortController: AbortController | null;
 
-  // Draft (what the user is typing)
   draft: string;
 
-  // Message actions
+  setActiveConversation: (id: string | null) => void;
+  hydrateMessages: (messages: Message[]) => void;
   addMessage: (msg: Message) => void;
   clearMessages: () => void;
 
-  // Streaming actions
   startStream: () => AbortController;
   appendChunk: (chunk: string) => void;
   setSources: (sources: Source[]) => void;
@@ -41,6 +28,7 @@ interface ConversationStoreState {
 }
 
 export const useConversationStore = create<ConversationStoreState>()((set, get) => ({
+  activeConversationId: null,
   messages: [],
   isStreaming: false,
   streamingContent: '',
@@ -49,12 +37,20 @@ export const useConversationStore = create<ConversationStoreState>()((set, get) 
   abortController: null,
   draft: '',
 
+  setActiveConversation: (id) => {
+    set({ activeConversationId: id, messages: [], draft: '' });
+  },
+
+  hydrateMessages: (messages) => {
+    set({ messages });
+  },
+
   addMessage: (msg) => {
     set((s) => ({ messages: [...s.messages, msg] }));
   },
 
   clearMessages: () => {
-    set({ messages: [] });
+    set({ messages: [], activeConversationId: null });
   },
 
   startStream: () => {

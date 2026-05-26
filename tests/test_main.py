@@ -109,3 +109,62 @@ def test_query_validator_rejects_script_uris():
     assert re.search(script_pattern, "JAVASCRIPT : alert(1)", re.IGNORECASE)
     assert re.search(script_pattern, "vbscript:msgbox", re.IGNORECASE)
     assert not re.search(script_pattern, "What is the S&P 500?", re.IGNORECASE)
+
+
+# --- Conversation schema validation tests ---
+
+
+def test_conversation_create_schema():
+    from pydantic import ValidationError
+
+    from app.models.conversations import ConversationCreate
+
+    valid = ConversationCreate(title="My portfolio review")
+    assert valid.title == "My portfolio review"
+
+    valid_none = ConversationCreate()
+    assert valid_none.title is None
+
+    try:
+        ConversationCreate(title="x" * 201)
+        assert False, "Should reject title > 200 chars"
+    except ValidationError:
+        pass
+
+
+def test_conversation_update_rejects_empty():
+    from pydantic import ValidationError
+
+    from app.models.conversations import ConversationUpdate
+
+    valid = ConversationUpdate(title="Renamed")
+    assert valid.title == "Renamed"
+
+    try:
+        ConversationUpdate(title="")
+        assert False, "Should reject empty title"
+    except ValidationError:
+        pass
+
+    try:
+        ConversationUpdate(title="x" * 201)
+        assert False, "Should reject title > 200 chars"
+    except ValidationError:
+        pass
+
+
+def test_message_feedback_schema():
+    from pydantic import ValidationError
+
+    from app.models.conversations import MessageFeedback
+
+    assert MessageFeedback(feedback="up").feedback == "up"
+    assert MessageFeedback(feedback="down").feedback == "down"
+    assert MessageFeedback(feedback=None).feedback is None
+    assert MessageFeedback().feedback is None
+
+    try:
+        MessageFeedback(feedback="invalid")
+        assert False, "Should reject invalid feedback"
+    except ValidationError:
+        pass

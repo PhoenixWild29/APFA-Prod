@@ -1,17 +1,24 @@
-import { useCallback } from 'react';
-import apiClient from '@/api/apiClient';
+import { useCallback, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useConversationStore } from '@/store/conversationStore';
 import { useAdvisorStream } from './hooks/useAdvisorStream';
+import { useConversation, useCreateConversation } from '@/hooks/useConversations';
+import { setMessageFeedback } from '@/api/conversationApi';
 import ThreadView from './components/ThreadView';
 import Composer from './components/Composer';
-
-// Conversation sidebar + URL-based routing are intentionally disabled until
-// the backend ships GET/POST/DELETE /conversations. Messages live in Zustand
-// (session-only, lost on page refresh). When persistence ships, restore the
-// conversation query, URL params, and sidebar together.
+import ConversationSidebar from './components/ConversationSidebar';
 
 export default function AdvisorPage() {
-  const { draft, setDraft, messages } = useConversationStore();
+  const { conversationId } = useParams<{ conversationId?: string }>();
+  const navigate = useNavigate();
+  const {
+    activeConversationId,
+    draft,
+    setDraft,
+    messages,
+    setActiveConversation,
+    hydrateMessages,
+  } = useConversationStore();
   const {
     sendMessage,
     isStreaming,
@@ -21,31 +28,57 @@ export default function AdvisorPage() {
     abortStream,
   } = useAdvisorStream();
 
-  const handleSend = useCallback(() => {
+  const createMutation = useCreateConversation();
+  const { data: conversationDetail } = useConversation(activeConversationId);
+
+  useEffect(() => {
+    if (conversationId && conversationId !== activeConversationId) {
+      setActiveConversation(conversationId);
+    }
+  }, [conversationId, activeConversationId, setActiveConversation]);
+
+  useEffect(() => {
+    if (conversationDetail?.messages) {
+      hydrateMessages(conversationDetail.messages);
+    }
+  }, [conversationDetail, hydrateMessages]);
+
+  const ensureConversation = useCallback(async (): Promise<string> => {
+    if (activeConversationId) return activeConversationId;
+    const conv = await createMutation.mutateAsync();
+    setActiveConversation(conv.id);
+    navigate(`/app/advisor/${conv.id}`, { replace: true });
+    return conv.id;
+  }, [activeConversationId, createMutation, setActiveConversation, navigate]);
+
+  const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || isStreaming) return;
     setDraft('');
-    sendMessage({ query: text });
-  }, [draft, isStreaming, setDraft, sendMessage]);
+    const convId = await ensureConversation();
+    sendMessage({ query: text, conversationId: convId });
+  }, [draft, isStreaming, setDraft, ensureConversation, sendMessage]);
 
   const handleFollowUp = useCallback(
-    (prompt: string) => {
+    async (prompt: string) => {
       if (isStreaming) return;
       setDraft('');
-      sendMessage({ query: prompt });
+      const convId = await ensureConversation();
+      sendMessage({ query: prompt, conversationId: convId });
     },
-    [isStreaming, setDraft, sendMessage]
+    [isStreaming, setDraft, ensureConversation, sendMessage]
   );
 
   const handleFeedback = useCallback(
     async (messageId: string, type: 'up' | 'down') => {
+      if (!activeConversationId) return;
       try {
-        await apiClient.post(`/messages/${messageId}/feedback`, { type });
+        await setMessageFeedback(activeConversationId, messageId, type);
       } catch {
-        // Feedback endpoint may not exist yet — silently skip
+        // Non-critical — don't disrupt the user
       }
     },
-    []
+    [activeConversationId]
   );
 
   const handleRegenerate = useCallback(() => {
@@ -61,7 +94,8 @@ export default function AdvisorPage() {
 
   return (
     <div className="flex h-full">
-      {/* Center: thread + composer */}
+      <ConversationSidebar />
+
       <div className="flex flex-1 flex-col">
         <ThreadView
           messages={messages}

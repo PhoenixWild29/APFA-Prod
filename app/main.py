@@ -95,6 +95,15 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal, get_db
 from app.orm_models import User
 
+from app.models.conversations import (
+    ConversationCreate,
+    ConversationDetail,
+    ConversationSummary,
+    ConversationUpdate,
+    MessageFeedback,
+)
+from app.services import conversation_service
+
 
 # APFA-013 log injection protection (CWE-117):
 # All logger calls that interpolate user-controlled values MUST apply the
@@ -896,6 +905,9 @@ class LoanQuery(BaseModel):
         min_length=5,
         max_length=500,
         pattern=r"^[a-zA-Z0-9\s\?\.\,\!\-\+\=\$\%\(\)&'/:\"#]+$",
+    )
+    conversation_id: Optional[str] = Field(
+        None, description="Conversation to append this exchange to"
     )
 
     @field_validator("query")
@@ -6297,6 +6309,21 @@ async def generate_advice(
         REQUEST_COUNT.labels(
             method="POST", endpoint="/generate-advice", status="200"
         ).inc()
+
+        if q.conversation_id:
+            try:
+                conversation_service.append_messages(
+                    conversation_id=q.conversation_id,
+                    user_id=current_user["user_id"],
+                    user_content=q.query,
+                    assistant_content=advice,
+                    db=db,
+                )
+            except Exception as persist_err:
+                logger.warning(
+                    f"Conversation persistence failed: {type(persist_err).__name__}"
+                )
+
         return optimized_response
 
     except RAGError as e:
@@ -6359,6 +6386,128 @@ async def generate_advice(
         )
     finally:
         ACTIVE_REQUESTS.dec()
+
+
+# ---------------------------------------------------------------------------
+# Conversation persistence endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/conversations", response_model=list[ConversationSummary])
+@limiter.limit("60/minute", key_func=_get_user_or_ip)
+async def list_conversations(
+    request: Request,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return conversation_service.list_conversations(
+        user_id=current_user["user_id"], db=db, limit=min(limit, 100), offset=offset
+    )
+
+
+@app.post("/conversations", response_model=ConversationSummary, status_code=201)
+@limiter.limit("60/minute", key_func=_get_user_or_ip)
+async def create_conversation(
+    request: Request,
+    body: ConversationCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conv = conversation_service.create_conversation(
+        user_id=current_user["user_id"], db=db, title=body.title
+    )
+    return {
+        "id": str(conv.id),
+        "title": conv.title,
+        "created_at": conv.created_at,
+        "updated_at": conv.updated_at,
+        "message_count": 0,
+        "preview": None,
+    }
+
+
+@app.get("/conversations/{conversation_id}", response_model=ConversationDetail)
+@limiter.limit("60/minute", key_func=_get_user_or_ip)
+async def get_conversation(
+    request: Request,
+    conversation_id: str,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return conversation_service.get_conversation_detail(
+        conversation_id=conversation_id,
+        user_id=current_user["user_id"],
+        db=db,
+        limit=min(limit, 200),
+        offset=offset,
+    )
+
+
+@app.patch("/conversations/{conversation_id}", response_model=ConversationSummary)
+@limiter.limit("60/minute", key_func=_get_user_or_ip)
+async def update_conversation(
+    request: Request,
+    conversation_id: str,
+    body: ConversationUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conv = conversation_service.update_conversation_title(
+        conversation_id=conversation_id,
+        user_id=current_user["user_id"],
+        title=body.title,
+        db=db,
+    )
+    return {
+        "id": str(conv.id),
+        "title": conv.title,
+        "created_at": conv.created_at,
+        "updated_at": conv.updated_at,
+        "message_count": 0,
+        "preview": None,
+    }
+
+
+@app.delete("/conversations/{conversation_id}", status_code=204)
+@limiter.limit("60/minute", key_func=_get_user_or_ip)
+async def delete_conversation(
+    request: Request,
+    conversation_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conversation_service.delete_conversation(
+        conversation_id=conversation_id,
+        user_id=current_user["user_id"],
+        db=db,
+    )
+
+
+@app.put(
+    "/conversations/{conversation_id}/messages/{message_id}/feedback",
+    status_code=200,
+)
+@limiter.limit("60/minute", key_func=_get_user_or_ip)
+async def set_message_feedback(
+    request: Request,
+    conversation_id: str,
+    message_id: str,
+    body: MessageFeedback,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    msg = conversation_service.update_message_feedback(
+        conversation_id=conversation_id,
+        message_id=message_id,
+        user_id=current_user["user_id"],
+        feedback=body.feedback,
+        db=db,
+    )
+    return {"id": str(msg.id), "feedback": msg.feedback}
 
 
 @asynccontextmanager

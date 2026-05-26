@@ -12,6 +12,7 @@ export interface Message {
   content: string;
   sources?: Source[];
   follow_ups?: string[];
+  seq?: number;
   created_at: string;
   feedback?: 'up' | 'down' | null;
   is_partial?: boolean;
@@ -28,4 +29,5 @@ export interface Conversation {
 
 export interface ConversationDetail extends Conversation {
   messages: Message[];
+  total_messages: number;
 }

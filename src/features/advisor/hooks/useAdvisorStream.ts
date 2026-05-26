@@ -1,17 +1,3 @@
-/**
- * Advisor request hook for /generate-advice.
- *
- * Sends a single axios POST and progressively reveals the response
- * word-by-word for a streaming feel. When the backend ships real SSE,
- * this hook can be extended with fetchEventSource against the actual
- * event contract.
- *
- * Messages are committed to the Zustand conversationStore (session-only).
- *
- * Note: the backend LoanQuery model accepts only `query: str` — no
- * conversation_id or message history. Each request is stateless.
- * TODO: Add conversation_id threading when backend supports it.
- */
 import { useCallback } from 'react';
 import axios from 'axios';
 import { useConversationStore } from '@/store/conversationStore';
@@ -21,6 +7,7 @@ import apiClient from '@/api/apiClient';
 
 interface SendMessageOptions {
   query: string;
+  conversationId?: string;
 }
 
 /**
@@ -109,6 +96,7 @@ function buildFriendlyErrorMessage(err: unknown): string {
 
 export function useAdvisorStream() {
   const {
+    activeConversationId,
     isStreaming,
     streamingContent,
     streamingSources,
@@ -122,13 +110,13 @@ export function useAdvisorStream() {
   } = useConversationStore();
 
   const sendMessage = useCallback(
-    async ({ query }: SendMessageOptions) => {
+    async ({ query, conversationId }: SendMessageOptions) => {
       const token = getAccessToken();
       if (!token) return;
 
+      const convId = conversationId ?? activeConversationId;
       const controller = startStream();
 
-      // Add user message to store immediately (optimistic)
       addMessage({
         id: `user-${Date.now()}`,
         role: 'user',
@@ -137,9 +125,14 @@ export function useAdvisorStream() {
       });
 
       try {
+        const body: Record<string, unknown> = { query };
+        if (convId) {
+          body.conversation_id = convId;
+        }
+
         const response = await apiClient.post(
           '/generate-advice',
-          { query },
+          body,
           { signal: controller.signal }
         );
 
@@ -193,7 +186,7 @@ export function useAdvisorStream() {
         }
       }
     },
-    [startStream, appendChunk, setSources, endStream, addMessage]
+    [activeConversationId, startStream, appendChunk, setSources, endStream, addMessage]
   );
 
   return {
