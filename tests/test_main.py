@@ -168,3 +168,172 @@ def test_message_feedback_schema():
         assert False, "Should reject invalid feedback"
     except ValidationError:
         pass
+
+
+# --- Amount validator tests ---
+
+
+def test_amount_validator_accepts_zero():
+    """$0 in queries like 'How do I get to $0 debt?' must not be rejected."""
+    import re
+
+    amount_pattern = r"\$?(\d+(?:,\d{3})*(?:\.\d{2})?)"
+    query = "How do I get to $0 debt?"
+    amounts = re.findall(amount_pattern, query)
+    for amount in amounts:
+        num_amount = float(amount.replace(",", ""))
+        assert num_amount >= 0, f"$0 should be allowed, got rejection for {amount}"
+        assert num_amount <= 10000000
+
+
+def test_amount_validator_rejects_negative_context():
+    """Negative amounts should still be caught (if the regex ever captures them)."""
+    import re
+
+    amount_pattern = r"\$?(\d+(?:,\d{3})*(?:\.\d{2})?)"
+    query = "I owe $50,000 on my mortgage"
+    amounts = re.findall(amount_pattern, query)
+    assert len(amounts) > 0
+    for amount in amounts:
+        num_amount = float(amount.replace(",", ""))
+        assert num_amount >= 0
+        assert num_amount <= 10000000
+
+
+# --- Perplexity researcher unit tests ---
+
+
+def test_perplexity_skips_when_disabled():
+    """perplexity_researcher must skip when PERPLEXITY_REALTIME_ENABLED=false."""
+    from unittest.mock import patch
+
+    state = {"query": "What is the S&P 500?", "retrieval_confidence": 0.5}
+
+    with patch("app.main.settings") as mock_settings:
+        mock_settings.perplexity_realtime_enabled = False
+        mock_settings.perplexity_api_key = "pplx-test"
+        mock_settings.perplexity_confidence_threshold = 0.85
+
+        from app.main import perplexity_researcher
+
+        result = perplexity_researcher(state.copy())
+        assert "perplexity_context" not in result
+
+
+def test_perplexity_skips_high_confidence():
+    """perplexity_researcher must skip when FAISS confidence exceeds threshold."""
+    from unittest.mock import patch
+
+    state = {"query": "What is a bond?", "retrieval_confidence": 0.95}
+
+    with patch("app.main.settings") as mock_settings:
+        mock_settings.perplexity_realtime_enabled = True
+        mock_settings.perplexity_api_key = "pplx-test"
+        mock_settings.perplexity_confidence_threshold = 0.85
+
+        from app.main import perplexity_researcher
+
+        result = perplexity_researcher(state.copy())
+        assert "perplexity_context" not in result
+
+
+def test_perplexity_augments_low_confidence():
+    """perplexity_researcher must augment state when confidence is low."""
+    from unittest.mock import MagicMock, patch
+
+    state = {
+        "query": "What are current Treasury yields?",
+        "retrieval_confidence": 0.5,
+        "messages": [],
+    }
+
+    mock_client_instance = MagicMock()
+    mock_client_instance.research.return_value = {
+        "content": "Current 10-year Treasury yield is 4.25%.",
+        "citations": ["https://treasury.gov"],
+        "model": "sonar-pro",
+        "query": "What are current Treasury yields?",
+        "tokens": {"prompt": 50, "completion": 30},
+        "latency_ms": 450,
+    }
+
+    with patch("app.main.settings") as mock_settings, \
+         patch("app.services.perplexity_client.PerplexityClient", return_value=mock_client_instance), \
+         patch("app.main._perplexity_rt_cache", {}), \
+         patch("app.connectors.perplexity_connector._passes_content_filter", return_value=(True, [])):
+        mock_settings.perplexity_realtime_enabled = True
+        mock_settings.perplexity_api_key = "pplx-test"
+        mock_settings.perplexity_confidence_threshold = 0.85
+        mock_settings.perplexity_model = "sonar-pro"
+        mock_settings.perplexity_realtime_timeout = 10
+
+        from app.main import perplexity_researcher
+
+        result = perplexity_researcher(state.copy())
+        assert "perplexity_context" in result
+        assert "Treasury" in result["perplexity_context"]
+
+
+def test_perplexity_handles_api_error_gracefully():
+    """perplexity_researcher must return state unchanged on API error."""
+    from unittest.mock import MagicMock, patch
+
+    state = {
+        "query": "What are current rates?",
+        "retrieval_confidence": 0.5,
+        "messages": [],
+    }
+
+    mock_client_instance = MagicMock()
+    mock_client_instance.research.side_effect = Exception("API timeout")
+
+    with patch("app.main.settings") as mock_settings, \
+         patch("app.services.perplexity_client.PerplexityClient", return_value=mock_client_instance), \
+         patch("app.main._perplexity_rt_cache", {}):
+        mock_settings.perplexity_realtime_enabled = True
+        mock_settings.perplexity_api_key = "pplx-test"
+        mock_settings.perplexity_confidence_threshold = 0.85
+        mock_settings.perplexity_model = "sonar-pro"
+        mock_settings.perplexity_realtime_timeout = 10
+
+        from app.main import perplexity_researcher
+
+        result = perplexity_researcher(state.copy())
+        assert "perplexity_context" not in result
+
+
+def test_perplexity_content_filter_rejection():
+    """perplexity_researcher must skip when content filter rejects response."""
+    from unittest.mock import MagicMock, patch
+
+    state = {
+        "query": "Test query",
+        "retrieval_confidence": 0.5,
+        "messages": [],
+    }
+
+    mock_client_instance = MagicMock()
+    mock_client_instance.research.return_value = {
+        "content": "Filtered content",
+        "citations": [],
+        "model": "sonar-pro",
+        "query": "Test query",
+        "tokens": {"prompt": 10, "completion": 10},
+        "latency_ms": 200,
+    }
+
+    with patch("app.main.settings") as mock_settings, \
+         patch("app.services.perplexity_client.PerplexityClient", return_value=mock_client_instance), \
+         patch("app.main._perplexity_rt_cache", {}), \
+         patch("app.connectors.perplexity_connector._passes_content_filter", return_value=(False, ["promo"])):
+        mock_settings.perplexity_realtime_enabled = True
+        mock_settings.perplexity_api_key = "pplx-test"
+        mock_settings.perplexity_confidence_threshold = 0.85
+        mock_settings.perplexity_model = "sonar-pro"
+        mock_settings.perplexity_realtime_timeout = 10
+
+        from app.main import perplexity_researcher
+
+        result = perplexity_researcher(state.copy())
+        assert "perplexity_context" not in result
+        pass
