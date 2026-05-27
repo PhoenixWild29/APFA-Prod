@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     # Email Configuration (for verification emails)
     email_from: str = "noreply@apfa.io"
     email_verification_url: str = "http://localhost:3000/verify"
+    resend_api_key: str = ""
+    email_verification_expiry_hours: int = 24
 
     # Document Upload Configuration
     s3_bucket_name: str = "apfa-documents"

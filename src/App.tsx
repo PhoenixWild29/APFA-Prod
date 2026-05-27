@@ -16,6 +16,7 @@ const Landing = lazy(() => import('@/pages/Landing'));
 const About = lazy(() => import('@/pages/About'));
 const Contact = lazy(() => import('@/pages/Contact'));
 const AuthPage = lazy(() => import('@/auth/pages/AuthPage'));
+const VerifyEmailPage = lazy(() => import('@/auth/pages/VerifyEmailPage'));
 
 // --- App pages ---
 const AdvisorPage = lazy(() => import('@/features/advisor/AdvisorPage'));
@@ -72,6 +73,7 @@ function App() {
                 </RedirectIfAuth>
               }
             />
+            <Route path="/verify" element={<VerifyEmailPage />} />
           </Route>
 
           {/* ── App zone (authenticated) ── */}

@@ -14,7 +14,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import LoadingIndicator from '@/components/LoadingIndicator';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Mail, Loader2 } from 'lucide-react';
+import { authConfig } from '@/config/auth';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -39,6 +40,9 @@ function mapLoginError(error: unknown): string {
     case 401:
       return 'Invalid username or password.';
     case 403:
+      if (detail === 'email_not_verified') {
+        return 'email_not_verified';
+      }
       return 'Account disabled. Contact support.';
     case 422:
       return detail || 'Invalid request. Check your input.';
@@ -75,6 +79,7 @@ export default function LoginForm({
   // Local form state — login loading/error is per-form, not in store
   const [isPending, setIsPending] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
   const submittingRef = useRef(false); // gate against StrictMode double-submit
 
   const [formData, setFormData] = useState({
@@ -189,7 +194,7 @@ export default function LoginForm({
       </div>
 
       {/* Login error message */}
-      {loginError && (
+      {loginError && loginError !== 'email_not_verified' && (
         <div
           role="alert"
           aria-live="polite"
@@ -197,6 +202,47 @@ export default function LoginForm({
         >
           <AlertCircle className="h-4 w-4" />
           <span>{loginError}</span>
+        </div>
+      )}
+
+      {loginError === 'email_not_verified' && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="rounded-md border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20"
+        >
+          <div className="flex items-start gap-2">
+            <Mail className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Email not verified
+              </p>
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                Please check your inbox for a verification link.
+              </p>
+              <button
+                type="button"
+                disabled={resendStatus !== 'idle'}
+                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline disabled:opacity-50 dark:text-teal-300"
+                onClick={async () => {
+                  setResendStatus('sending');
+                  try {
+                    await fetch(`${authConfig.apiEndpoint}/register/resend-verification`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: formData.username }),
+                    });
+                    setResendStatus('sent');
+                  } catch {
+                    setResendStatus('idle');
+                  }
+                }}
+              >
+                {resendStatus === 'sending' && <Loader2 className="h-3 w-3 animate-spin" />}
+                {resendStatus === 'sent' ? 'Verification link sent!' : 'Resend verification email'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
