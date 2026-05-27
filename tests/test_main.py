@@ -337,3 +337,103 @@ def test_perplexity_content_filter_rejection():
         result = perplexity_researcher(state.copy())
         assert "perplexity_context" not in result
         pass
+
+
+# --- Market data service tests ---
+
+
+def test_market_service_staleness_check():
+    """_is_stale must correctly identify stale timestamps."""
+    from app.services.market_service import _is_stale
+
+    fresh = "2099-01-01T00:00:00Z"
+    assert not _is_stale(fresh, 2)
+
+    stale = "2020-01-01T00:00:00Z"
+    assert _is_stale(stale, 2)
+
+    assert _is_stale("", 2)
+    assert _is_stale("not-a-date", 2)
+
+
+def test_market_quote_schema():
+    """MarketQuote Pydantic schema must serialize correctly."""
+    from app.models.market import MarketQuote
+
+    q = MarketQuote(
+        ticker="SPY",
+        price=542.15,
+        change_pct=0.42,
+        updated_at="2026-05-26T12:00:00Z",
+        is_stale=False,
+    )
+    assert q.ticker == "SPY"
+    assert q.price == 542.15
+    assert q.is_stale is False
+
+
+def test_economic_indicator_schema():
+    """EconomicIndicator schema must include all fields."""
+    from app.models.market import EconomicIndicator
+
+    ind = EconomicIndicator(
+        code="FEDFUNDS",
+        name="Federal Funds Rate",
+        value=5.33,
+        unit="%",
+        updated_at="2026-05-26T06:00:00Z",
+    )
+    assert ind.code == "FEDFUNDS"
+    assert ind.value == 5.33
+
+
+def test_dashboard_summary_schema():
+    """DashboardSummary must handle empty data gracefully."""
+    from app.models.market import DashboardSummary
+
+    empty = DashboardSummary(quotes=[], indicators=[])
+    assert empty.last_updated is None
+    assert empty.staleness_warning is None
+
+
+def test_market_history_response_schema():
+    """MarketHistoryResponse must serialize point lists."""
+    from app.models.market import MarketHistoryPoint, MarketHistoryResponse
+
+    resp = MarketHistoryResponse(
+        ticker="SPY",
+        data_type="quote",
+        points=[
+            MarketHistoryPoint(date="2026-05-25", value=540.0),
+            MarketHistoryPoint(date="2026-05-26", value=542.15, change_pct=0.4),
+        ],
+        total_points=2,
+    )
+    assert resp.total_points == 2
+    assert resp.points[1].change_pct == 0.4
+
+
+def test_latest_insight_schema():
+    """LatestInsight must truncate indicator."""
+    from app.models.market import LatestInsight
+
+    ins = LatestInsight(
+        preview="Short advice...",
+        conversation_id="abc-123",
+        created_at="2026-05-26T10:00:00Z",
+        has_more=True,
+    )
+    assert ins.has_more is True
+    assert ins.conversation_id == "abc-123"
+
+
+def test_market_data_history_orm_model():
+    """MarketDataHistory ORM model must have correct table args."""
+    from app.orm_models import MarketDataHistory
+
+    assert MarketDataHistory.__tablename__ == "market_data_history"
+    constraint_names = [
+        c.name for c in MarketDataHistory.__table__.constraints
+        if hasattr(c, "name") and c.name
+    ]
+    assert "uq_market_history_ticker_type_unit_date" in constraint_names

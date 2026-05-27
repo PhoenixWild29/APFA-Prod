@@ -11,7 +11,7 @@ export type WidgetId =
   | 'advisor-insight'
   | 'market-index'
   | 'investment-growth'
-  | 'asset-allocation'
+  | 'economic-overview'
   | 'documents';
 
 interface GrowthCalcInputs {
@@ -42,7 +42,7 @@ const DEFAULT_ORDER: WidgetId[] = [
   'advisor-insight',
   'market-index',
   'investment-growth',
-  'asset-allocation',
+  'economic-overview',
   'documents',
 ];
 
@@ -52,7 +52,8 @@ const DEFAULT_ORDER: WidgetId[] = [
 const LEGACY_WIDGET_ALIASES: Record<string, WidgetId> = {
   'rate-trend': 'market-index',
   'dti-calculator': 'investment-growth',
-  'loan-comparison': 'asset-allocation',
+  'loan-comparison': 'economic-overview',
+  'asset-allocation': 'economic-overview',
 };
 
 function migrateWidgetIds<T extends string>(ids: T[] | undefined): WidgetId[] {

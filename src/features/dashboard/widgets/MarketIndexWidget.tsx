@@ -8,82 +8,75 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import WidgetCard from '../components/WidgetCard';
 import type { WidgetId } from '@/store/preferencesStore';
+import { useDashboardSummary, useMarketHistory } from '@/hooks/useMarket';
 
-const TIME_RANGES = ['1W', '1M', '3M', '1Y'] as const;
-type TimeRange = (typeof TIME_RANGES)[number];
+const TIME_RANGES = [
+  { label: '1W', days: 7 },
+  { label: '1M', days: 30 },
+  { label: '3M', days: 90 },
+  { label: '1Y', days: 365 },
+] as const;
 
 const INDICES = [
-  { id: 'sp500', label: 'S&P 500', base: 5200, step: 12 },
-  { id: 'nasdaq', label: 'NASDAQ', base: 17000, step: 40 },
-  { id: 'dow', label: 'Dow Jones', base: 38500, step: 25 },
+  { ticker: 'SPY', label: 'S&P 500' },
+  { ticker: 'QQQ', label: 'NASDAQ 100' },
+  { ticker: 'DIA', label: 'Dow Jones' },
 ] as const;
-type IndexId = (typeof INDICES)[number]['id'];
 
-// Placeholder market index data — swap to GET /market-data?index=<id> once shipped.
-function generateData(indexId: IndexId, range: TimeRange) {
-  const meta = INDICES.find((i) => i.id === indexId) ?? INDICES[0];
-  const points = range === '1W' ? 5 : range === '1M' ? 20 : range === '3M' ? 12 : 12;
-  const step = range === '1Y' ? meta.step * 4 : meta.step;
-
-  return Array.from({ length: points }, (_, i) => {
-    const labels1W = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    const labels1Y = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    const date =
-      range === '1W'
-        ? labels1W[i]
-        : range === '1Y'
-          ? labels1Y[i]
-          : range === '3M'
-            ? `W${i + 1}`
-            : `${i + 1}`;
-    return {
-      date,
-      value: meta.base + i * step + Math.round((Math.random() - 0.5) * meta.step * 2),
-    };
-  });
-}
+type TickerId = (typeof INDICES)[number]['ticker'];
 
 interface MarketIndexWidgetProps {
   onHide: (id: WidgetId) => void;
 }
 
 export default function MarketIndexWidget({ onHide }: MarketIndexWidgetProps) {
-  const [range, setRange] = useState<TimeRange>('1M');
-  const [indexId, setIndexId] = useState<IndexId>('sp500');
+  const [rangeIdx, setRangeIdx] = useState(1);
+  const [tickerId, setTickerId] = useState<TickerId>('SPY');
 
-  const data = generateData(indexId, range);
-  const currentValue = data[data.length - 1]?.value ?? 0;
-  const firstValue = data[0]?.value ?? currentValue;
+  const range = TIME_RANGES[rangeIdx];
+  const { data: summary } = useDashboardSummary();
+  const { data: history, isLoading } = useMarketHistory(
+    tickerId,
+    'quote',
+    range.days
+  );
+
+  const currentQuote = summary?.quotes.find((q) => q.ticker === tickerId);
+  const hasHistory = history && history.points.length > 1;
+  const chartData = hasHistory
+    ? history.points.map((p) => ({ date: p.date, value: p.value }))
+    : [];
+
+  const currentValue = currentQuote?.price ?? chartData[chartData.length - 1]?.value ?? 0;
+  const firstValue = chartData[0]?.value ?? currentValue;
   const change = currentValue - firstValue;
   const pctChange = firstValue > 0 ? (change / firstValue) * 100 : 0;
-  const label = INDICES.find((i) => i.id === indexId)?.label ?? 'Index';
 
   return (
     <WidgetCard
       id="market-index"
       title="Market Index"
       onHide={onHide}
+      isLoading={isLoading}
       action={
         <div className="flex gap-0.5">
-          {TIME_RANGES.map((r) => (
+          {TIME_RANGES.map((r, i) => (
             <Button
-              key={r}
+              key={r.label}
               variant="ghost"
               size="sm"
               className={cn(
                 'h-6 px-2 text-[10px]',
-                range === r && 'bg-muted font-semibold'
+                rangeIdx === i && 'bg-muted font-semibold'
               )}
-              onClick={() => setRange(r)}
+              onClick={() => setRangeIdx(i)}
             >
-              {r}
+              {r.label}
             </Button>
           ))}
         </div>
@@ -92,78 +85,104 @@ export default function MarketIndexWidget({ onHide }: MarketIndexWidgetProps) {
       <div className="mb-2 flex gap-1">
         {INDICES.map((idx) => (
           <Button
-            key={idx.id}
+            key={idx.ticker}
             variant="ghost"
             size="sm"
             className={cn(
               'h-6 px-2 text-[10px]',
-              indexId === idx.id && 'bg-muted font-semibold'
+              tickerId === idx.ticker && 'bg-muted font-semibold'
             )}
-            onClick={() => setIndexId(idx.id)}
+            onClick={() => setTickerId(idx.ticker)}
           >
             {idx.label}
           </Button>
         ))}
       </div>
-      <div className="mb-3 flex items-baseline gap-3">
-        <span className="tabular-nums text-2xl font-semibold">
-          {currentValue.toLocaleString()}
-        </span>
-        <span
-          className={cn(
-            'tabular-nums text-xs font-medium',
-            change >= 0 ? 'text-pos' : 'text-neg'
+
+      {currentQuote && (
+        <div className="mb-3 flex items-baseline gap-3">
+          <span className="tabular-nums text-2xl font-semibold">
+            ${currentValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          {hasHistory && (
+            <span
+              className={cn(
+                'tabular-nums text-xs font-medium',
+                change >= 0 ? 'text-pos' : 'text-neg'
+              )}
+            >
+              {change >= 0 ? '+' : ''}
+              {change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({pctChange >= 0 ? '+' : ''}
+              {pctChange.toFixed(2)}%)
+            </span>
           )}
-        >
-          {change >= 0 ? '+' : ''}
-          {change.toLocaleString()} ({pctChange >= 0 ? '+' : ''}
-          {pctChange.toFixed(2)}%)
-        </span>
-      </div>
-      <div className="h-40">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="indexGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1D8A84" stopOpacity={0.15} />
-                <stop offset="100%" stopColor="#1D8A84" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              domain={['dataMin - 50', 'dataMax + 50']}
-              tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v: number) => v.toLocaleString()}
-              width={50}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'var(--popover)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-              formatter={(value: number) => [value.toLocaleString(), label]}
-            />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="#1D8A84"
-              strokeWidth={2}
-              fill="url(#indexGrad)"
-              dot={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+          {currentQuote.is_stale && (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              Delayed
+            </span>
+          )}
+        </div>
+      )}
+
+      {hasHistory ? (
+        <div className="h-40">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="indexGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#1D8A84" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#1D8A84" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                domain={['dataMin - 5', 'dataMax + 5']}
+                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v: number) =>
+                  `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                }
+                width={55}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                formatter={(value) =>
+                  `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                }
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#1D8A84"
+                strokeWidth={2}
+                fill="url(#indexGrad)"
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="flex h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+          <AlertCircle className="h-5 w-5" />
+          <p className="text-xs">
+            {currentQuote
+              ? 'Chart data is accumulating. Historical trends will appear within a few days.'
+              : 'No market data available. Check data pipeline status.'}
+          </p>
+        </div>
+      )}
     </WidgetCard>
   );
 }
