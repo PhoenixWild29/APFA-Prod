@@ -1,13 +1,17 @@
-import { useState } from 'react';
-import { User, Shield, CreditCard, Key } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { User, Shield, CreditCard, Key, Loader2, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthStore } from '@/store/authStore';
+import { useBillingStatus } from '@/hooks/useBilling';
+import { createCheckoutSession, createPortalSession } from '@/api/billingApi';
 
 function ProfileTab() {
   const user = useAuthStore((s) => s.user);
@@ -110,8 +114,60 @@ function SecurityTab() {
   );
 }
 
+const TIER_CONFIG = {
+  free: { label: 'Free Plan', color: 'bg-gray-600', description: '5 queries per month' },
+  pro: { label: 'Pro Plan', color: 'bg-teal-700', description: '100 queries per month' },
+  enterprise: { label: 'Enterprise', color: 'bg-purple-700', description: 'Unlimited queries' },
+} as const;
+
 function BillingTab() {
-  const user = useAuthStore((s) => s.user);
+  const { data: billing, isLoading, error } = useBillingStatus();
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
+  }
+
+  if (error || !billing) {
+    return (
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        Failed to load billing information. Please try again.
+      </div>
+    );
+  }
+
+  const tierConfig = TIER_CONFIG[billing.tier] ?? TIER_CONFIG.free;
+  const isFreeTier = billing.tier === 'free';
+  const isEnterprise = billing.tier === 'enterprise';
+
+  const handleUpgrade = async (tier: 'pro' | 'enterprise') => {
+    setCheckoutLoading(tier);
+    try {
+      const url = await createCheckoutSession(tier);
+      window.location.href = url;
+    } catch {
+      toast.error('Failed to start checkout. Please try again.');
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const url = await createPortalSession();
+      window.location.href = url;
+    } catch {
+      toast.error('Failed to open subscription management.');
+      setPortalLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -122,33 +178,123 @@ function BillingTab() {
         </p>
       </div>
 
+      {/* Current plan card */}
       <div className="rounded-xl border bg-card p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-lg font-semibold">Free Plan</p>
+            <p className="text-lg font-semibold">{tierConfig.label}</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              5 queries per month &middot; Basic documents &middot; Community support
+              {tierConfig.description}
             </p>
           </div>
-          <Badge className="bg-teal-700 text-white">Active</Badge>
+          <Badge className={`${tierConfig.color} text-white`}>Active</Badge>
         </div>
+
+        {/* Usage bar */}
+        {!isEnterprise && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {billing.query_count_this_period} / {billing.limit} queries used
+              </span>
+              <span>{billing.usage_percentage}%</span>
+            </div>
+            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  billing.usage_percentage >= 90
+                    ? 'bg-red-500'
+                    : billing.usage_percentage >= 70
+                      ? 'bg-amber-500'
+                      : 'bg-teal-600'
+                }`}
+                style={{ width: `${Math.min(billing.usage_percentage, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {isEnterprise && (
+          <div className="mt-4 text-xs text-muted-foreground">
+            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5 text-green-600" />
+            Unlimited queries &middot; {billing.query_count_this_period} used this period
+          </div>
+        )}
+
         <Separator className="my-4" />
-        <div className="flex gap-3">
-          <Button>Upgrade to Pro</Button>
-          <Button variant="outline">View plans</Button>
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-3">
+          {isFreeTier && (
+            <>
+              <Button
+                onClick={() => handleUpgrade('pro')}
+                disabled={!!checkoutLoading}
+              >
+                {checkoutLoading === 'pro' && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Upgrade to Pro — $29/mo
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleUpgrade('enterprise')}
+                disabled={!!checkoutLoading}
+              >
+                {checkoutLoading === 'enterprise' && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Enterprise — $99/mo
+              </Button>
+            </>
+          )}
+          {billing.tier === 'pro' && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => handleUpgrade('enterprise')}
+                disabled={!!checkoutLoading}
+              >
+                {checkoutLoading === 'enterprise' && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Upgrade to Enterprise
+              </Button>
+            </>
+          )}
+          {billing.has_subscription && (
+            <Button
+              variant="outline"
+              onClick={handleManageSubscription}
+              disabled={portalLoading}
+            >
+              {portalLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ExternalLink className="mr-2 h-4 w-4" />
+              )}
+              Manage Subscription
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
-        <CreditCard className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
-        <p>No payment method on file.</p>
-        <p className="mt-1 text-xs">Add a card when you're ready to upgrade.</p>
-      </div>
+      {/* Payment method info */}
+      {!billing.has_subscription && (
+        <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+          <CreditCard className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
+          <p>No payment method on file.</p>
+          <p className="mt-1 text-xs">Add a card when you're ready to upgrade.</p>
+        </div>
+      )}
     </div>
   );
 }
 
 function APIKeysTab() {
+  const user = useAuthStore((s) => s.user);
+  const isFreeTier = !user?.subscription_tier || user.subscription_tier === 'free';
+
   return (
     <div className="space-y-6">
       <div>
@@ -164,7 +310,7 @@ function APIKeysTab() {
         <p className="mt-1 text-xs">
           API access is available on Pro and Enterprise plans.
         </p>
-        <Button size="sm" variant="outline" className="mt-3" disabled>
+        <Button size="sm" variant="outline" className="mt-3" disabled={isFreeTier}>
           Generate key
         </Button>
       </div>
@@ -173,6 +319,26 @@ function APIKeysTab() {
 }
 
 export default function SettingsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') ?? 'profile';
+  const checkoutResult = searchParams.get('checkout');
+
+  useEffect(() => {
+    if (checkoutResult === 'success') {
+      toast.success('Subscription activated! Your plan has been upgraded.');
+      setSearchParams((prev) => {
+        prev.delete('checkout');
+        return prev;
+      });
+    } else if (checkoutResult === 'cancel') {
+      toast.info('Checkout cancelled. No changes were made.');
+      setSearchParams((prev) => {
+        prev.delete('checkout');
+        return prev;
+      });
+    }
+  }, [checkoutResult, setSearchParams]);
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div>
@@ -182,7 +348,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="profile">
+      <Tabs defaultValue={defaultTab}>
         <TabsList>
           <TabsTrigger value="profile" className="gap-1.5 text-xs">
             <User className="h-3.5 w-3.5" />

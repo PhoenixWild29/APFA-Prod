@@ -8,6 +8,7 @@ export interface UserProfile {
   email: string;
   role: 'standard' | 'advisor' | 'admin';
   permissions: string[];
+  subscription_tier?: 'free' | 'pro' | 'enterprise';
   created_at?: string;
   last_login?: string;
 }

@@ -171,8 +171,9 @@ STRIPE_WEBHOOK_SECRET = settings.stripe_webhook_secret
 STRIPE_PRICE_PRO_MONTHLY = settings.stripe_price_pro_monthly
 STRIPE_PRICE_ENTERPRISE_MONTHLY = settings.stripe_price_enterprise_monthly
 
-# Initialize Stripe
-stripe.api_key = STRIPE_SECRET_KEY
+# Initialize Stripe (no-op if key is empty — billing endpoints guard at call time)
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
 
 # Initialize clients with error handling
 try:
@@ -1739,6 +1740,7 @@ async def login_for_access_token(
             permissions=user.get(
                 "permissions", ["advice:generate", "advice:view_history"]
             ),
+            subscription_tier=user.get("subscription_tier", "free"),
         )
 
         session_metadata = SessionMetadata(
@@ -2155,6 +2157,7 @@ async def get_current_user_profile(
         "email": current_user.get("email"),
         "role": current_user.get("role", "standard"),
         "permissions": current_user.get("permissions", []),
+        "subscription_tier": current_user.get("subscription_tier", "free"),
     }
 
 
@@ -3905,132 +3908,6 @@ async def multi_agent_monitoring_sse():
             "X-Accel-Buffering": "no",
         },
     )
-
-
-# Billing Integration
-from pydantic import BaseModel
-
-
-class BillingStatus(BaseModel):
-    tier: str
-    query_count_this_period: int
-    limit: int
-    billing_period_start: str
-    usage_percentage: float
-
-
-class CheckoutRequest(BaseModel):
-    tier: str  # 'pro' or 'enterprise'
-
-
-@app.get("/api/billing/status", response_model=BillingStatus)
-async def get_billing_status(current_user: dict = Depends(get_current_user)):
-    tier = current_user.get("subscription_tier", "free")
-    query_count = current_user.get("query_count_this_period", 0)
-    limit = {"free": 5, "pro": 100, "enterprise": float("inf")}.get(tier, 5)
-    billing_period_start = current_user.get(
-        "billing_period_start", datetime.now(timezone.utc).isoformat()
-    )
-    usage_percentage = (query_count / limit) * 100 if limit != float("inf") else 0
-    return BillingStatus(
-        tier=tier,
-        query_count_this_period=query_count,
-        limit=int(limit) if limit != float("inf") else 999999,
-        billing_period_start=billing_period_start,
-        usage_percentage=usage_percentage,
-    )
-
-
-@app.post("/api/billing/checkout")
-async def create_checkout_session(
-    request: CheckoutRequest,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    try:
-        price_id = (
-            STRIPE_PRICE_PRO_MONTHLY
-            if request.tier == "pro"
-            else STRIPE_PRICE_ENTERPRISE_MONTHLY
-        )
-        customer_id = current_user.get("stripe_customer_id")
-        if not customer_id:
-            customer = stripe.Customer.create(email=current_user["email"])
-            customer_id = customer.id
-            # Persist stripe_customer_id to PostgreSQL
-            user_row = (
-                db.query(User)
-                .filter(User.username == current_user["username"])
-                .first()
-            )
-            if user_row:
-                user_row.stripe_customer_id = customer_id
-                db.commit()
-
-        session = stripe.checkout.Session.create(
-            customer=customer_id,
-            payment_method_types=["card"],
-            line_items=[{"price": price_id, "quantity": 1}],
-            mode="subscription",
-            success_url="http://localhost:3000/billing/success",
-            cancel_url="http://localhost:3000/billing/cancel",
-        )
-        return {"checkout_url": session.url}
-    except Exception as e:
-        logger.error(f"Stripe checkout error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create checkout session")
-
-
-@app.post("/api/billing/webhook")
-async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
-    payload = await request.body()
-    sig_header = request.headers.get("stripe-signature")
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET
-        )
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError:
-        raise HTTPException(status_code=400, detail="Invalid signature")
-
-    if event.type == "checkout.session.completed":
-        session = event.data.object
-        customer_id = session.customer
-        subscription_id = session.subscription
-        # Find user by customer_id (indexed query, not dict iteration)
-        user_row = (
-            db.query(User).filter(User.stripe_customer_id == customer_id).first()
-        )
-        if user_row:
-            tier = "pro" if session.amount_total == 2900 else "enterprise"
-            user_row.subscription_tier = tier
-            user_row.stripe_subscription_id = subscription_id
-            user_row.query_count_this_period = 0  # Reset on upgrade
-            db.commit()
-    elif event.type == "invoice.payment_succeeded":
-        # Reset query count at start of billing period
-        invoice = event.data.object
-        customer_id = invoice.customer
-        user_row = (
-            db.query(User).filter(User.stripe_customer_id == customer_id).first()
-        )
-        if user_row:
-            user_row.query_count_this_period = 0
-            user_row.billing_period_start = datetime.now(timezone.utc)
-            db.commit()
-    elif event.type == "customer.subscription.deleted":
-        subscription = event.data.object
-        customer_id = subscription.customer
-        user_row = (
-            db.query(User).filter(User.stripe_customer_id == customer_id).first()
-        )
-        if user_row:
-            user_row.subscription_tier = "free"
-            user_row.stripe_subscription_id = None
-            db.commit()
-
-    return {"status": "ok"}
 
 
 # Advanced Agent Performance Analysis and Configuration
@@ -5999,6 +5876,7 @@ from app.api.admin_docs import router as admin_docs_router
 from app.api.admin_faiss import router as admin_faiss_router
 from app.api.admin_jobs import router as admin_jobs_router
 from app.api.admin_recovery import router as admin_recovery_router
+from app.api.billing import router as billing_router
 from app.api.connectors import router as connectors_router
 from app.api.market import router as market_router
 
@@ -6007,6 +5885,7 @@ app.include_router(admin_faiss_router)
 app.include_router(admin_jobs_router)
 app.include_router(admin_recovery_router)
 app.include_router(admin_dashboard_router)
+app.include_router(billing_router)
 app.include_router(connectors_router)
 app.include_router(market_router)
 
