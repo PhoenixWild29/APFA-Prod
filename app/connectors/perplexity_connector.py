@@ -189,7 +189,12 @@ class PerplexityResearchConnector(RAGSource):
                 )
 
             # Chunk the research brief
-            chunks = chunk_prose(doc["content"])
+            from app.config import settings as _s
+            chunks = chunk_prose(
+                doc["content"],
+                target_tokens=_s.chunk_target_tokens,
+                overlap_pct=_s.chunk_overlap_pct,
+            )
 
             # Deterministic external_id: hash of query + date
             date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")

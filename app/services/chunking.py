@@ -130,8 +130,8 @@ def _build_chunks_from_sentences(
 
 def sentence_aware_chunk(
     text: str,
-    target_tokens: int = 400,
-    overlap_pct: float = 0.15,
+    target_tokens: int = 128,
+    overlap_pct: float = 0.20,
 ) -> list[dict[str, Any]]:
     """Split text into sentence-aligned chunks with overlap.
 
@@ -157,8 +157,8 @@ def sentence_aware_chunk(
 
 def chunk_prose(
     text: str,
-    target_tokens: int = 400,
-    overlap_pct: float = 0.15,
+    target_tokens: int = 128,
+    overlap_pct: float = 0.20,
 ) -> list[Chunk]:
     """Chunk general prose documents. Returns Chunk objects."""
     raw = sentence_aware_chunk(text, target_tokens, overlap_pct)
@@ -190,8 +190,8 @@ _DEFAULT_SECTION_RE = (
 def section_aware_chunk(
     text: str,
     section_pattern: str = _DEFAULT_SECTION_RE,
-    target_tokens: int = 400,
-    overlap_pct: float = 0.15,
+    target_tokens: int = 128,
+    overlap_pct: float = 0.20,
 ) -> list[dict[str, Any]]:
     """Split structured text on header boundaries, then sub-chunk.
 
@@ -283,8 +283,8 @@ def chunk_regulatory(text: str) -> list[Chunk]:
 
 def timestamp_chunk(
     segments: list[dict[str, Any]] | list[TranscriptSegment],
-    window_sec: float = 75.0,
-    overlap_sec: float = 12.0,
+    window_sec: float = 60.0,
+    overlap_sec: float = 10.0,
 ) -> list[dict[str, Any]]:
     """Group transcript segments into fixed-duration windows with overlap.
 
@@ -365,8 +365,8 @@ def timestamp_chunk(
 
 def chunk_transcript(
     segments: list[TranscriptSegment] | list[dict[str, Any]],
-    window_sec: float = 75.0,
-    overlap_sec: float = 12.0,
+    window_sec: float = 60.0,
+    overlap_sec: float = 10.0,
 ) -> list[Chunk]:
     """Chunk transcript segments into Chunk objects with timestamps."""
     raw = timestamp_chunk(segments, window_sec, overlap_sec)
@@ -392,7 +392,7 @@ def spreadsheet_chunk(
     sheet_name: str,
     headers: list[str],
     rows: list[list[Any]],
-    max_rows_per_chunk: int = 30,
+    max_rows_per_chunk: int = 20,
 ) -> list[dict[str, Any]]:
     """Convert one spreadsheet sheet into text chunks for RAG.
 
@@ -501,6 +501,11 @@ def chunk_text(
     content_kind: str = "doc_section",
     transcript_segments: list[TranscriptSegment] | None = None,
     spreadsheet_data: dict | None = None,
+    target_tokens: int = 128,
+    overlap_pct: float = 0.20,
+    window_sec: float = 60.0,
+    overlap_sec: float = 10.0,
+    max_rows_per_chunk: int = 20,
 ) -> list[Chunk]:
     """Route to the appropriate chunking strategy based on content_kind."""
     if content_kind == "transcript_segment":
@@ -508,7 +513,7 @@ def chunk_text(
             raise ValueError(
                 "transcript_segments required for content_kind='transcript_segment'"
             )
-        return chunk_transcript(transcript_segments)
+        return chunk_transcript(transcript_segments, window_sec, overlap_sec)
 
     if content_kind == "sheet_table":
         if spreadsheet_data is None:
@@ -528,4 +533,4 @@ def chunk_text(
     if content_kind in ("market_snapshot", "derived_summary"):
         return [Chunk(text=text, chunk_index=0, total_chunks=1)]
 
-    return chunk_prose(text)
+    return chunk_prose(text, target_tokens, overlap_pct)

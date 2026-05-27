@@ -402,6 +402,70 @@ def expire_stale_chunks(settings, redis_client=None) -> int:
         return 0
 
 
+_RECHUNKABLE_CONNECTORS = frozenset({"google_drive", "youtube", "perplexity_research"})
+
+
+def purge_connector_chunks(
+    settings,
+    connectors: frozenset[str] | None = None,
+) -> dict:
+    """Purge chunks from specific connectors for re-ingestion at new chunk sizes.
+
+    Uses an allowlist of connector names to purge. Seed data, manual uploads,
+    FAISS metadata, and any other source_connector tags are preserved.
+
+    Returns dict with purged count, preserved count, and sources purged.
+    """
+    from app.connectors.base import get_delta_schema
+    from app.storage import get_delta_storage_options
+
+    target_connectors = connectors or _RECHUNKABLE_CONNECTORS
+    storage_opts = get_delta_storage_options()
+    schema = get_delta_schema()
+
+    try:
+        from deltalake import DeltaTable
+        dt = DeltaTable(settings.delta_table_path, storage_options=storage_opts)
+        df = dt.to_pandas()
+
+        if "source_connector" not in df.columns:
+            return {"purged": 0, "preserved": len(df), "sources_purged": []}
+
+        mask = df["source_connector"].isin(target_connectors)
+        purge_count = int(mask.sum())
+        preserve_count = int((~mask).sum())
+        sources_purged = sorted(df.loc[mask, "source_connector"].unique().tolist())
+
+        if purge_count == 0:
+            return {"purged": 0, "preserved": preserve_count, "sources_purged": []}
+
+        keep_df = df[~mask].copy()
+        table = _df_to_arrow(keep_df, schema)
+
+        import deltalake as dl
+        dl.write_deltalake(
+            settings.delta_table_path,
+            table,
+            mode="overwrite",
+            storage_options=storage_opts,
+        )
+
+        logger.info(
+            f"AUDIT rechunk purge: connectors={sources_purged} "
+            f"purged={purge_count} preserved={preserve_count}"
+        )
+
+        return {
+            "purged": purge_count,
+            "preserved": preserve_count,
+            "sources_purged": sources_purged,
+        }
+
+    except Exception as e:
+        logger.error(f"Rechunk purge failed: {e}")
+        raise
+
+
 def _signal_faiss_rebuild(redis_client=None) -> None:
     """Set Redis flag to signal FAISS index needs rebuilding."""
     if redis_client is None:

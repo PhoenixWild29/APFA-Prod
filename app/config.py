@@ -126,6 +126,13 @@ class Settings(BaseSettings):
     faiss_auto_rebuild: bool = True
     faiss_rebuild_interval_minutes: int = 30
 
+    # --- Chunking Parameters ---
+    chunk_target_tokens: int = 128
+    chunk_overlap_pct: float = 0.20
+    chunk_transcript_window_sec: float = 60.0
+    chunk_transcript_overlap_sec: float = 10.0
+    chunk_spreadsheet_max_rows: int = 20
+
     class Config:
         env_file = ".env"
         extra = "ignore"

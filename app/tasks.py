@@ -121,7 +121,11 @@ def process_document(self: Task, document_id: str, file_path: str, metadata: dic
         # Step 2: Chunk the text
         from app.services.chunking import chunk_prose
 
-        chunks = chunk_prose(extracted_text)
+        chunks = chunk_prose(
+            extracted_text,
+            target_tokens=settings.chunk_target_tokens,
+            overlap_pct=settings.chunk_overlap_pct,
+        )
 
         self.update_state(
             state="PROGRESS",
@@ -221,8 +225,14 @@ def _extract_text_from_file(file_path: str, content_type: str) -> str:
 def sync_google_drive_task(
     folder_ids: List[str] = None,
     file_ids: List[str] = None,
+    force_full: bool = False,
 ):
-    """Sync documents from Google Drive into the RAG pipeline."""
+    """Sync documents from Google Drive into the RAG pipeline.
+
+    Args:
+        force_full: If True, bypass incremental state and re-process all files.
+                    Used after rechunking to force re-ingestion at new chunk sizes.
+    """
     if not settings.google_drive_credentials_path:
         return {"status": "error", "detail": "Google Drive credentials not configured"}
 
@@ -238,6 +248,7 @@ def sync_google_drive_task(
         redis_client=redis_client,
         folder_ids=folder_ids or settings.google_drive_folder_ids,
         file_ids=file_ids,
+        force_full=force_full,
     )
 
 
@@ -400,18 +411,27 @@ def rebuild_faiss_index_task():
 
     The actual rebuild happens in the FastAPI process via load_rag_index().
     This task just sets the Redis flag; the FastAPI lifespan or admin
-    endpoint picks it up.
+    endpoint picks it up. Also clears the rechunk lock if set.
     """
     redis_client = _get_redis()
     redis_client.set("faiss:rebuild_needed", "1")
-    logger.info("FAISS rebuild signal set")
+    redis_client.delete("faiss:rechunk_in_progress")
+    logger.info("FAISS rebuild signal set (rechunk lock cleared)")
     return {"status": "rebuild_signaled"}
 
 
 @celery_app.task(name="rebuild_faiss_if_needed")
 def rebuild_faiss_if_needed():
-    """Conditional FAISS rebuild — only if new data was ingested."""
+    """Conditional FAISS rebuild — only if new data was ingested.
+
+    Skips if a rechunk operation is in progress (the operator must
+    trigger an explicit rebuild after all connector syncs complete).
+    """
     redis_client = _get_redis()
+    rechunking = redis_client.get("faiss:rechunk_in_progress")
+    if rechunking:
+        logger.info("FAISS auto-rebuild skipped — rechunk in progress")
+        return {"status": "skipped_rechunk_in_progress"}
     needed = redis_client.get("faiss:rebuild_needed")
     if needed and needed.decode("utf-8") == "1":
         redis_client.set("faiss:rebuild_needed", "1")
