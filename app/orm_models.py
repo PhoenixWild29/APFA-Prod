@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -145,6 +146,28 @@ class MarketData(Base):
         UniqueConstraint("ticker", "data_type", name="uq_market_data_ticker_type"),
         Index("idx_market_data_ticker", "ticker"),
         Index("idx_market_data_type", "data_type"),
+    )
+
+
+class MarketDataHistory(Base):
+    __tablename__ = "market_data_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticker = Column(String(20), nullable=False)
+    data_type = Column(String(50), nullable=False)
+    value = Column(Float, nullable=False)
+    unit = Column(String(50), default="")
+    change_pct = Column(Float, nullable=True)
+    source = Column(String(50), default="finnhub")
+    recorded_date = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "ticker", "data_type", "unit", "recorded_date",
+            name="uq_market_history_ticker_type_unit_date",
+        ),
+        Index("idx_market_history_ticker_date", "ticker", "recorded_date"),
     )
 
 

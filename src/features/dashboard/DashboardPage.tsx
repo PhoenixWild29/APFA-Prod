@@ -8,10 +8,7 @@ import KPIRow from './components/KPIRow';
 import AdvisorInsightWidget from './widgets/AdvisorInsightWidget';
 import MarketIndexWidget from './widgets/MarketIndexWidget';
 import InvestmentGrowthCalculatorWidget from './widgets/InvestmentGrowthCalculatorWidget';
-import AssetAllocationWidget from './widgets/AssetAllocationWidget';
-// RecentConversationsWidget hidden until /conversations endpoint exists.
-// Same precedent as conversation sidebar: features without backing endpoints
-// don't get placeholder UI. Re-enable when persistence ships.
+import EconomicOverviewWidget from './widgets/EconomicOverviewWidget';
 import DocumentsWidget from './widgets/DocumentsWidget';
 
 function getGreeting(): string {
@@ -28,18 +25,15 @@ const WIDGET_MAP: Record<
   'advisor-insight': AdvisorInsightWidget,
   'market-index': MarketIndexWidget,
   'investment-growth': InvestmentGrowthCalculatorWidget,
-  'asset-allocation': AssetAllocationWidget,
+  'economic-overview': EconomicOverviewWidget,
   documents: DocumentsWidget,
 };
 
-// Widget sizing on desktop (12-col grid). Advisor insight + Market index make
-// the top row; the investment-growth calculator and asset-allocation view pair
-// below them; recent conversations + documents sit side-by-side at the bottom.
 const WIDGET_SIZES: Record<WidgetId, string> = {
   'advisor-insight': 'lg:col-span-7',
   'market-index': 'lg:col-span-5',
   'investment-growth': 'lg:col-span-5',
-  'asset-allocation': 'lg:col-span-7',
+  'economic-overview': 'lg:col-span-7',
   documents: 'lg:col-span-12',
 };
 

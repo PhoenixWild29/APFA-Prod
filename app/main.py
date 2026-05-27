@@ -5972,6 +5972,7 @@ from app.api.admin_faiss import router as admin_faiss_router
 from app.api.admin_jobs import router as admin_jobs_router
 from app.api.admin_recovery import router as admin_recovery_router
 from app.api.connectors import router as connectors_router
+from app.api.market import router as market_router
 
 app.include_router(admin_docs_router)
 app.include_router(admin_faiss_router)
@@ -5979,6 +5980,7 @@ app.include_router(admin_jobs_router)
 app.include_router(admin_recovery_router)
 app.include_router(admin_dashboard_router)
 app.include_router(connectors_router)
+app.include_router(market_router)
 
 
 @app.post("/admin/faiss/reload", status_code=200)

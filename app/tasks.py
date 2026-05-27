@@ -356,6 +356,44 @@ def run_perplexity_research_task(agenda_override: List[dict] = None):
 # ---------------------------------------------------------------------------
 
 
+@celery_app.task(name="snapshot_market_data")
+def snapshot_market_data_task():
+    """Copy current market_data rows into market_data_history for daily snapshots.
+
+    Uses ON CONFLICT to upsert — safe to call multiple times per day.
+    Chained after the daily Finnhub fetch so snapshots reflect fresh data.
+    """
+    from app.database import SessionLocal
+    from sqlalchemy import text
+
+    db = SessionLocal()
+    try:
+        result = db.execute(
+            text(
+                """
+                INSERT INTO market_data_history
+                    (ticker, data_type, value, unit, change_pct, source, recorded_date)
+                SELECT
+                    ticker, data_type, value, unit, change_pct, source, CURRENT_DATE
+                FROM market_data
+                ON CONFLICT (ticker, data_type, unit, recorded_date) DO UPDATE SET
+                    value = EXCLUDED.value,
+                    change_pct = EXCLUDED.change_pct
+                """
+            )
+        )
+        db.commit()
+        count = result.rowcount
+        logger.info(f"Market data snapshot: {count} rows upserted")
+        return {"status": "ok", "rows": count}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Market data snapshot failed: {e}")
+        return {"status": "error", "detail": str(e)}
+    finally:
+        db.close()
+
+
 @celery_app.task(name="rebuild_faiss_index")
 def rebuild_faiss_index_task():
     """Trigger FAISS index rebuild by signaling the FastAPI process.
@@ -484,6 +522,14 @@ def setup_periodic_tasks(sender, **kwargs):
                 news_categories=["general"],
             ),
             name="finnhub-market-news",
+        )
+
+    # Market data daily snapshot at 7 AM UTC (after 6 AM Finnhub fetch)
+    if settings.finnhub_api_key:
+        sender.add_periodic_task(
+            crontab(hour=7, minute=0),
+            snapshot_market_data_task.s(),
+            name="market-data-daily-snapshot",
         )
 
     # Google Drive: sync every 6 hours
