@@ -89,10 +89,13 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://redis:6379/1"
 
     # Stripe Billing Configuration
-    stripe_secret_key: str
-    stripe_webhook_secret: str
-    stripe_price_pro_monthly: str
-    stripe_price_enterprise_monthly: str
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_pro_monthly: str = ""
+    stripe_price_enterprise_monthly: str = ""
+
+    # Frontend URL (for Stripe checkout redirect URLs)
+    frontend_url: str = "http://localhost:3000"
 
     # --- Data Pipeline Connectors ---
 

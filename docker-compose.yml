@@ -33,6 +33,11 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - EMAIL_FROM=${EMAIL_FROM:-noreply@apfa.io}
       - EMAIL_VERIFICATION_URL=${EMAIL_VERIFICATION_URL:-http://localhost:3000/verify}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PRICE_PRO_MONTHLY=${STRIPE_PRICE_PRO_MONTHLY:-}
+      - STRIPE_PRICE_ENTERPRISE_MONTHLY=${STRIPE_PRICE_ENTERPRISE_MONTHLY:-}
+      - FRONTEND_URL=${FRONTEND_URL:-https://apfa.secureai.dev}
     working_dir: /opt/apfa
     depends_on:
       redis:

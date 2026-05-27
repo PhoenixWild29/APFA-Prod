@@ -69,6 +69,10 @@ class UserProfile(BaseModel):
         description="Specific permissions granted to user",
         examples=[["view_reports", "generate_advice", "manage_users"]],
     )
+    subscription_tier: str = Field(
+        default="free",
+        description="Subscription tier (free, pro, enterprise)",
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="UTC timestamp when user was created",
