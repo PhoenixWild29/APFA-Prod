@@ -437,3 +437,66 @@ def test_market_data_history_orm_model():
         if hasattr(c, "name") and c.name
     ]
     assert "uq_market_history_ticker_type_unit_date" in constraint_names
+
+
+# --- Email verification tests ---
+
+
+def test_hash_verification_token_deterministic():
+    """hash_verification_token must produce the same hash for the same input."""
+    from app.services.email_service import hash_verification_token
+
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test"
+    h1 = hash_verification_token(token)
+    h2 = hash_verification_token(token)
+    assert h1 == h2
+    assert len(h1) == 64  # SHA-256 hex digest
+
+
+def test_hash_verification_token_different_inputs():
+    """Different tokens must produce different hashes."""
+    from app.services.email_service import hash_verification_token
+
+    h1 = hash_verification_token("token_a")
+    h2 = hash_verification_token("token_b")
+    assert h1 != h2
+
+
+def test_email_service_unconfigured_skips_send():
+    """EmailService must skip sending when API key is empty."""
+    from app.services.email_service import EmailService
+
+    svc = EmailService(api_key="", from_address="test@test.com")
+    result = svc._send("user@example.com", "Test", "<p>Test</p>")
+    assert result is False
+
+
+def test_email_service_configured_flag():
+    """EmailService must set _configured=True when API key is provided."""
+    from app.services.email_service import EmailService
+
+    svc = EmailService(api_key="re_test_key", from_address="test@test.com")
+    assert svc._configured is True
+
+    svc_empty = EmailService(api_key="", from_address="test@test.com")
+    assert svc_empty._configured is False
+
+
+def test_authenticate_user_returns_unverified_sentinel():
+    """authenticate_user must return 'unverified' for unverified non-admin users."""
+    from unittest.mock import patch
+
+    mock_user = {
+        "username": "testuser",
+        "hashed_password": "fakehash",
+        "verified": False,
+        "role": "standard",
+    }
+
+    with patch("app.main.get_user", return_value=mock_user), \
+         patch("app.main.verify_password", return_value=True), \
+         patch("app.main.needs_rehash", return_value=False):
+        from app.main import authenticate_user
+
+        result = authenticate_user("testuser", "password123")
+        assert result == "unverified"

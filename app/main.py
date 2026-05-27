@@ -1117,7 +1117,7 @@ def authenticate_user(username: str, password: str):
     if not user.get("verified", False) and user.get("role") != "admin":
         _clean_username = str(username).replace("\n", "").replace("\r", "")[:200]
         logger.warning(f"Login attempt by unverified user: {_clean_username}")
-        return False
+        return "unverified"
 
     return user
 
@@ -1149,7 +1149,7 @@ def generate_verification_token(username: str) -> str:
     token_data = {
         "sub": username,
         "type": "email_verification",
-        "exp": datetime.utcnow() + timedelta(hours=24),  # 24-hour expiration
+        "exp": datetime.utcnow() + timedelta(hours=settings.email_verification_expiry_hours),
     }
     return jwt.encode(token_data, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
@@ -1186,39 +1186,32 @@ def verify_email_token(token: str) -> tuple[bool, str | None]:
 
 
 async def send_verification_email(email: str, token: str):
-    """
-    Send verification email (placeholder implementation).
+    """Send verification email via Resend (or log if not configured)."""
+    from app.services.email_service import get_email_service
 
-    In production, this would integrate with email service (SendGrid, SES, etc.)
+    verification_url = f"{settings.email_verification_url}?token={token}"
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        username = payload.get("sub", "User")
+    except Exception:
+        username = "User"
 
-    Args:
-        email: User email address
-        token: Verification token
-    """
-    verification_link = f"http://localhost:3000/verify?token={token}"
-
-    _clean_email = str(email).replace("\n", "").replace("\r", "")[:200]
-    logger.info(f"Sending verification email to {_clean_email}")
-    logger.info(f"Verification link: {verification_link}")
-
-    # TODO: Integrate with email service
-    # Example: sendgrid.send_email(to=email, template="verification", data={"link": verification_link})
+    svc = get_email_service()
+    svc.send_verification_email(
+        to_email=email,
+        username=username,
+        verification_url=verification_url,
+        expiry_hours=settings.email_verification_expiry_hours,
+    )
 
 
 async def send_welcome_email(email: str, username: str):
-    """
-    Send welcome email after successful verification (placeholder implementation).
+    """Send welcome email after successful verification."""
+    from app.services.email_service import get_email_service
 
-    Args:
-        email: User email address
-        username: Username
-    """
-    _clean_email = str(email).replace("\n", "").replace("\r", "")[:200]
-    _clean_username = str(username).replace("\n", "").replace("\r", "")[:200]
-    logger.info(f"Sending welcome email to {_clean_email} (username: {_clean_username})")
-
-    # TODO: Integrate with email service
-    # Example: sendgrid.send_email(to=email, template="welcome", data={"username": username})
+    app_url = settings.email_verification_url.rsplit("/verify", 1)[0] + "/auth"
+    svc = get_email_service()
+    svc.send_welcome_email(to_email=email, username=username, app_url=app_url)
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=5))
@@ -1696,6 +1689,11 @@ async def login_for_access_token(
     """
     try:
         user = authenticate_user(form_data.username, form_data.password)
+        if user == "unverified":
+            raise HTTPException(
+                status_code=403,
+                detail="email_not_verified",
+            )
         if not user:
             _clean_u = str(form_data.username).replace("\n", "").replace("\r", "")[:200]
             logger.warning(
@@ -1796,6 +1794,8 @@ async def login_for_access_token_legacy(
         dict: Access token and token type (simple format).
     """
     user = authenticate_user(form_data.username, form_data.password)
+    if user == "unverified":
+        raise HTTPException(status_code=403, detail="email_not_verified")
     if not user:
         raise HTTPException(
             status_code=401,
@@ -2048,10 +2048,15 @@ async def register_user(
         user_id = f"user_{sanitized_username}"
 
         # Generate email verification token
-        verification_token = generate_verification_token(sanitized_username)
-        token_expiration_dt = datetime.now(timezone.utc) + timedelta(hours=24)
+        from app.services.email_service import hash_verification_token
 
-        # Store new user in PostgreSQL
+        verification_token = generate_verification_token(sanitized_username)
+        token_hash = hash_verification_token(verification_token)
+        token_expiration_dt = datetime.now(timezone.utc) + timedelta(
+            hours=settings.email_verification_expiry_hours
+        )
+
+        # Store new user in PostgreSQL (only the hash is persisted)
         new_user = User(
             id=user_id,
             username=sanitized_username,
@@ -2064,7 +2069,7 @@ async def register_user(
             permissions=["advice:generate", "advice:view_history"],
             created_at=datetime.now(timezone.utc),
             verified=False,
-            verification_token=verification_token,
+            verification_token=token_hash,
             token_expiration=token_expiration_dt,
             marketing_consent=request.marketing_consent,
             subscription_tier="free",
@@ -2073,7 +2078,7 @@ async def register_user(
         db.add(new_user)
         db.commit()
 
-        # Send verification email
+        # Send verification email (raw token goes to user's inbox, not DB)
         await send_verification_email(sanitized_email, verification_token)
 
         _clean_u = str(sanitized_username).replace("\n", "").replace("\r", "")[:200]
@@ -2154,44 +2159,22 @@ async def get_current_user_profile(
 
 
 @app.get("/register/verify/{token}")
-async def verify_email(token: str, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+async def verify_email(request: Request, token: str, db: Session = Depends(get_db)):
     """
     Email verification endpoint - Activate user account via verification token.
 
     Validates email verification tokens, activates user accounts,
     and sends welcome email upon successful verification.
-
-    Args:
-        token: Email verification token (JWT format)
-
-    Returns:
-        dict: Verification result with status message
-
-    Raises:
-        HTTPException:
-            - 404: Invalid or not found token
-            - 410: Token has expired
-            - 200: Already verified (not an error, just informational)
-
-    Example:
-        Request:
-            GET /register/verify/eyJhbGciOiJIUzI1NiIs...
-
-        Response (200):
-            {
-                "message": "Email verified successfully",
-                "username": "john_doe",
-                "email": "john@example.com",
-                "verified": true
-            }
     """
-    # Verify token
+    from app.services.email_service import hash_verification_token
+
+    # Verify JWT signature and expiry
     is_valid, result = verify_email_token(token)
 
     if not is_valid:
         error_message = result or "Invalid token"
 
-        # Check if token is expired
         if "expired" in error_message.lower():
             logger.warning(f"Expired verification token: {error_message}")
             raise HTTPException(
@@ -2199,21 +2182,17 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
                 detail="Verification link has expired. Please request a new one.",
             )
 
-        # Invalid token
         logger.warning(f"Invalid verification token: {error_message}")
         raise HTTPException(status_code=404, detail="Invalid verification link")
 
-    # Token is valid, get username
     username = result
 
-    # Get user from PostgreSQL
     user_row = db.query(User).filter(User.username == username).first()
     if not user_row:
         _clean_u = str(username).replace("\n", "").replace("\r", "")[:200]
         logger.error(f"User not found for verified token: {_clean_u}")
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Check if already verified
     if user_row.verified:
         _clean_u = str(username).replace("\n", "").replace("\r", "")[:200]
         logger.info(f"User already verified: {_clean_u}")
@@ -2225,6 +2204,19 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
             "status": "already_verified",
         }
 
+    # Verify DB token hash matches (revokes old tokens after resend)
+    token_hash = hash_verification_token(token)
+    if user_row.verification_token != token_hash:
+        logger.warning("Verification token hash mismatch — token may have been superseded by resend")
+        raise HTTPException(status_code=404, detail="Invalid verification link")
+
+    # Check DB expiration (authoritative, survives JWT secret rotation)
+    if user_row.token_expiration and user_row.token_expiration < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=410,
+            detail="Verification link has expired. Please request a new one.",
+        )
+
     # Activate account
     user_row.verified = True
     user_row.verification_token = None
@@ -2235,7 +2227,6 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     _clean_u = str(username).replace("\n", "").replace("\r", "")[:200]
     logger.info(f"Email verified successfully for user: {_clean_u}")
 
-    # Send welcome email
     await send_welcome_email(user_row.email, username)
 
     return {
@@ -2245,6 +2236,43 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
         "verified": True,
         "status": "verified",
     }
+
+
+@app.post("/register/resend-verification")
+@limiter.limit("3/hour")
+async def resend_verification(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Resend verification email. Rate-limited to 3/hour per IP.
+
+    Always returns success to prevent email enumeration.
+    """
+    from app.services.email_service import hash_verification_token
+
+    body = await request.json()
+    email = body.get("email", "").lower().strip()
+
+    user = db.query(User).filter(User.email == email).first()
+
+    if user and not user.verified:
+        # Cooldown: require 2 minutes between resends
+        if user.token_expiration:
+            time_since_last = datetime.now(timezone.utc) - (
+                user.token_expiration - timedelta(hours=settings.email_verification_expiry_hours)
+            )
+            if time_since_last < timedelta(minutes=2):
+                return {"message": "If an account exists with that email, a verification link has been sent."}
+
+        new_token = generate_verification_token(user.username)
+        user.verification_token = hash_verification_token(new_token)
+        user.token_expiration = datetime.now(timezone.utc) + timedelta(
+            hours=settings.email_verification_expiry_hours
+        )
+        db.commit()
+        await send_verification_email(user.email, new_token)
+
+    return {"message": "If an account exists with that email, a verification link has been sent."}
 
 
 @app.post("/documents/upload", status_code=201)
