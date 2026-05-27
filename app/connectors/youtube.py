@@ -491,8 +491,11 @@ class YouTubeTranscriptConnector(RAGSource):
                 )
 
             # Timestamp-aware chunking with overlap
+            from app.config import settings as _s
             chunks = timestamp_chunk(
-                cleaned_segments, window_sec=75.0, overlap_sec=12.0
+                cleaned_segments,
+                window_sec=_s.chunk_transcript_window_sec,
+                overlap_sec=_s.chunk_transcript_overlap_sec,
             )
 
             for chunk in chunks:

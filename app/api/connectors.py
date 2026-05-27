@@ -88,6 +88,11 @@ class IngestResponse(BaseModel):
 class GoogleDriveSyncRequest(BaseModel):
     folder_ids: list[str] = Field(default_factory=list)
     file_ids: list[str] = Field(default_factory=list)
+    force_full: bool = Field(
+        default=False,
+        description="Bypass incremental state and re-process all files. "
+        "Use after rechunking to force re-ingestion at new chunk sizes.",
+    )
 
 
 class FinnhubSyncRequest(BaseModel):
@@ -107,6 +112,14 @@ class TaskStatusResponse(BaseModel):
     task_id: str
     status: str
     result: Optional[dict] = None
+
+
+class RechunkResponse(BaseModel):
+    purged_chunks: int
+    preserved_chunks: int
+    sources_purged: list[str]
+    faiss_auto_rebuild_paused: bool
+    next_steps: list[str]
 
 
 class DeleteBySourceRequest(BaseModel):
@@ -250,6 +263,7 @@ async def sync_google_drive(
     task = sync_google_drive_task.delay(
         folder_ids=folder_ids,
         file_ids=body.file_ids,
+        force_full=body.force_full,
     )
 
     _write_audit_log(
@@ -396,6 +410,72 @@ async def get_market_data(
         }
         for r in records
     ]
+
+
+@router.post("/rechunk", response_model=RechunkResponse)
+async def rechunk_corpus(
+    request: Request,
+    _user=Depends(require_pipeline_or_admin),
+    db: Session = Depends(get_db),
+):
+    """Purge connector-sourced chunks for re-ingestion at new chunk sizes.
+
+    Preserves seed data, manual uploads, and FAISS metadata. Only purges
+    chunks from google_drive, youtube, and perplexity_research connectors.
+
+    After purging, sets a Redis lock to pause FAISS auto-rebuild until
+    the operator completes re-syncing all connectors and triggers an
+    explicit FAISS rebuild.
+
+    Sequence: rechunk (purge) → re-sync connectors (force_full) → faiss/rebuild
+    """
+    from app.config import settings
+    from app.services.delta_writer import purge_connector_chunks
+
+    stats = purge_connector_chunks(settings)
+
+    import redis
+    try:
+        r = redis.from_url(settings.redis_url)
+        r.set("faiss:rechunk_in_progress", "1")
+        r.delete("faiss:rebuild_needed")
+        rebuild_paused = True
+    except Exception:
+        rebuild_paused = False
+
+    _write_audit_log(
+        db, request,
+        source_connector="rechunk",
+        action="delete",
+        status="success",
+        chunk_count=stats["purged"],
+    )
+
+    next_steps = []
+    if "google_drive" in stats["sources_purged"]:
+        next_steps.append(
+            'POST /admin/connectors/google-drive/sync {"force_full": true}'
+        )
+    if "youtube" in stats["sources_purged"]:
+        next_steps.append(
+            "POST /admin/connectors/youtube/ingest (re-run with video_ids or takeout_json)"
+        )
+    if "perplexity_research" in stats["sources_purged"]:
+        next_steps.append(
+            "Perplexity briefs will regenerate on next daily Celery beat cycle"
+        )
+    next_steps.append(
+        "POST /admin/connectors/faiss/rebuild (after all syncs complete — "
+        "this also clears the rechunk lock)"
+    )
+
+    return RechunkResponse(
+        purged_chunks=stats["purged"],
+        preserved_chunks=stats["preserved"],
+        sources_purged=stats["sources_purged"],
+        faiss_auto_rebuild_paused=rebuild_paused,
+        next_steps=next_steps,
+    )
 
 
 @router.delete("/ingest/source")

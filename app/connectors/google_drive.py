@@ -510,8 +510,9 @@ class GoogleDriveConnector(RAGSource):
             author = doc.get("_author", "")
 
             # Choose chunking strategy
+            from app.config import settings as _s
+
             if mime == MIME_GOOGLE_SHEET and "_sheets_data" in doc:
-                # Use structured spreadsheet chunking
                 chunk_dicts = []
                 for sheet in doc["_sheets_data"]:
                     chunk_dicts.extend(
@@ -519,12 +520,21 @@ class GoogleDriveConnector(RAGSource):
                             sheet_name=sheet["name"],
                             headers=sheet["headers"],
                             rows=sheet["rows"],
+                            max_rows_per_chunk=_s.chunk_spreadsheet_max_rows,
                         )
                     )
             elif self._looks_regulatory(text):
-                chunk_dicts = section_aware_chunk(text)
+                chunk_dicts = section_aware_chunk(
+                    text,
+                    target_tokens=_s.chunk_target_tokens,
+                    overlap_pct=_s.chunk_overlap_pct,
+                )
             else:
-                chunk_dicts = sentence_aware_chunk(text)
+                chunk_dicts = sentence_aware_chunk(
+                    text,
+                    target_tokens=_s.chunk_target_tokens,
+                    overlap_pct=_s.chunk_overlap_pct,
+                )
 
             for chunk in chunk_dicts:
                 idx = chunk["chunk_index"]
