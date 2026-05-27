@@ -171,6 +171,34 @@ jobs:
             docker compose -f /opt/apfa-prod/docker-compose.yml ps redis postgres
             exit 1
 
+      - name: Capture failure diagnostics
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            cd /opt/apfa-prod
+            echo "========== Container status =========="
+            docker compose ps || true
+            echo ""
+            echo "========== APFA container logs (last 200 lines) =========="
+            docker compose logs --tail=200 apfa || true
+            echo ""
+            echo "========== Celery worker logs (last 50 lines) =========="
+            docker compose logs --tail=50 celery-worker || true
+            echo ""
+            echo "========== Celery beat logs (last 50 lines) =========="
+            docker compose logs --tail=50 celery-beat || true
+            echo ""
+            echo "========== Postgres logs (last 50 lines) =========="
+            docker compose logs --tail=50 postgres || true
+            echo ""
+            echo "========== Alembic version =========="
+            docker compose exec -T postgres psql -U postgres -d apfa -c "SELECT version_num FROM alembic_version;" || true
+
       - name: Notify Telegram — success
         if: success()
         env:
