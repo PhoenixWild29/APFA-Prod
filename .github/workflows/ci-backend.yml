@@ -149,6 +149,10 @@ jobs:
           MINIO_ACCESS_KEY: dummy
           MINIO_SECRET_KEY: dummy
           API_KEY: dummy
+          STRIPE_SECRET_KEY: dummy
+          STRIPE_WEBHOOK_SECRET: dummy
+          STRIPE_PRICE_PRO_MONTHLY: dummy
+          STRIPE_PRICE_ENTERPRISE_MONTHLY: dummy
         run: |
           echo "Running alembic upgrade head against disposable Postgres..."
           python -m alembic -c app/alembic.ini upgrade head
