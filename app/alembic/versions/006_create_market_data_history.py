@@ -1,7 +1,7 @@
 """Create market_data_history table for daily snapshots.
 
 Revision ID: 006
-Revises: 005_create_conversations_tables
+Revises: 005_conversations
 Create Date: 2026-05-26
 """
 
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "006_market_data_history"
-down_revision = "005_create_conversations_tables"
+down_revision = "005_conversations"
 branch_labels = None
 depends_on = None
 

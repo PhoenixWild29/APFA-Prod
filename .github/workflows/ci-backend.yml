@@ -92,6 +92,68 @@ jobs:
           API_KEY: test_key
         continue-on-error: true
 
+  migration-check:
+    name: Validate Alembic Migrations
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: apfa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install system deps for wheels
+        run: sudo apt-get update -qq && sudo apt-get install -qq -y --no-install-recommends libpq-dev build-essential
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate migration revision chain
+        run: |
+          python -c "
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+          c = Config('app/alembic.ini')
+          s = ScriptDirectory.from_config(c)
+          revs = list(s.walk_revisions())
+          heads = s.get_heads()
+          assert len(heads) == 1, f'Multiple heads detected: {heads}'
+          print(f'Migration chain valid: {len(revs)} revisions, head={heads[0]}')
+          "
+
+      - name: Run migrations against test database
+        env:
+          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/apfa_test
+          MINIO_ENDPOINT: dummy
+          MINIO_ACCESS_KEY: dummy
+          MINIO_SECRET_KEY: dummy
+          API_KEY: dummy
+        run: |
+          echo "Running alembic upgrade head against disposable Postgres..."
+          python -m alembic -c app/alembic.ini upgrade head
+          echo "All migrations executed successfully."
+
   lint:
     name: Code Quality Checks
     runs-on: ubuntu-latest
