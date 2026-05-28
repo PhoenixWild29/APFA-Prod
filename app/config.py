@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
     embedder_model: str = "BAAI/bge-small-en-v1.5"
+
+    # Cross-encoder reranker (Sprint 4)
+    reranker_enabled: bool = False
+    reranker_model: str = "BAAI/bge-reranker-base"
+    reranker_top_n: int = 20
+    faiss_fetch_k: int = 50
+
     delta_table_path: str = "s3://customer-data-lakehouse/customers"
 
     # Logging

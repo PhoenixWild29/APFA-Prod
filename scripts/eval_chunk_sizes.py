@@ -220,6 +220,8 @@ def main():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "eval_set": str(eval_path),
         "k": args.k,
+        "reranker_enabled": settings.reranker_enabled,
+        "reranker_model": settings.reranker_model if settings.reranker_enabled else None,
         "comparison": comparison,
         "winner": {
             "chunk_size": best["chunk_size"],

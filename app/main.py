@@ -151,8 +151,8 @@ logger = logging.getLogger(__name__)
 # ── Retrieval freshness tuning constants ───────────────────────────
 # Half-lives per content freshness class (days). At age == half_life,
 # the freshness multiplier is exactly 0.5. Tune these after baseline.
-# Pipeline: FAISS top-20 → freshness re-rank → top-5.
-# When a reranker lands, it slots BEFORE freshness: FAISS top-50 → reranker top-20 → freshness → top-5.
+# Pipeline (reranker OFF): FAISS top-20 → freshness → top-5.
+# Pipeline (reranker ON):  FAISS top-50 → reranker top-20 → freshness → top-5.
 FRESHNESS_HALF_LIVES = {
     "realtime": 30, "daily": 30,
     "weekly": 90,   # most likely tuning target (CoWork)
@@ -386,11 +386,14 @@ rag_df, faiss_index = None, None
 
 # Tools (MCP-compatible)
 def retrieve_context(query: str) -> tuple[str, float]:
-    """RAG retrieval for financial research documents with freshness weighting.
+    """RAG retrieval with optional cross-encoder reranking and freshness weighting.
 
-    Retrieves top-k candidates by cosine similarity, then re-ranks using
-    a freshness decay: score * exp(-age_days / half_life). Half-life is
-    tuned per freshness_class:
+    Pipeline (reranker enabled):
+      FAISS top-50 -> reranker sigmoid-normalize -> top-20 -> freshness decay -> top-5
+    Pipeline (reranker disabled):
+      FAISS top-20 -> freshness decay -> top-5
+
+    Freshness half-life is tuned per freshness_class:
       - realtime/daily: 30 days (news, market data)
       - weekly: 90 days (research reports, analysis)
       - archive/static: 1095 days (3 years — regulations, evergreen content)
@@ -403,26 +406,61 @@ def retrieve_context(query: str) -> tuple[str, float]:
         )
         faiss.normalize_L2(query_emb)
 
-        # Retrieve more candidates than needed for re-ranking
-        top_k = min(20, len(rag_df))
-        distances, indices = faiss_index.search(query_emb, k=top_k)
+        if settings.reranker_enabled:
+            fetch_k = min(settings.faiss_fetch_k, len(rag_df))
+        else:
+            fetch_k = min(20, len(rag_df))
+        distances, indices = faiss_index.search(query_emb, k=fetch_k)
 
-        # Freshness half-lives and floor are module-level constants
-        # so tuning is a one-line diff, not buried in function body.
-
-        # Re-rank with freshness decay
-        now = datetime.now(timezone.utc)
-        scored = []
+        # --- Single-pass candidate collection (B1 fix: CoWork) ---
+        # Build parallel arrays of valid candidates with explicit
+        # doc_idx back-mapping. The reranker receives (texts, doc_indices)
+        # and returns doc_idx values directly — no re-deriving from
+        # FAISS rank positions, which shift when invalid entries are skipped.
+        valid_doc_indices = []
+        valid_sim_scores = []
+        valid_texts = []
         for rank_idx in range(len(indices[0])):
-            doc_idx = indices[0][rank_idx]
+            doc_idx = int(indices[0][rank_idx])
             if doc_idx < 0 or doc_idx >= len(rag_df):
                 continue
+            valid_doc_indices.append(doc_idx)
+            valid_sim_scores.append(float(distances[0][rank_idx]))
+            valid_texts.append(str(rag_df.iloc[doc_idx]["profile"]))
 
-            sim_score = float(distances[0][rank_idx])
+        # --- Optional reranker stage ---
+        reranker_active = False
+        reranker_scores = {}  # doc_idx -> sigmoid-normalized score
+
+        if settings.reranker_enabled and valid_doc_indices:
+            from app.services.reranker import get_reranker
+
+            reranker = get_reranker(settings.reranker_model)
+            reranked = reranker.rerank(
+                query, valid_texts, valid_doc_indices,
+                top_n=settings.reranker_top_n,
+            )
+            if reranked:
+                reranker_active = True
+                reranker_scores = {doc_idx: score for doc_idx, score in reranked}
+            else:
+                logger.warning("Reranker returned empty — falling back to FAISS-only")
+
+        # --- Freshness decay scoring ---
+        now = datetime.now(timezone.utc)
+        scored = []
+        for i, doc_idx in enumerate(valid_doc_indices):
+            if reranker_active and doc_idx not in reranker_scores:
+                continue
+
+            if reranker_active:
+                base_score = reranker_scores[doc_idx]
+            else:
+                base_score = valid_sim_scores[i]
+
             row = rag_df.iloc[doc_idx]
 
-            # Parse document age — try creation_date first, then ingested_at
-            age_days = 365  # fallback if no date at all
+            age_days = 365
             for date_col in ("creation_date", "ingested_at", "fetched_at"):
                 date_str = row.get(date_col, "")
                 if date_str and str(date_str) != "nan":
@@ -433,39 +471,34 @@ def retrieve_context(query: str) -> tuple[str, float]:
                         if doc_date.tzinfo is None:
                             doc_date = doc_date.replace(tzinfo=timezone.utc)
                         age_days = max(0, (now - doc_date).days)
-                        break  # use the first valid date found
+                        break
                     except (ValueError, TypeError):
                         continue
 
-            # Get half-life for this content class
             freshness_class = str(row.get("freshness_class", "static")).lower()
             half_life = max(1, FRESHNESS_HALF_LIVES.get(freshness_class, FRESHNESS_DEFAULT_HALF_LIFE))
-
-            # Decay: score * exp(-age * ln2 / half_life) — true half-life
-            # At age == half_life, factor = 0.5 exactly.
-            # Floor at 0.2 so date-less docs aren't penalized too harshly
-            # on a small corpus.
             freshness_factor = max(FRESHNESS_FLOOR, math.exp(-age_days * 0.693 / half_life))
-            final_score = sim_score * freshness_factor
+            final_score = base_score * freshness_factor
 
-            scored.append((doc_idx, final_score, sim_score, freshness_factor, row["profile"]))
+            scored.append((doc_idx, final_score, base_score, freshness_factor, valid_texts[i]))
 
-        # Sort by final score, take top 5
         scored.sort(key=lambda x: x[1], reverse=True)
-        top_k = scored[:5]
+        top_results = scored[:5]
 
-        # Debug logging for retrieval tuning (gated on DEBUG level)
         if logger.isEnabledFor(logging.DEBUG):
+            label = "reranker" if reranker_active else "sim"
             logger.debug(
-                f"Retrieval re-rank for '{query[:50]}': "
-                + ", ".join(
-                    f"doc{idx}(sim={sim:.3f}×fresh={ff:.2f}={final:.3f})"
-                    for idx, final, sim, ff, _ in top_k
-                )
+                "Retrieval for '%s' (reranker=%s): %s",
+                query[:50],
+                "ON" if reranker_active else "OFF",
+                ", ".join(
+                    f"doc{idx}({label}={base:.3f}*fresh={ff:.2f}={final:.3f})"
+                    for idx, final, base, ff, _ in top_results
+                ),
             )
 
-        context = "\n".join(text for _, _, _, _, text in top_k)
-        avg_confidence = sum(score for _, score, _, _, _ in top_k) / len(top_k) if top_k else 0.0
+        context = "\n".join(text for _, _, _, _, text in top_results)
+        avg_confidence = sum(score for _, score, _, _, _ in top_results) / len(top_results) if top_results else 0.0
 
         return context, avg_confidence
     except Exception as e:
@@ -6537,6 +6570,23 @@ async def lifespan(app: FastAPI):
     except RAGError:
         logger.warning("RAG index unavailable — RAG endpoints will return errors")
         rag_df, faiss_index = None, None
+
+    # Warm up cross-encoder reranker (if enabled) so first query
+    # doesn't pay the 278MB model download + init cost.
+    if settings.reranker_enabled:
+        try:
+            from app.services.reranker import get_reranker
+
+            _reranker = get_reranker(settings.reranker_model)
+            _reranker.warmup()
+            logger.info(
+                "Reranker warmed up: %s (top_n=%d, faiss_fetch_k=%d)",
+                settings.reranker_model,
+                settings.reranker_top_n,
+                settings.faiss_fetch_k,
+            )
+        except Exception as e:
+            logger.error("Reranker warmup failed (will retry on first query): %s", e)
 
     # Initialize OpenAI LLM
     global llm
