@@ -420,10 +420,12 @@ def retrieve_context(query: str) -> tuple[str, float]:
         valid_doc_indices = []
         valid_sim_scores = []
         valid_texts = []
+        seen_doc_ids = set()
         for rank_idx in range(len(indices[0])):
             doc_idx = int(indices[0][rank_idx])
-            if doc_idx < 0 or doc_idx >= len(rag_df):
+            if doc_idx < 0 or doc_idx >= len(rag_df) or doc_idx in seen_doc_ids:
                 continue
+            seen_doc_ids.add(doc_idx)
             valid_doc_indices.append(doc_idx)
             valid_sim_scores.append(float(distances[0][rank_idx]))
             valid_texts.append(str(rag_df.iloc[doc_idx]["profile"]))
@@ -6586,7 +6588,11 @@ async def lifespan(app: FastAPI):
                 settings.faiss_fetch_k,
             )
         except Exception as e:
-            logger.error("Reranker warmup failed (will retry on first query): %s", e)
+            logger.error(
+                "Reranker warmup failed for %s — retrieval will fall back to "
+                "FAISS-only until model loads successfully: %s",
+                settings.reranker_model, e,
+            )
 
     # Initialize OpenAI LLM
     global llm

@@ -44,16 +44,20 @@ class RerankerService:
     def __init__(self, model_name: str = "BAAI/bge-reranker-base"):
         self.model_name = model_name
         self._encoder = None
+        self._init_lock = threading.Lock()
         logger.info("RerankerService created (model=%s, not yet loaded)", model_name)
 
     def _ensure_loaded(self):
         if self._encoder is not None:
             return
-        from fastembed import TextCrossEncoder
+        with self._init_lock:
+            if self._encoder is not None:
+                return
+            from fastembed import TextCrossEncoder
 
-        logger.info("Loading cross-encoder model: %s", self.model_name)
-        self._encoder = TextCrossEncoder(model_name=self.model_name)
-        logger.info("Cross-encoder model loaded: %s", self.model_name)
+            logger.info("Loading cross-encoder model: %s", self.model_name)
+            self._encoder = TextCrossEncoder(model_name=self.model_name)
+            logger.info("Cross-encoder model loaded: %s", self.model_name)
 
     def warmup(self):
         """Pre-load the model so the first real query doesn't pay init cost."""
