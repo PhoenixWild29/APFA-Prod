@@ -45,7 +45,7 @@ python-dotenv==1.2.2
 tenacity==8.2.3
 cachetools==7.1.4
 slowapi
-numpy>=1.26.0,<3.0
+numpy>=2.4.6,<3.0
 prometheus-client==0.25.0
 python-jose[cryptography]==3.5.0
 bcrypt>=5.0.0,<6.0
