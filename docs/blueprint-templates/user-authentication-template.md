@@ -19,7 +19,7 @@ security with RBAC, SSO, and zero-trust architecture (Phase 3-5).
 ```python
 import jwt
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
@@ -31,7 +31,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -45,7 +45,7 @@ fake_users_db = {
 }
 ```
 
-**Reference:** `app/main.py` lines 300-358
+**Reference:** `create_access_token()` in `app/main.py`
 
 **Limitations:**
 - ❌ In-memory storage (data loss on restart)
@@ -153,7 +153,7 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 ```python
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 
 class User(Base):
     __tablename__ = "users"
@@ -164,8 +164,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(50), default="user", index=True)
     disabled = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     last_login = Column(DateTime)
     
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
@@ -179,7 +179,7 @@ class Session(Base):
     token_hash = Column(String(64), nullable=False, index=True)
     ip_address = Column(String(50))
     user_agent = Column(String(500))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     expires_at = Column(DateTime, nullable=False, index=True)
     revoked = Column(Boolean, default=False)
     
@@ -204,7 +204,7 @@ class AuditLog(Base):
     status = Column(String(20))  # success, failure
     metadata = Column(JSON)
     ip_address = Column(String(50))
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     
     user = relationship("User", back_populates="audit_logs")
 
@@ -239,7 +239,7 @@ async def create_session(user_id: int, token: str, request: Request):
         'token_hash': hashlib.sha256(token.encode()).hexdigest(),
         'ip_address': request.client.host,
         'user_agent': request.headers.get('user-agent'),
-        'created_at': datetime.utcnow().isoformat(),
+        'created_at': datetime.now(timezone.utc).isoformat(),
     }
     
     # Store in Redis (30-min TTL)
@@ -256,7 +256,7 @@ async def create_session(user_id: int, token: str, request: Request):
         token_hash=session_data['token_hash'],
         ip_address=session_data['ip_address'],
         user_agent=session_data['user_agent'],
-        expires_at=datetime.utcnow() + timedelta(minutes=30)
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30)
     )
     db.add(db_session)
     await db.commit()
@@ -335,7 +335,7 @@ class RiskAssessor:
             risk_score += 20
         
         # Unusual time
-        if is_unusual_time(user, datetime.utcnow()):
+        if is_unusual_time(user, datetime.now(timezone.utc)):
             risk_score += 15
         
         # High-value action

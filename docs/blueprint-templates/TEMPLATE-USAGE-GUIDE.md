@@ -498,9 +498,9 @@ a working system documented in 23 production-ready files. Phase 2 is fully docum
 and ready to implement, delivering 100x performance improvement for a 36% cost increase."
 
 **For Phase 1:**
-"Current state: Static Llama-3-8B model, Sentence-BERT embeddings, FAISS IndexFlatIP 
-with 50K vectors. Main limitation: Synchronous index building blocks requests for 10-100 
-seconds. This is documented in architecture.md lines 38-51."
+"Current state: OpenAI GPT-4o (via langchain-openai), BGE embeddings (via fastembed), 
+FAISS IndexFlatIP with 50K vectors, cross-encoder reranker (bge-reranker-base). Main 
+limitation: Synchronous index building blocks requests for 10-100 seconds."
 
 **For Phase 2:**
 "Solution: Celery background jobs pre-compute indexes. Complete implementation in 

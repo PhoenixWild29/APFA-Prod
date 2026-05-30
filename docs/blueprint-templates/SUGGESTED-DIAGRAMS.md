@@ -22,8 +22,8 @@ graph TB
     
     subgraph "AI/ML Pipeline"
         RAG[RAG Pipeline<br/>FAISS Index]
-        LLM[LLM Service<br/>Llama-3-8B]
-        EMB[Embedding Model<br/>all-MiniLM-L6-v2]
+        LLM[LLM Service<br/>OpenAI GPT-4o]
+        EMB[Embedding Model<br/>BAAI/bge-small-en-v1.5]
     end
     
     subgraph "Background Jobs"

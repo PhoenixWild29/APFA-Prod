@@ -45,8 +45,8 @@ User Query
 │  Agent 1: Retriever (RAG)             │
 │  ┌─────────────────────────────────┐  │
 │  │  Tool: retrieve_loan_data()     │  │
-│  │  ├─ Embed query (Sentence-BERT) │  │
-│  │  ├─ FAISS search (top-5)        │  │
+│  │  ├─ Embed query (BGE/fastembed)  │  │
+│  │  ├─ FAISS search + reranker     │  │
 │  │  └─ Return context              │  │
 │  └─────────────────────────────────┘  │
 └────────────┬──────────────────────────┘
@@ -54,9 +54,9 @@ User Query
 ┌───────────────────────────────────────┐
 │  Agent 2: Analyzer (LLM)              │
 │  ┌─────────────────────────────────┐  │
-│  │  Model: Llama-3-8B              │  │
+│  │  Model: OpenAI GPT-4o            │  │
 │  │  ├─ Context injection           │  │
-│  │  ├─ Generate advice (200 tokens)│  │
+│  │  ├─ Generate advice (1K tokens) │  │
 │  │  └─ Return response             │  │
 │  └─────────────────────────────────┘  │
 └────────────┬──────────────────────────┘
@@ -64,7 +64,7 @@ User Query
 ┌───────────────────────────────────────┐
 │  Agent 3: Orchestrator (Bias Check)   │
 │  ┌─────────────────────────────────┐  │
-│  │  Tool: detect_bias() (AIF360)   │  │
+│  │  Tool: detect_bias() (stub)      │  │
 │  │  ├─ Calculate bias score        │  │
 │  │  ├─ Log if score > 0.3          │  │
 │  │  └─ Return final advice         │  │
@@ -72,7 +72,7 @@ User Query
 └───────────────────────────────────────┘
 ```
 
-**Reference:** `app/main.py` lines 168-222 (LangGraph implementation)
+**Reference:** LangGraph multi-agent graph in `app/main.py` (see `build_agent_graph()`)
 
 **Implementation:**
 ```python
@@ -116,49 +116,49 @@ app_graph = graph.compile()
 
 #### Embedding Model
 
-**Model:** all-MiniLM-L6-v2 (Sentence-BERT)
+**Model:** BAAI/bge-small-en-v1.5 (via fastembed, ONNX runtime)
 - **Dimensions:** 384
-- **Parameters:** 22.7M
-- **Speed:** ~1,000 sentences/sec (CPU)
+- **Parameters:** 33M
+- **Speed:** ~1,000 sentences/sec (CPU, ONNX optimized)
 - **Use Case:** Convert text → dense vectors for similarity search
 
 **Configuration:**
 ```python
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
-embedder = SentenceTransformer('all-MiniLM-L6-v2')
+embedder = TextEmbedding(model_name=settings.embedder_model)  # "BAAI/bge-small-en-v1.5"
 
 # Generate embeddings
-embeddings = embedder.encode(
-    documents,
-    batch_size=32,      # Process 32 at a time
-    show_progress_bar=False,
-    normalize_embeddings=True  # L2 normalization for cosine similarity
-)
+embeddings = np.array(list(embedder.embed(documents)), dtype=np.float32)
+faiss.normalize_L2(embeddings)  # L2 normalization for cosine similarity via IndexFlatIP
 ```
 
-**Reference:** `app/config.py` line 9
+**Reference:** `app/config.py` (see `embedder_model` setting)
 
 ---
 
 #### Language Model (LLM)
 
-**Model:** Llama-3-8B (Meta)
-- **Parameters:** 8 billion
-- **Context Window:** 8,192 tokens
-- **Output:** Max 200 tokens per request
-- **Inference Time:** 2-8s per request (CPU)
+**Model:** OpenAI GPT-4o (via langchain-openai)
+- **Context Window:** 128K tokens
+- **Output:** Max 1,000 tokens per request (configured)
+- **Inference Time:** 1-5s per request (API call)
 
 **Loading:**
 ```python
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from langchain_openai import ChatOpenAI
 
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3-8b-hf")
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3-8b-hf")
-llm_pipeline = pipeline('text-generation', model=model, tokenizer=tokenizer)
+llm = ChatOpenAI(
+    model=settings.openai_model,      # "gpt-4o"
+    api_key=settings.openai_api_key,
+    temperature=0.2,
+    max_tokens=1000,
+    timeout=30.0,
+    max_retries=2,
+)
 ```
 
-**Reference:** `app/main.py` lines 143-166
+**Reference:** LLM initialization in `app/main.py` (see lifespan startup)
 
 ---
 
@@ -169,7 +169,7 @@ llm_pipeline = pipeline('text-generation', model=model, tokenizer=tokenizer)
 **Data Flow:**
 ```
 Delta Lake → Pandas DataFrame → Embeddings → FAISS Index → Query-Time Retrieval
-(s3a://...)    (in-memory)      (384-dim)    (IndexFlatIP)   (top-5 results)
+(s3a://...)    (in-memory)      (384-dim)    (IndexFlatIP)   (top-5 via reranker)
 ```
 
 **Code:**
@@ -181,7 +181,7 @@ def load_rag_index():
     df = dt.to_pandas()
     
     # Generate embeddings (BLOCKING in Phase 1)
-    embeddings = np.array(embedder.encode(df['profile'].tolist()))
+    embeddings = np.array(list(embedder.embed(df['profile'].tolist())), dtype=np.float32)
     faiss.normalize_L2(embeddings)
     
     # Build FAISS index
@@ -190,15 +190,20 @@ def load_rag_index():
     
     return df, index
 
-# Query-time retrieval
+# Query-time retrieval pipeline:
+# FAISS top-50 → cross-encoder reranker → top-20 → freshness decay → top-5
 def retrieve_loan_data(query: str) -> str:
-    query_emb = embedder.encode([query])
+    query_emb = np.array(list(embedder.embed([query])), dtype=np.float32)
     faiss.normalize_L2(query_emb)
-    _, indices = faiss_index.search(query_emb, k=5)  # Top-5
-    return '\n'.join(rag_df.iloc[indices[0]]['profile'].tolist())
+    distances, indices = faiss_index.search(query_emb, k=settings.faiss_fetch_k)  # top-50
+    
+    # Reranker stage (if enabled): cross-encoder rescoring
+    # Uses fastembed TextCrossEncoder with BAAI/bge-reranker-base
+    # See app/services/reranker.py for implementation
+    ...
 ```
 
-**Reference:** `app/main.py` lines 71-112
+**Reference:** `retrieve_context()` in `app/main.py`, `RerankerService` in `app/services/reranker.py`
 
 **Performance:**
 - Embedding time: ~40ms per query
@@ -295,11 +300,11 @@ v2.0.0 - Major change (new model architecture)
 ```
 MinIO/S3 Structure:
 ├── models/
-│   ├── llama-3-8b/
+│   ├── llm-config/
 │   │   ├── v1.0.0/
 │   │   ├── v1.1.0/
 │   │   └── v2.0.0/
-│   └── sentence-bert/
+│   └── bge-small-en-v1.5/
 │       ├── v1.0.0/
 │       └── v1.1.0/
 │
@@ -318,10 +323,10 @@ MinIO/S3 Structure:
 
 **Metadata Tracking:**
 ```python
-# models/llama-3-8b/v1.1.0/metadata.json
+# models/llm-config/v1.1.0/metadata.json
 {
     "version": "1.1.0",
-    "model_name": "meta-llama/Llama-3-8b-hf",
+    "model_name": "gpt-4o",
     "training_date": "2025-10-01",
     "training_dataset": "customer-queries-2025-09",
     "performance_metrics": {
@@ -342,7 +347,7 @@ def load_model_version(version: str = "latest"):
     if version == "latest":
         version = get_latest_version()
     
-    model_path = f"models/llama-3-8b/{version}"
+    model_path = f"models/llm-config/{version}"
     model = load_from_minio(model_path)
     
     return model, version
@@ -508,42 +513,35 @@ GROUP BY variant;
 
 ### 11.3.5 Bias Detection & Monitoring
 
-**Status:** ✅ **Implemented in orchestrator agent**
+**Status:** ✅ **Stub implemented in orchestrator agent**
 
-**Reference:** `app/main.py` lines 188-213
+**Reference:** `detect_bias()` and `orchestrator_agent()` in `app/main.py`
 
 **Implementation:**
 ```python
+def detect_bias(text: str) -> float:
+    """Stub bias detection — returns 0.0 (no bias detected).
+
+    This is a synchronous stub. When a real implementation arrives
+    (e.g., AIF360, external ML model), convert the entire agent graph
+    to async: make all three node functions async def, use ainvoke(),
+    and await this function.
+    """
+    return 0.0
+
 def orchestrator_agent(state):
     """Orchestrator with bias detection."""
     messages = state["messages"]
     combined_text = ' '.join(messages)
     
-    # Detect bias using AIF360
     bias_score = detect_bias(combined_text)
     
     if bias_score > 0.3:
         logger.warning(f"High bias detected (score: {bias_score:.2f})")
         state["bias_detected"] = True
         state["bias_score"] = bias_score
-        
-        # Could trigger:
-        # - Automatic model retraining
-        # - Human review queue
-        # - Alert to ML team
     
     return state
-
-def detect_bias(text: str) -> float:
-    """Calculate bias score (0-1)."""
-    # Using AIF360 fairness metrics
-    from aif360.metrics import ClassificationMetric
-    
-    # Analyze for protected attributes
-    # (gender, race, age bias)
-    bias_score = calculate_fairness_metric(text)
-    
-    return bias_score
 ```
 
 **Monitoring:**
@@ -695,9 +693,12 @@ import boto3
 sagemaker = boto3.client('sagemaker')
 
 # Deploy model to endpoint
+## Note: SageMaker endpoints apply if/when self-hosted models are adopted.
+## Current LLM (OpenAI GPT-4o) is a hosted API — no endpoint deployment needed.
+## This section is applicable for embedding model serving or future self-hosted LLMs.
 response = sagemaker.create_endpoint(
-    EndpointName='llama-3-8b-prod',
-    EndpointConfigName='llama-3-8b-config',
+    EndpointName='financial-llm-prod',
+    EndpointConfigName='financial-llm-config',
 )
 
 # Multi-model endpoint (cost optimization)
@@ -705,15 +706,15 @@ response = sagemaker.create_endpoint_config(
     EndpointConfigName='multi-model-config',
     ProductionVariants=[
         {
-            'VariantName': 'llama-3-8b',
-            'ModelName': 'llama-3-8b-v1.1.0',
+            'VariantName': 'financial-llm',
+            'ModelName': 'financial-llm-v1.1.0',
             'InitialInstanceCount': 1,
             'InstanceType': 'ml.g4dn.xlarge',  # GPU instance
             'InitialVariantWeight': 0.9,  # 90% traffic
         },
         {
-            'VariantName': 'llama-3-8b-experimental',
-            'ModelName': 'llama-3-8b-v2.0.0',
+            'VariantName': 'financial-llm-experimental',
+            'ModelName': 'financial-llm-v2.0.0',
             'InitialInstanceCount': 1,
             'InstanceType': 'ml.g4dn.xlarge',
             'InitialVariantWeight': 0.1,  # 10% traffic (A/B test)
@@ -743,8 +744,8 @@ mlflow.set_tracking_uri("http://mlflow.apfa.io")
 
 with mlflow.start_run():
     # Log parameters
-    mlflow.log_param("model_name", "llama-3-8b")
-    mlflow.log_param("embedding_model", "all-MiniLM-L6-v2")
+    mlflow.log_param("model_name", "gpt-4o")
+    mlflow.log_param("embedding_model", "BAAI/bge-small-en-v1.5")
     mlflow.log_param("training_samples", 100000)
     
     # Log metrics
@@ -753,10 +754,10 @@ with mlflow.start_run():
     mlflow.log_metric("user_satisfaction", 4.3)
     
     # Log model
-    mlflow.pyfunc.log_model("llama-3-8b", python_model=model)
+    mlflow.pyfunc.log_model("financial-llm", python_model=model)
     
     # Register
-    mlflow.register_model("runs:/<run_id>/llama-3-8b", "LoanAdvisoryLLM")
+    mlflow.register_model("runs:/<run_id>/financial-llm", "LoanAdvisoryLLM")
 
 # Promote to production
 client = mlflow.tracking.MlflowClient()

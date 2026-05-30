@@ -107,7 +107,7 @@ q.enqueue(embed_document_batch, args=[docs, 'batch_001'], retry=Retry(max=3))
 # Scheduler (separate process)
 scheduler = Scheduler(connection=redis_conn)
 scheduler.schedule(
-    scheduled_time=datetime.utcnow(),
+    scheduled_time=datetime.now(timezone.utc),
     func=embed_all_documents,
     interval=3600  # Every hour
 )
