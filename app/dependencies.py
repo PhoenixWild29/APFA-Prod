@@ -19,7 +19,8 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError as JWTError
 
 from app.config import settings
 

@@ -1,5 +1,9 @@
 version: 2
 updates:
+  # Dependabot auto-detects requirements.in + pip-compile lockfile.
+  # Its pip-compile support is best-effort — `make lock-upgrade` is the
+  # trusted path for full dependency upgrades. Dependabot PRs that touch
+  # requirements.txt are validated by the lockfile-check CI job.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:

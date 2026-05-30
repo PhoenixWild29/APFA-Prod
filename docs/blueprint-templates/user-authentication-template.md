@@ -17,7 +17,7 @@ security with RBAC, SSO, and zero-trust architecture (Phase 3-5).
 ### Architecture
 
 ```python
-from jose import jwt
+import jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 

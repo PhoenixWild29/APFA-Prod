@@ -1,4 +1,4 @@
-.PHONY: dev test lint format check clean
+.PHONY: dev test lint format check clean lock lock-upgrade
 
 # ── Backend ──────────────────────────────────────────────────────────
 
@@ -19,6 +19,23 @@ format-check:
 	black --check app/ tests/ --line-length 100
 
 check: format-check lint test
+
+# ── Dependency Lockfile ──────────────────────────────────────────────
+# Compiles inside the production image (Linux/Python 3.11) so the
+# lockfile matches the deploy target exactly. Never compile on the
+# host Mac — platform markers and wheels will differ.
+
+LOCK_IMAGE := python:3.11-slim
+PIP_TOOLS := pip-tools==7.5.3
+PC := pip-compile --strip-extras --resolver=backtracking --allow-unsafe --quiet
+
+lock:
+	docker run --rm -v "$(CURDIR)":/app -w /app $(LOCK_IMAGE) \
+		sh -c "pip install --quiet $(PIP_TOOLS) && $(PC) requirements.in -o requirements.txt && $(PC) requirements-dev.in -o requirements-dev.txt"
+
+lock-upgrade:
+	docker run --rm -v "$(CURDIR)":/app -w /app $(LOCK_IMAGE) \
+		sh -c "pip install --quiet $(PIP_TOOLS) && $(PC) --upgrade requirements.in -o requirements.txt && $(PC) --upgrade requirements-dev.in -o requirements-dev.txt"
 
 # ── Frontend ─────────────────────────────────────────────────────────
 
