@@ -6,7 +6,8 @@ on:
     paths:
       - 'app/**'
       - 'tests/**'
-      - 'requirements.txt'
+      - 'requirements*.txt'
+      - 'requirements*.in'
       - 'Dockerfile'
       - '.github/workflows/ci-backend.yml'
   pull_request:
@@ -14,7 +15,8 @@ on:
     paths:
       - 'app/**'
       - 'tests/**'
-      - 'requirements.txt'
+      - 'requirements*.txt'
+      - 'requirements*.in'
 
 permissions:
   contents: read
@@ -185,3 +187,34 @@ jobs:
       - name: Run Bandit (security scanning)
         run: bandit -r app/ --severity-level high
         continue-on-error: true
+
+  lockfile-check:
+    name: Verify Lockfile In Sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-tools
+        run: pip install pip-tools==7.5.3
+
+      - name: Recompile in-place and check for drift
+        run: |
+          cp requirements.txt requirements.txt.bak
+          cp requirements-dev.txt requirements-dev.txt.bak
+          pip-compile --strip-extras --resolver=backtracking --allow-unsafe --quiet requirements.in -o requirements.txt
+          pip-compile --strip-extras --resolver=backtracking --allow-unsafe --quiet requirements-dev.in -o requirements-dev.txt
+          diff requirements.txt.bak requirements.txt || {
+            echo "::error::requirements.txt is out of sync with requirements.in — run 'make lock' and commit"
+            exit 1
+          }
+          diff requirements-dev.txt.bak requirements-dev.txt || {
+            echo "::error::requirements-dev.txt is out of sync with requirements-dev.in — run 'make lock' and commit"
+            exit 1
+          }
+          echo "Lockfiles are in sync."

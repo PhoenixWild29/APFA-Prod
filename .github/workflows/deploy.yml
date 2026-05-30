@@ -52,7 +52,7 @@ jobs:
           cat /tmp/changed.txt
 
           FE_PATTERN='^(src|public)/|package(-lock)?\.json$|^Dockerfile\.frontend$|^vite\.config\.ts$|^tailwind\.config\.js$|^\.prettierrc\.cjs$|^\.eslintrc\.cjs$|^postcss\.config\.js$|^index\.html$|^tsconfig(\..*)?\.json$|^\.env\.production$'
-          BE_PATTERN='^app/|^requirements\.txt$|^Dockerfile$|^docker-compose\.yml$|^nginx\.conf$|^entrypoint\.sh$|^migrations/'
+          BE_PATTERN='^app/|^requirements[^/]*\.(txt|in)$|^Dockerfile$|^docker-compose\.yml$|^nginx\.conf$|^entrypoint\.sh$|^migrations/'
           IGNORE_PATTERN='^README|^docs/|^\.github/|^LICENSE$|\.md$|^CHANGELOG|^monitoring/|^tests/'
 
           FRONTEND_DETECTED=false

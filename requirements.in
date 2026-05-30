@@ -1,0 +1,79 @@
+# Direct dependencies for APFA-Prod.
+# Edit this file, then run `make lock` to regenerate requirements.txt.
+# `make lock` compiles inside the production Docker image (Linux/Python 3.11)
+# so the lockfile matches the deploy target exactly.
+langchain==1.2.12
+langchain-core==1.2.19
+# langchain-huggingface removed — local HuggingFace LLM replaced with
+# OpenAI API via langchain-openai. sentence-transformers (embedder) is
+# replaced by fastembed (ONNX backend, no torch dependency).
+langchain-openai>=0.3.0
+# langgraph 1.1.2 was broken — its internal tool_node.py imports ExecutionInfo
+# and ServerInfo from langgraph.runtime, but runtime.py in 1.1.2 does not define
+# those symbols. Confirmed via wheel inspection: they exist in 1.1.6's runtime.py.
+# Pinning 1.1.6 (latest 1.1.x patch) — still within langchain 1.2.12's required
+# range of langgraph<1.2.0,>=1.1.1.
+langgraph==1.1.6
+# Pin langgraph-prebuilt explicitly to prevent pip drift. tool_node.py in
+# prebuilt 1.0.9 references ExecutionInfo/ServerInfo which only exist in
+# langgraph 1.1.3+. Both must be kept in sync.
+langgraph-prebuilt==1.0.10
+# Pin ALL transitive langgraph-* siblings explicitly (per CoWork review of PR #111):
+# leaving these unpinned means pip can drift any one of them into a version
+# that's internally inconsistent with langgraph==1.1.6, reproducing the exact
+# bug class this PR fixes. Versions captured from clean Python 3.11 resolver run
+# with the above pins on 2026-04-10.
+langgraph-checkpoint==4.0.1
+langgraph-sdk==0.3.14
+# Embedding: fastembed uses ONNX runtime (~150MB) instead of torch (~2.2GB+CUDA).
+# Drops Docker image from ~10GB to ~3.5GB. bge-small-en-v1.5 is 384-dim like
+# the previous all-MiniLM-L6-v2 — no validator changes needed.
+fastembed>=0.4.0
+faiss-cpu>=1.14.2
+deltalake==1.6.0
+# pyarrow is required by deltalake.write_deltalake() to serialize pandas
+# DataFrames through the Arrow format. Not a transitive dep — must be explicit.
+pyarrow>=14.0
+pandas>=2.0
+boto3==1.43.17
+minio==7.2.20
+fastapi==0.136.3
+python-multipart>=0.0.29
+pydantic-settings==2.14.1
+email-validator>=2.3.0
+uvicorn==0.48.0
+opentelemetry-api==1.40.0
+opentelemetry-sdk==1.40.0
+opentelemetry-exporter-otlp==1.40.0
+python-dotenv==1.2.2
+tenacity==8.2.3
+cachetools==7.1.4
+slowapi
+numpy>=2.4.6,<3.0
+prometheus-client==0.25.0
+python-jose[cryptography]==3.5.0
+bcrypt>=5.0.0,<6.0
+textblob==0.20.0
+aiohttp==3.13.5
+alt-profanity-check==1.8.0
+celery==5.6.3
+redis==7.4.0
+python-magic==0.4.27
+stripe==15.2.0
+SQLAlchemy>=2.0.50
+psycopg2-binary>=2.9.12
+alembic>=1.13
+# --- Data Pipeline Connectors ---
+# Google Drive: service account auth + Drive API
+google-api-python-client>=2.196.0
+google-auth>=2.53.0
+google-auth-oauthlib>=1.4.0
+# Document extraction (PDFs, DOCX)
+pypdf>=6.12.2
+python-docx>=1.2.0
+# Finnhub market data
+finnhub-python>=2.4.28
+# YouTube transcript extraction
+youtube-transcript-api>=0.6.1
+# Email delivery via Resend API
+resend>=2.0.0
