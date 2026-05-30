@@ -39,7 +39,7 @@ bcrypt==5.0.0
     # via -r requirements.in
 billiard==4.2.4
     # via celery
-boto3==1.43.17
+boto3==1.43.18
     # via -r requirements.in
 botocore==1.43.18
     # via
