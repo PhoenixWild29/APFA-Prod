@@ -20,11 +20,18 @@ RUN chown -R apfa:apfa /usr/local/lib/python3.11 /usr/local/bin
 # Bake fastembed ONNX models into the image layer (~330MB).
 # Eliminates model download on every cold start. Model names must
 # match app/config.py embedder_model and reranker_model defaults.
+# TextCrossEncoder is optional (reranker_enabled defaults to False).
 RUN python -c "\
-from fastembed import TextEmbedding, TextCrossEncoder; \
+from fastembed import TextEmbedding; \
 TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/opt/apfa/models'); \
-TextCrossEncoder(model_name='BAAI/bge-reranker-base', cache_dir='/opt/apfa/models'); \
-print('Models baked successfully.')"
+print('Embedder model baked.'); \
+try: \
+    from fastembed import TextCrossEncoder; \
+    TextCrossEncoder(model_name='BAAI/bge-reranker-base', cache_dir='/opt/apfa/models'); \
+    print('Reranker model baked.'); \
+except ImportError: \
+    print('TextCrossEncoder not available — reranker will download at runtime if enabled.'); \
+print('Model bake complete.')"
 
 # Copy application code and entrypoint
 COPY app/ ./app/
