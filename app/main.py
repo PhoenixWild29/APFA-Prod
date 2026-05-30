@@ -53,7 +53,8 @@ from fastapi.security import (
     OAuth2PasswordBearer,
     OAuth2PasswordRequestForm,
 )
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError as JWTError
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import Tool
 from langgraph.graph import END, START, StateGraph
@@ -1217,7 +1218,7 @@ def verify_email_token(token: str) -> tuple[bool, str | None]:
 
     except jwt.ExpiredSignatureError:
         return False, "Token has expired"
-    except jwt.JWTError as e:
+    except JWTError as e:
         return False, f"Invalid token: {str(e)}"
 
 

@@ -135,10 +135,6 @@ dnspython==2.8.0
     # via
     #   -r requirements.txt
     #   email-validator
-ecdsa==0.19.2
-    # via
-    #   -r requirements.txt
-    #   python-jose
 email-validator==2.3.0
     # via -r requirements.txt
 faiss-cpu==1.14.2
@@ -482,8 +478,6 @@ pyasn1==0.6.3
     # via
     #   -r requirements.txt
     #   pyasn1-modules
-    #   python-jose
-    #   rsa
 pyasn1-modules==0.4.2
     # via
     #   -r requirements.txt
@@ -517,6 +511,8 @@ pygments==2.20.0
     #   -r requirements.txt
     #   pytest
     #   rich
+pyjwt==2.13.0
+    # via -r requirements.txt
 pyparsing==3.3.2
     # via
     #   -r requirements.txt
@@ -537,8 +533,6 @@ python-dotenv==1.2.2
     # via
     #   -r requirements.txt
     #   pydantic-settings
-python-jose==3.5.0
-    # via -r requirements.txt
 python-magic==0.4.27
     # via -r requirements.txt
 python-multipart==0.0.29
@@ -585,10 +579,6 @@ rich==15.0.0
     # via
     #   -r requirements.txt
     #   typer
-rsa==4.9.1
-    # via
-    #   -r requirements.txt
-    #   python-jose
 s3transfer==0.18.0
     # via
     #   -r requirements.txt
@@ -608,7 +598,6 @@ shellingham==1.5.4
 six==1.17.0
     # via
     #   -r requirements.txt
-    #   ecdsa
     #   python-dateutil
 slowapi==0.1.9
     # via -r requirements.txt

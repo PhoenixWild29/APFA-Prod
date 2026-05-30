@@ -79,7 +79,8 @@
 ```python
 # backend/app/auth.py
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError as JWTError
 from passlib.context import CryptContext
 from typing import Optional
 
@@ -339,7 +340,7 @@ class LoanQuerySecure(BaseModel):
 
 ```python
 # backend/app/websocket_security.py
-from jose import jwt
+import jwt
 from datetime import datetime
 
 @sio.event
