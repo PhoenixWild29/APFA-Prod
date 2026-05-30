@@ -195,20 +195,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install pip-tools
-        run: pip install pip-tools==7.5.3
-
-      - name: Recompile in-place and check for drift
+      - name: Recompile inside Docker and check for drift
         run: |
           cp requirements.txt requirements.txt.bak
           cp requirements-dev.txt requirements-dev.txt.bak
-          pip-compile --strip-extras --resolver=backtracking --allow-unsafe --quiet requirements.in -o requirements.txt
-          pip-compile --strip-extras --resolver=backtracking --allow-unsafe --quiet requirements-dev.in -o requirements-dev.txt
+          docker run --rm -v "$PWD":/app -w /app python:3.11-slim \
+            sh -c "pip install --quiet pip-tools==7.5.3 && \
+              pip-compile --strip-extras --resolver=backtracking --allow-unsafe --quiet requirements.in -o requirements.txt && \
+              pip-compile --strip-extras --resolver=backtracking --allow-unsafe --quiet requirements-dev.in -o requirements-dev.txt"
           diff requirements.txt.bak requirements.txt || {
             echo "::error::requirements.txt is out of sync with requirements.in — run 'make lock' and commit"
             exit 1
