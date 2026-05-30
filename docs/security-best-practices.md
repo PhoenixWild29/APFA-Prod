@@ -78,7 +78,7 @@
 
 ```python
 # backend/app/auth.py
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import jwt
 from jwt.exceptions import PyJWTError as JWTError
 from passlib.context import CryptContext
@@ -107,15 +107,15 @@ def create_access_token(
     
     # Expiration
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     # Standard claims
     to_encode.update({
         "exp": expire,
-        "iat": datetime.utcnow(),  # Issued at
-        "nbf": datetime.utcnow(),  # Not before
+        "iat": datetime.now(timezone.utc),  # Issued at
+        "nbf": datetime.now(timezone.utc),  # Not before
         "iss": "apfa-api",         # Issuer
         "aud": "apfa-client",      # Audience
     })
@@ -141,11 +141,11 @@ def verify_token(token: str) -> dict:
         )
         
         # Check token is not expired
-        if payload.get("exp") < datetime.utcnow().timestamp():
+        if payload.get("exp") < datetime.now(timezone.utc).timestamp():
             raise JWTError("Token expired")
         
         # Check token is not used before valid time
-        if payload.get("nbf") > datetime.utcnow().timestamp():
+        if payload.get("nbf") > datetime.now(timezone.utc).timestamp():
             raise JWTError("Token not yet valid")
         
         return payload
@@ -380,7 +380,7 @@ async def connect(sid, environ, auth):
             'user_id': user_id,
             'role': user_role,
             'ip': get_client_ip(environ),
-            'connected_at': datetime.utcnow().isoformat(),
+            'connected_at': datetime.now(timezone.utc).isoformat(),
             'user_agent': environ.get('HTTP_USER_AGENT'),
         })
         
@@ -622,7 +622,7 @@ class AuditLogger:
         - Configuration changes
         """
         audit_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'action': action,
             'user_id': user_id,
             'resource_type': resource_type,
@@ -664,7 +664,7 @@ class AuditLogger:
                 logGroupName='/apfa/audit',
                 logStreamName=audit_entry['user_id'],
                 logEvents=[{
-                    'timestamp': int(datetime.utcnow().timestamp() * 1000),
+                    'timestamp': int(datetime.now(timezone.utc).timestamp() * 1000),
                     'message': json.dumps(audit_entry)
                 }]
             )

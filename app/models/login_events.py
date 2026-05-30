@@ -9,7 +9,7 @@ These models track authentication activities and support:
 - Risk assessment
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 
@@ -54,7 +54,7 @@ class LoginEvent(BaseModel):
         >>> event = LoginEvent(
         ...     event_type="login_success",
         ...     username="admin",
-        ...     timestamp=datetime.utcnow(),
+        ...     timestamp=datetime.now(timezone.utc),
         ...     ip_address="192.168.1.1",
         ...     user_agent="Mozilla/5.0...",
         ...     success=True,
@@ -73,7 +73,7 @@ class LoginEvent(BaseModel):
         ..., description="Username attempting login", min_length=1, max_length=255
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="UTC timestamp of event"
+        default_factory=lambda: datetime.now(timezone.utc), description="UTC timestamp of event"
     )
     ip_address: str = Field(
         ...,
@@ -110,7 +110,7 @@ class LoginEvent(BaseModel):
     @classmethod
     def validate_timestamp(cls, v: datetime) -> datetime:
         """Ensure timestamp is not in the future"""
-        if v > datetime.utcnow():
+        if v > datetime.now(timezone.utc):
             raise ValueError("Timestamp cannot be in the future")
         return v
 

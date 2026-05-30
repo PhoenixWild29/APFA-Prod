@@ -867,7 +867,7 @@ logger = logging.getLogger(__name__)
 
 # Structured log format
 log_data = {
-    "timestamp": datetime.utcnow().isoformat(),
+    "timestamp": datetime.now(timezone.utc).isoformat(),
     "level": "INFO",
     "service": "apfa",
     "component": "embedding",

@@ -51,7 +51,7 @@ to automated data governance (Phase 3-5).
 class AuditLogger:
     async def log(self, action, user_id, resource_type, resource_id, status, metadata, ip):
         audit_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'action': action,
             'user_id': user_id,
             'resource_type': resource_type,

@@ -33,7 +33,7 @@ evolution.
 ### 9.2.1 Architecture
 
 **Technology Stack:**
-- **Framework:** FastAPI 0.112.0
+- **Framework:** FastAPI 0.136.3
 - **Authentication:** JWT (HS256 algorithm)
 - **Rate Limiting:** 10 requests/minute per IP
 - **Validation:** Pydantic models
@@ -87,7 +87,7 @@ async def generate_advice(
 
 **Critical Bottleneck:**
 ```python
-# Line 541 in app/main.py - THIS BLOCKS EVERY REQUEST
+# In load_rag_index() in app/main.py - THIS BLOCKS EVERY REQUEST
 dt = await asyncio.to_thread(load_rag_index)  # 10-100s blocking!
 
 # Impact:
@@ -239,7 +239,7 @@ def broadcast_task_update(task_id, task, **kwargs):
         'id': task_id,
         'name': task.name,
         'state': 'SUCCESS',
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.now(timezone.utc).isoformat()
     }
     asyncio.create_task(sio.emit('task_update', task_data, room='celery:tasks'))
 ```
@@ -368,7 +368,7 @@ def simulate_risk(input_data: str) -> str:
         return "Error simulating risk."
 ```
 
-**Reference:** `app/main.py` lines 102-126
+**Reference:** Circuit breaker pattern in `app/main.py`
 
 **Behavior:**
 - After 5 consecutive failures → Circuit OPEN (fail fast for 60s)

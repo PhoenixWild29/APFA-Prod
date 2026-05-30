@@ -162,7 +162,7 @@ def broadcast_task_update(sender=None, task_id=None, task=None, **kwargs):
         'state': 'SUCCESS',
         'queue': task.request.delivery_info.get('routing_key'),
         'worker': task.request.hostname,
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'runtime': kwargs.get('retval', {}).get('runtime'),
     }
     
@@ -181,7 +181,7 @@ def broadcast_task_failure(sender=None, task_id=None, exception=None, **kwargs):
         'name': sender.name,
         'state': 'FAILURE',
         'exception': str(exception),
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
     }
     
     asyncio.create_task(sio.emit(
