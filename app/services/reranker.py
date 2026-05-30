@@ -20,14 +20,14 @@ _instance: Optional[RerankerService] = None
 _lock = threading.Lock()
 
 
-def get_reranker(model_name: str) -> RerankerService:
+def get_reranker(model_name: str, cache_dir: str | None = None) -> RerankerService:
     global _instance
     if _instance is not None and _instance.model_name == model_name:
         return _instance
     with _lock:
         if _instance is not None and _instance.model_name == model_name:
             return _instance
-        _instance = RerankerService(model_name)
+        _instance = RerankerService(model_name, cache_dir=cache_dir)
         return _instance
 
 
@@ -41,8 +41,9 @@ def sigmoid(x: float) -> float:
 
 
 class RerankerService:
-    def __init__(self, model_name: str = "BAAI/bge-reranker-base"):
+    def __init__(self, model_name: str = "BAAI/bge-reranker-base", cache_dir: str | None = None):
         self.model_name = model_name
+        self._cache_dir = cache_dir
         self._encoder = None
         self._init_lock = threading.Lock()
         logger.info("RerankerService created (model=%s, not yet loaded)", model_name)
@@ -55,8 +56,11 @@ class RerankerService:
                 return
             from fastembed import TextCrossEncoder
 
+            kwargs = {"model_name": self.model_name}
+            if self._cache_dir:
+                kwargs["cache_dir"] = self._cache_dir
             logger.info("Loading cross-encoder model: %s", self.model_name)
-            self._encoder = TextCrossEncoder(model_name=self.model_name)
+            self._encoder = TextCrossEncoder(**kwargs)
             logger.info("Cross-encoder model loaded: %s", self.model_name)
 
     def warmup(self):

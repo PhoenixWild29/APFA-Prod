@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
     embedder_model: str = "BAAI/bge-small-en-v1.5"
+    fastembed_cache_dir: str = "/opt/apfa/models"
 
     # Cross-encoder reranker (Sprint 4)
     reranker_enabled: bool = False

@@ -95,7 +95,7 @@ def get_delta_schema() -> pa.Schema:
         import numpy as np
         from fastembed import TextEmbedding
         from app.config import settings
-        _embedder = TextEmbedding(model_name=settings.embedder_model)
+        _embedder = TextEmbedding(model_name=settings.embedder_model, cache_dir=settings.fastembed_cache_dir)
         _probe = np.array(list(_embedder.embed(["probe"])), dtype=np.float32)
         _EMBEDDING_DIM = int(_probe.shape[1])
         del _embedder, _probe
