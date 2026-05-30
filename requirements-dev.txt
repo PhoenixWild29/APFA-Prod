@@ -548,7 +548,7 @@ pyyaml==6.0.3
     #   -r requirements.txt
     #   huggingface-hub
     #   langchain-core
-redis==7.4.0
+redis==8.0.0
     # via -r requirements.txt
 regex==2026.5.9
     # via
