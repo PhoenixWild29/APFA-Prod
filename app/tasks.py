@@ -58,7 +58,7 @@ def init_worker_embedder(**kwargs):
     global _worker_embedder
     from fastembed import TextEmbedding
 
-    _worker_embedder = TextEmbedding(model_name=settings.embedder_model)
+    _worker_embedder = TextEmbedding(model_name=settings.embedder_model, cache_dir=settings.fastembed_cache_dir)
     logger.info(f"Worker embedder loaded: {settings.embedder_model}")
 
 
@@ -68,7 +68,7 @@ def _get_embedder():
     if _worker_embedder is None:
         from fastembed import TextEmbedding
 
-        _worker_embedder = TextEmbedding(model_name=settings.embedder_model)
+        _worker_embedder = TextEmbedding(model_name=settings.embedder_model, cache_dir=settings.fastembed_cache_dir)
     return _worker_embedder
 
 

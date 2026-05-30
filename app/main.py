@@ -178,7 +178,7 @@ if STRIPE_SECRET_KEY:
 
 # Initialize clients with error handling
 try:
-    embedder = TextEmbedding(model_name=settings.embedder_model)
+    embedder = TextEmbedding(model_name=settings.embedder_model, cache_dir=settings.fastembed_cache_dir)
     # Probe embedder for actual output dimension — single source of truth
     _probe = np.array(list(embedder.embed(["probe"])), dtype=np.float32)
     EMBEDDING_DIM = int(_probe.shape[1])
@@ -438,7 +438,7 @@ def retrieve_context(query: str) -> tuple[str, float]:
         if settings.reranker_enabled and valid_doc_indices:
             from app.services.reranker import get_reranker
 
-            reranker = get_reranker(settings.reranker_model)
+            reranker = get_reranker(settings.reranker_model, cache_dir=settings.fastembed_cache_dir)
             reranked = reranker.rerank(
                 query, valid_texts, valid_doc_indices,
                 top_n=settings.reranker_top_n,
@@ -6580,7 +6580,7 @@ async def lifespan(app: FastAPI):
         try:
             from app.services.reranker import get_reranker
 
-            _reranker = get_reranker(settings.reranker_model)
+            _reranker = get_reranker(settings.reranker_model, cache_dir=settings.fastembed_cache_dir)
             _reranker.warmup()
             logger.info(
                 "Reranker warmed up: %s (top_n=%d, faiss_fetch_k=%d)",
