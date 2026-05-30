@@ -37,6 +37,7 @@ from app.services.chunking import (
     sentence_aware_chunk,
     spreadsheet_chunk,
 )
+from app.services.circuit_breaker import CircuitBreakerOpen, get_breaker
 from app.services.pipeline_utils import (
     load_state,
     now_utc_iso,
@@ -358,6 +359,9 @@ class GoogleDriveConnector(RAGSource):
         self._state_path = Path(state_path)
         self._drive = None
         self._sheets = None
+        self._breaker = get_breaker(
+            "google_drive", failure_threshold=5, recovery_timeout=120.0,
+        )
 
     def _ensure_services(self):
         if self._drive is None:
@@ -382,8 +386,8 @@ class GoogleDriveConnector(RAGSource):
         if file_ids:
             for fid in file_ids:
                 try:
-                    meta = (
-                        self._drive.files()
+                    meta = self._breaker.call(
+                        lambda: self._drive.files()
                         .get(
                             fileId=fid,
                             fields=_FILE_FIELDS,
@@ -394,6 +398,9 @@ class GoogleDriveConnector(RAGSource):
                     doc = self._extract_file(meta)
                     if doc:
                         raw_docs.append(doc)
+                except CircuitBreakerOpen:
+                    logger.warning("Google Drive circuit breaker open — aborting file fetch")
+                    break
                 except Exception as e:
                     logger.error(f"Failed to fetch file {fid}: {e}")
             return raw_docs
@@ -414,7 +421,12 @@ class GoogleDriveConnector(RAGSource):
                     )
                     continue
 
-                doc = self._extract_file(file_meta)
+                try:
+                    doc = self._extract_file(file_meta)
+                except CircuitBreakerOpen:
+                    logger.warning("Google Drive circuit breaker open — aborting sync")
+                    save_state(state, self._state_path)
+                    return raw_docs
                 if doc:
                     raw_docs.append(doc)
                     _update_state(
@@ -427,7 +439,11 @@ class GoogleDriveConnector(RAGSource):
         return raw_docs
 
     def _extract_file(self, file_meta: dict[str, Any]) -> dict | None:
-        """Extract text content from a Drive file."""
+        """Extract text content from a Drive file.
+
+        Each extraction call goes through the circuit breaker so sustained
+        Google API failures trip the breaker and skip remaining files.
+        """
         mime = file_meta["mimeType"]
         fid = file_meta["id"]
         name = file_meta.get("name", "Untitled")
@@ -435,10 +451,10 @@ class GoogleDriveConnector(RAGSource):
 
         try:
             if mime == MIME_GOOGLE_DOC:
-                text = _export_google_doc(self._drive, fid)
+                text = self._breaker.call(_export_google_doc, self._drive, fid)
 
             elif mime == MIME_GOOGLE_SHEET:
-                sheets_data, ss_title = _get_sheet_data(self._sheets, fid)
+                sheets_data, ss_title = self._breaker.call(_get_sheet_data, self._sheets, fid)
                 # Store structured data for spreadsheet chunking
                 file_meta["_sheets_data"] = sheets_data
                 file_meta["_ss_title"] = ss_title
@@ -458,11 +474,11 @@ class GoogleDriveConnector(RAGSource):
                 text = "\n".join(parts)
 
             elif mime == MIME_PDF:
-                data = _download_binary(self._drive, fid)
+                data = self._breaker.call(_download_binary, self._drive, fid)
                 text = _extract_pdf_text(data)
 
             elif mime == MIME_DOCX:
-                data = _download_binary(self._drive, fid)
+                data = self._breaker.call(_download_binary, self._drive, fid)
                 text = _extract_docx_text(data)
 
             elif mime in (MIME_PPTX, MIME_GOOGLE_SLIDE):
@@ -479,13 +495,15 @@ class GoogleDriveConnector(RAGSource):
                         _, done = downloader.next_chunk()
                     data = buf.getvalue()
                 else:
-                    data = _download_binary(self._drive, fid)
+                    data = self._breaker.call(_download_binary, self._drive, fid)
                 text = _extract_pptx_text(data)
 
             elif mime == MIME_TXT:
-                data = _download_binary(self._drive, fid)
+                data = self._breaker.call(_download_binary, self._drive, fid)
                 text = data.decode("utf-8", errors="replace")
 
+        except CircuitBreakerOpen:
+            raise
         except Exception as e:
             logger.error(f"Text extraction failed for {name} ({fid}): {e}")
             return None
