@@ -30,6 +30,7 @@ from app.connectors.base import (
     NormalizedRecord,
     StructuredDataSource,
 )
+from app.services.circuit_breaker import CircuitBreakerOpen, get_breaker
 from app.services.pipeline_utils import (
     RateLimiter,
     now_utc_iso,
@@ -131,6 +132,9 @@ class FinnhubConnector(StructuredDataSource):
     def __init__(self, api_key: str):
         self._api_key = api_key
         self._fetcher: Optional[FinnhubFetcher] = None
+        self._breaker = get_breaker(
+            "finnhub", failure_threshold=5, recovery_timeout=60.0,
+        )
 
     def _get_fetcher(self) -> FinnhubFetcher:
         if self._fetcher is None:
@@ -139,6 +143,15 @@ class FinnhubConnector(StructuredDataSource):
             client = finnhub.Client(api_key=self._api_key)
             self._fetcher = FinnhubFetcher(client)
         return self._fetcher
+
+    def _guarded_call(self, fn, *args, **kwargs):
+        """Wrap a fetcher method call with the circuit breaker.
+
+        The breaker sits outside the retry-decorated fetcher methods so:
+        - open circuit short-circuits before any retry/backoff
+        - a fully-exhausted retry counts as exactly one breaker failure
+        """
+        return self._breaker.call(fn, *args, **kwargs)
 
     def fetch(
         self,
@@ -177,7 +190,11 @@ class FinnhubConnector(StructuredDataSource):
 
         if news_categories:
             for cat in news_categories:
-                items = fetcher.market_news(category=cat)
+                try:
+                    items = self._guarded_call(fetcher.market_news, category=cat)
+                except CircuitBreakerOpen:
+                    logger.warning("Finnhub circuit breaker open — skipping market news")
+                    break
                 for item in items:
                     item["_category"] = cat
                 self._last_news.extend(items)
@@ -185,14 +202,24 @@ class FinnhubConnector(StructuredDataSource):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         for ticker in tickers:
             ticker = ticker.upper()
-            # Company news
-            cnews = fetcher.company_news(ticker, "2024-01-01", today)
+            try:
+                cnews = self._guarded_call(
+                    fetcher.company_news, ticker, "2024-01-01", today,
+                )
+            except CircuitBreakerOpen:
+                logger.warning("Finnhub circuit breaker open — skipping company news")
+                break
             for item in cnews:
                 item["_category"] = f"company:{ticker}"
             self._last_news.extend(cnews)
 
-            # SEC filings
-            filings = fetcher.sec_filings(ticker, from_date="2024-01-01", to_date=today)
+            try:
+                filings = self._guarded_call(
+                    fetcher.sec_filings, ticker, from_date="2024-01-01", to_date=today,
+                )
+            except CircuitBreakerOpen:
+                logger.warning("Finnhub circuit breaker open — skipping SEC filings")
+                break
             if filings:
                 self._last_filings[ticker] = filings
 
@@ -205,7 +232,7 @@ class FinnhubConnector(StructuredDataSource):
         records = []
         for ticker in tickers:
             try:
-                q = fetcher.quote(ticker)
+                q = self._guarded_call(fetcher.quote, ticker)
                 records.append(
                     MarketDataRecord(
                         ticker=ticker,
@@ -225,6 +252,9 @@ class FinnhubConnector(StructuredDataSource):
                         ),
                     )
                 )
+            except CircuitBreakerOpen:
+                logger.warning("Finnhub circuit breaker open — skipping remaining quotes")
+                break
             except Exception as e:
                 logger.error(f"Quote failed for {ticker}: {e}")
         return records
@@ -239,12 +269,17 @@ class FinnhubConnector(StructuredDataSource):
             ("FEDFUNDS", "Federal Funds Rate", "%"),
             ("UNRATE", "Unemployment Rate", "%"),
             ("CPIAUCSL", "Consumer Price Index", "index"),
+            ("DGS2", "2-Year Treasury Yield", "%"),
+            ("DGS5", "5-Year Treasury Yield", "%"),
+            ("DGS10", "10-Year Treasury Yield", "%"),
+            ("DGS30", "30-Year Treasury Yield", "%"),
+            ("DPRIME", "Prime Rate", "%"),
         ]
         for code, name, unit in indicators:
             try:
-                data = fetcher.economic_data(code)
-                if data and isinstance(data, list) and data:
-                    latest = data[-1] if isinstance(data, list) else data
+                data = self._guarded_call(fetcher.economic_data, code)
+                if data and isinstance(data, list):
+                    latest = data[-1]
                     value = latest.get("value", 0) if isinstance(latest, dict) else 0
                     records.append(
                         MarketDataRecord(
@@ -257,6 +292,9 @@ class FinnhubConnector(StructuredDataSource):
                             metadata_json=json.dumps({"name": name}),
                         )
                     )
+            except CircuitBreakerOpen:
+                logger.warning("Finnhub circuit breaker open — skipping remaining indicators")
+                break
             except Exception as e:
                 logger.error(f"Economic indicator {code} failed: {e}")
         return records
@@ -267,7 +305,7 @@ class FinnhubConnector(StructuredDataSource):
         records = []
         for ticker in tickers:
             try:
-                recs = fetcher.recommendation_trends(ticker)
+                recs = self._guarded_call(fetcher.recommendation_trends, ticker)
                 if recs:
                     latest = recs[0]
                     buy = latest.get("buy", 0) + latest.get("strongBuy", 0)
@@ -286,6 +324,9 @@ class FinnhubConnector(StructuredDataSource):
                             metadata_json=json.dumps(latest),
                         )
                     )
+            except CircuitBreakerOpen:
+                logger.warning("Finnhub circuit breaker open — skipping remaining recommendations")
+                break
             except Exception as e:
                 logger.error(f"Recommendations for {ticker}: {e}")
         return records
@@ -296,7 +337,7 @@ class FinnhubConnector(StructuredDataSource):
         records = []
         for ticker in tickers:
             try:
-                metrics = fetcher.company_basic_financials(ticker)
+                metrics = self._guarded_call(fetcher.company_basic_financials, ticker)
                 metric = metrics.get("metric", {})
                 for key in [
                     "peNormalizedAnnual",
@@ -318,6 +359,9 @@ class FinnhubConnector(StructuredDataSource):
                                 metadata_json=json.dumps({"metric_name": key}),
                             )
                         )
+            except CircuitBreakerOpen:
+                logger.warning("Finnhub circuit breaker open — skipping remaining fundamentals")
+                break
             except Exception as e:
                 logger.error(f"Fundamentals for {ticker}: {e}")
         return records

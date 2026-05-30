@@ -509,18 +509,6 @@ def retrieve_context(query: str) -> tuple[str, float]:
         return "Error retrieving financial data.", 0.0
 
 
-def simulate_risk(input_data: str) -> str:
-    """Simulate portfolio risk with LLM (stub — bedrock not configured)."""
-    try:
-        response = bedrock.invoke_agent(
-            agentId="loan-risk-agent", sessionId="session-123", inputText=input_data
-        )
-        return response["completion"]
-    except Exception as e:
-        logger.error(f"Risk simulation error: {e}")
-        return "Error simulating risk."
-
-
 def get_market_quote(ticker: str) -> str:
     """Get current stock/ETF quote from structured market data store."""
     try:
@@ -543,13 +531,19 @@ def get_market_quote(ticker: str) -> str:
         import json as _json
 
         meta = _json.loads(record.metadata_json) if record.metadata_json else {}
+        ohlc_parts = []
+        if meta.get("open") is not None:
+            ohlc_parts.append(f"Open: ${meta['open']}")
+        if meta.get("high") is not None:
+            ohlc_parts.append(f"High: ${meta['high']}")
+        if meta.get("low") is not None:
+            ohlc_parts.append(f"Low: ${meta['low']}")
+        ohlc = ", ".join(ohlc_parts) if ohlc_parts else "OHLC data not available"
         return (
             f"{ticker.upper()}: ${record.value:.2f} "
             f"({'+' if (record.change_pct or 0) >= 0 else ''}{record.change_pct or 0:.2f}%) "
             f"as of {record.timestamp}. "
-            f"Open: ${meta.get('open', 'N/A')}, "
-            f"High: ${meta.get('high', 'N/A')}, "
-            f"Low: ${meta.get('low', 'N/A')}."
+            f"{ohlc}."
         )
     except Exception as e:
         logger.error(f"Market quote error for {ticker}: {e}")
@@ -585,6 +579,48 @@ def get_economic_indicator(indicator: str) -> str:
         return f"Error retrieving indicator {indicator}."
 
 
+def get_rate_trend(indicator: str, days: int = 30) -> str:
+    """Get historical trend for a rate or economic indicator.
+
+    Input: indicator code (e.g. 'MORTGAGE30US', 'DGS10', 'FEDFUNDS') and
+    number of days of history (default 30, max 365).
+    Returns: trend direction, magnitude, and data point count.
+    """
+    try:
+        db = SessionLocal()
+        from app.services.market_service import get_market_history
+
+        history = get_market_history(db, indicator, "economic_indicator", days)
+        db.close()
+
+        if not history.points:
+            return f"No trend data for {indicator} over {days} days."
+
+        if history.total_points < 2:
+            return (
+                f"{indicator}: only {history.total_points} data point available "
+                f"(value: {history.points[0].value}). "
+                f"Insufficient history for trend analysis — "
+                f"data accumulates from daily snapshots."
+            )
+
+        latest = history.points[-1]
+        earliest = history.points[0]
+        change = latest.value - earliest.value
+        direction = "up" if change > 0 else "down" if change < 0 else "flat"
+
+        return (
+            f"{indicator} trend ({days}d): {direction} "
+            f"from {earliest.value} to {latest.value} "
+            f"({'+' if change >= 0 else ''}{change:.3f}). "
+            f"Data points: {history.total_points}. "
+            f"Period: {earliest.date} to {latest.date}."
+        )
+    except Exception as e:
+        logger.error(f"Rate trend error for {indicator}: {e}")
+        return f"Error retrieving trend for {indicator}."
+
+
 def _retrieve_context_text_only(query: str) -> str:
     """Wrapper for Tool registration — returns context text only (no confidence score)."""
     context, _ = retrieve_context(query)
@@ -596,11 +632,6 @@ tools = [
         func=_retrieve_context_text_only,
         name="retrieve_context",
         description="RAG retrieval for financial research, market data, and investment documents.",
-    ),
-    Tool.from_function(
-        func=simulate_risk,
-        name="simulate_risk",
-        description="Simulate portfolio risk analysis (stub — bedrock not configured).",
     ),
     Tool.from_function(
         func=get_market_quote,
@@ -619,6 +650,16 @@ tools = [
             "Input: indicator code (e.g. 'DGS10' for 10-year Treasury yield, "
             "'FEDFUNDS' for fed funds rate, 'UNRATE' for unemployment). "
             "Returns: current value and timestamp."
+        ),
+    ),
+    Tool.from_function(
+        func=get_rate_trend,
+        name="get_rate_trend",
+        description=(
+            "Get historical trend for a rate or economic indicator. "
+            "Input: indicator code (e.g. 'MORTGAGE30US', 'DGS10', 'FEDFUNDS') "
+            "and optional number of days (default 30). "
+            "Returns: trend direction, change amount, and data point count."
         ),
     ),
 ]
@@ -1550,6 +1591,23 @@ async def health_check():
             metadata={"type": "postgresql", "users": user_count},
         )
     )
+
+    # Circuit breaker states (per-process — only reports FastAPI breakers,
+    # not Celery worker breakers)
+    from app.services.circuit_breaker import get_all_breaker_states
+
+    for cb_name, cb_stats in get_all_breaker_states().items():
+        cb_state = cb_stats["state"]
+        cb_status = "healthy" if cb_state == "CLOSED" else "degraded"
+        components.append(
+            ComponentHealthStatus(
+                component=f"circuit_breaker:{cb_name}",
+                status=cb_status,
+                metadata=cb_stats,
+            )
+        )
+        if cb_state != "CLOSED":
+            degraded.append(f"circuit_breaker:{cb_name}")
 
     # Determine overall status.
     #
@@ -6473,6 +6531,11 @@ async def lifespan(app: FastAPI):
     if missing_vars:
         logger.error(f"Missing required environment variables: {missing_vars}")
         sys.exit(1)
+
+    if settings.jwt_secret == "your-secret-key-change-in-production":
+        logger.warning("JWT_SECRET is using the default value — set it in .env for production")
+    if settings.csrf_secret == "your-csrf-secret-change-in-production":
+        logger.warning("CSRF_SECRET is using the default value — set it in .env for production")
 
     # Alembic migrations now run in entrypoint.sh before uvicorn starts.
     # Seed admin user if the users table is empty

@@ -9,11 +9,12 @@ Usage:
     print(result["content"])   # The sourced answer
     print(result["citations"]) # List of source URLs
 """
-import hashlib
 import logging
 import time
 
 from openai import OpenAI
+
+from app.services.circuit_breaker import get_breaker
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,9 @@ class PerplexityClient:
             base_url=PERPLEXITY_BASE_URL,
         )
         self.model = model
+        self._breaker = get_breaker(
+            "perplexity", failure_threshold=3, recovery_timeout=120.0,
+        )
 
     def research(
         self,
@@ -55,7 +59,8 @@ class PerplexityClient:
         messages.append({"role": "user", "content": query})
 
         start = time.time()
-        response = self.client.chat.completions.create(
+        response = self._breaker.call(
+            self.client.chat.completions.create,
             model=self.model,
             messages=messages,
             max_tokens=max_tokens,
