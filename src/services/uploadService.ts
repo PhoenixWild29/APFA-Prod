@@ -1,20 +1,14 @@
-/**
- * Document Upload Service
- * 
- * Manages file upload communication with backend API including
- * progress tracking, error handling, and retry logic.
- */
 import apiClient from '@/api/apiClient';
 
 export interface UploadProgress {
   fileName: string;
-  progress: number; // 0-100
+  progress: number;
   status: 'pending' | 'uploading' | 'success' | 'error' | 'scanning';
   error?: string;
   uploadedBytes: number;
   totalBytes: number;
-  speed?: number; // bytes/second
-  estimatedTimeRemaining?: number; // seconds
+  speed?: number;
+  estimatedTimeRemaining?: number;
 }
 
 export interface UploadResult {
@@ -25,13 +19,15 @@ export interface UploadResult {
   error?: string;
 }
 
-/**
- * Upload single file with progress tracking
- */
+const activeUploads = new Map<string, AbortController>();
+
 export async function uploadFile(
   file: File,
   onProgress?: (progress: UploadProgress) => void
 ): Promise<UploadResult> {
+  const controller = new AbortController();
+  activeUploads.set(file.name, controller);
+
   const formData = new FormData();
   formData.append('file', file);
   formData.append('metadata', JSON.stringify({
@@ -40,35 +36,32 @@ export async function uploadFile(
     type: file.type,
     uploadedAt: new Date().toISOString(),
   }));
-  
-  const startTime = Date.now();
+
   let lastLoaded = 0;
-  let lastTime = startTime;
-  
+  let lastTime = Date.now();
+
   try {
     const response = await apiClient.post('/documents/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      headers: { 'Content-Type': 'multipart/form-data' },
+      signal: controller.signal,
       onUploadProgress: (progressEvent) => {
         if (!progressEvent.total || !onProgress) return;
-        
+
         const now = Date.now();
         const loaded = progressEvent.loaded;
         const total = progressEvent.total;
         const progress = Math.round((loaded / total) * 100);
-        
-        // Calculate speed and ETA
-        const timeDelta = (now - lastTime) / 1000; // seconds
+
+        const timeDelta = (now - lastTime) / 1000;
         const bytesDelta = loaded - lastLoaded;
         const speed = timeDelta > 0 ? bytesDelta / timeDelta : 0;
-        
+
         const remainingBytes = total - loaded;
         const estimatedTimeRemaining = speed > 0 ? remainingBytes / speed : 0;
-        
+
         lastLoaded = loaded;
         lastTime = now;
-        
+
         onProgress({
           fileName: file.name,
           progress,
@@ -80,8 +73,7 @@ export async function uploadFile(
         });
       },
     });
-    
-    // Upload complete - now scanning
+
     if (onProgress) {
       onProgress({
         fileName: file.name,
@@ -91,7 +83,7 @@ export async function uploadFile(
         totalBytes: file.size,
       });
     }
-    
+
     return {
       success: true,
       fileName: file.name,
@@ -99,8 +91,22 @@ export async function uploadFile(
       message: response.data.message,
     };
   } catch (error: any) {
+    if (error.code === 'ERR_CANCELED') {
+      if (onProgress) {
+        onProgress({
+          fileName: file.name,
+          progress: 0,
+          status: 'error',
+          error: 'Upload cancelled',
+          uploadedBytes: 0,
+          totalBytes: file.size,
+        });
+      }
+      return { success: false, fileName: file.name, error: 'Upload cancelled' };
+    }
+
     const errorMessage = error.response?.data?.detail || 'Upload failed';
-    
+
     if (onProgress) {
       onProgress({
         fileName: file.name,
@@ -111,25 +117,19 @@ export async function uploadFile(
         totalBytes: file.size,
       });
     }
-    
-    return {
-      success: false,
-      fileName: file.name,
-      error: errorMessage,
-    };
+
+    return { success: false, fileName: file.name, error: errorMessage };
+  } finally {
+    activeUploads.delete(file.name);
   }
 }
 
-/**
- * Upload multiple files (batch)
- */
 export async function uploadBatch(
   files: File[],
   onProgress?: (fileProgress: Map<string, UploadProgress>) => void
 ): Promise<UploadResult[]> {
   const progressMap = new Map<string, UploadProgress>();
-  
-  // Initialize progress for all files
+
   files.forEach((file) => {
     progressMap.set(file.name, {
       fileName: file.name,
@@ -139,14 +139,13 @@ export async function uploadBatch(
       totalBytes: file.size,
     });
   });
-  
-  // Upload files in parallel (max 3 concurrent)
+
   const results: UploadResult[] = [];
   const concurrentLimit = 3;
-  
+
   for (let i = 0; i < files.length; i += concurrentLimit) {
     const batch = files.slice(i, i + concurrentLimit);
-    
+
     const batchResults = await Promise.all(
       batch.map((file) =>
         uploadFile(file, (progress) => {
@@ -155,16 +154,13 @@ export async function uploadBatch(
         })
       )
     );
-    
+
     results.push(...batchResults);
   }
-  
+
   return results;
 }
 
-/**
- * Retry failed upload
- */
 export async function retryUpload(
   file: File,
   onProgress?: (progress: UploadProgress) => void
@@ -172,11 +168,10 @@ export async function retryUpload(
   return uploadFile(file, onProgress);
 }
 
-/**
- * Cancel ongoing upload (placeholder)
- */
 export function cancelUpload(fileName: string): void {
-  // In production, would use AbortController
-  console.log(`Cancelling upload for ${fileName}`);
+  const controller = activeUploads.get(fileName);
+  if (controller) {
+    controller.abort();
+    activeUploads.delete(fileName);
+  }
 }
-
