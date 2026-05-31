@@ -94,7 +94,7 @@ from app.schemas.health_metrics import EnhancedHealthResponse, DetailedMetricsRe
 # APFA-013: Database persistence
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, get_db
-from app.orm_models import User
+from app.orm_models import PipelineAuditLog, User
 
 from app.models.conversations import (
     ConversationCreate,
@@ -3222,6 +3222,124 @@ async def list_knowledge_base_documents(
 
     return {
         "documents": paginated_docs,
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
+
+
+@app.get("/admin/users")
+async def list_admin_users(
+    page: int = 1,
+    page_size: int = 25,
+    search: str = "",
+    db: Session = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """List all users with pagination and optional search (admin only)."""
+    page_size = min(page_size, 100)
+
+    query = db.query(User)
+
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            User.username.ilike(like) | User.email.ilike(like)
+        )
+
+    total_count = query.count()
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
+
+    users = (
+        query.order_by(User.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return {
+        "users": [
+            {
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "role": u.role,
+                "disabled": u.disabled,
+                "verified": u.verified,
+                "subscription_tier": u.subscription_tier,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u in users
+        ],
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
+
+
+@app.get("/admin/audit-logs")
+async def list_admin_audit_logs(
+    page: int = 1,
+    page_size: int = 25,
+    action: str = "",
+    source_connector: str = "",
+    status: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    db: Session = Depends(get_db),
+    admin: dict = Depends(require_admin),
+):
+    """List pipeline audit log entries with filters (admin only)."""
+    page_size = min(page_size, 100)
+
+    query = db.query(PipelineAuditLog)
+
+    if action:
+        query = query.filter(PipelineAuditLog.action == action)
+    if source_connector:
+        query = query.filter(PipelineAuditLog.source_connector == source_connector)
+    if status:
+        query = query.filter(PipelineAuditLog.status == status)
+    if date_from:
+        try:
+            dt_from = datetime.fromisoformat(date_from)
+            query = query.filter(PipelineAuditLog.timestamp >= dt_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.fromisoformat(date_to)
+            query = query.filter(PipelineAuditLog.timestamp <= dt_to)
+        except ValueError:
+            pass
+
+    total_count = query.count()
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
+
+    entries = (
+        query.order_by(PipelineAuditLog.timestamp.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    return {
+        "entries": [
+            {
+                "id": e.id,
+                "timestamp": e.timestamp.isoformat() if e.timestamp else None,
+                "source_connector": e.source_connector,
+                "action": e.action,
+                "status": e.status,
+                "chunk_count": e.chunk_count,
+                "parent_document_id": e.parent_document_id,
+                "content_hash": e.content_hash,
+                "error_code": e.error_code,
+            }
+            for e in entries
+        ],
         "total_count": total_count,
         "page": page,
         "page_size": page_size,
