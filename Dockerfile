@@ -21,7 +21,8 @@ RUN chown -R apfa:apfa /usr/local/lib/python3.11 /usr/local/bin
 # Eliminates model download on every cold start. Model names must
 # match app/config.py embedder_model and reranker_model defaults.
 RUN python -c "\
-from fastembed import TextEmbedding, TextCrossEncoder; \
+from fastembed import TextEmbedding; \
+from fastembed.rerank.cross_encoder import TextCrossEncoder; \
 TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/opt/apfa/models'); \
 TextCrossEncoder(model_name='BAAI/bge-reranker-base', cache_dir='/opt/apfa/models'); \
 print('Models baked successfully.')"

@@ -54,7 +54,7 @@ class RerankerService:
         with self._init_lock:
             if self._encoder is not None:
                 return
-            from fastembed import TextCrossEncoder
+            from fastembed.rerank.cross_encoder import TextCrossEncoder
 
             kwargs = {"model_name": self.model_name}
             if self._cache_dir:
