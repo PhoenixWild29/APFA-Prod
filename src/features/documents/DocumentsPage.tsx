@@ -33,17 +33,23 @@ export default function DocumentsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchMode, setSearchMode] = useState<'list' | 'semantic'>('list');
 
-  // Fetch all documents
   const { data: documents = [], isLoading } = useQuery({
-    queryKey: ['documents'],
+    queryKey: ['documents', statusFilter, sortBy],
     queryFn: async () => {
       try {
-        // TODO: replace with user-scoped GET /documents endpoint when built.
-        // Currently calls the admin endpoint which returns 403 for non-admin
-        // users (caught below → empty array). Admin users see the RAG corpus.
-        const res = await apiClient.get('/admin/knowledge-base/documents');
+        const res = await apiClient.get('/documents', {
+          params: {
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+            sort: sortBy,
+            page_size: 100,
+          },
+        });
         const data = res.data;
-        return Array.isArray(data) ? data : Array.isArray(data?.documents) ? data.documents : [];
+        return Array.isArray(data)
+          ? data
+          : Array.isArray(data?.documents)
+            ? data.documents
+            : [];
       } catch {
         return [];
       }

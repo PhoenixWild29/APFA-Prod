@@ -2377,51 +2377,23 @@ async def upload_document(
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = None,
     current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Document upload endpoint with security validation.
 
-    Accepts file uploads, validates type and size, performs security scanning,
-    and triggers background processing via Celery.
-
-    Args:
-        file: Uploaded file (multipart/form-data)
-        background_tasks: FastAPI background tasks
-        current_user: Authenticated user
-
-    Returns:
-        dict: Upload confirmation with document_id and processing status
-
-    Raises:
-        HTTPException:
-            - 400: Invalid file type or size
-            - 413: File too large
-            - 422: Security scan failed
-            - 500: Upload processing error
-
-    Example:
-        Request:
-            POST /documents/upload
-            Content-Type: multipart/form-data
-            file: financial_report.pdf
-
-        Response (201):
-            {
-                "document_id": "doc_550e8400-...",
-                "filename": "financial_report.pdf",
-                "upload_status": "accepted",
-                "processing_queue_position": 5,
-                "message": "Document uploaded successfully and queued for processing"
-            }
+    Accepts file uploads, validates type and size, persists to MinIO,
+    creates a tracking row, and triggers background processing via Celery.
     """
+    import io
     import mimetypes
     import uuid
 
+    from app.orm_models import UserDocument
+
     try:
-        # Generate unique document ID
         document_id = f"doc_{uuid.uuid4()}"
 
-        # Validate file type
         content_type = (
             file.content_type
             or mimetypes.guess_type(file.filename)[0]
@@ -2434,7 +2406,6 @@ async def upload_document(
                 detail=f"File type '{content_type}' not supported. Allowed types: PDF, DOC, DOCX, TXT",
             )
 
-        # Read file to check size
         file_content = await file.read()
         file_size = len(file_content)
         max_size_bytes = settings.max_file_size_mb * 1024 * 1024
@@ -2448,22 +2419,41 @@ async def upload_document(
         if file_size == 0:
             raise HTTPException(status_code=400, detail="File is empty")
 
-        # Security scanning (placeholder - in production use ClamAV or similar)
         security_scan_passed = True  # TODO: Implement actual scanning
         if not security_scan_passed:
             raise HTTPException(status_code=422, detail="Document failed security scan")
 
-        # Store file temporarily (in production, upload to S3/MinIO)
-        file_path = f"/tmp/{document_id}_{file.filename}"
-        # TODO: Save file or generate S3 presigned URL
+        # Persist to MinIO so the Celery worker (separate container) can read it
+        bucket = settings.s3_bucket_name
+        if not minio_client.bucket_exists(bucket):
+            minio_client.make_bucket(bucket)
+        object_key = f"uploads/{document_id}/{file.filename}"
+        minio_client.put_object(
+            bucket, object_key, io.BytesIO(file_content), file_size,
+            content_type=content_type,
+        )
 
-        # Trigger background processing via Celery
+        # Pre-generate Celery task ID to avoid a post-dispatch race (CoWork B2)
+        task_id = str(uuid.uuid4())
+
+        doc_row = UserDocument(
+            id=document_id,
+            user_id=current_user["user_id"],
+            filename=file.filename,
+            content_type=content_type,
+            file_size_bytes=file_size,
+            processing_status="pending",
+            celery_task_id=task_id,
+        )
+        db.add(doc_row)
+        db.commit()
+
         from app.tasks import process_document
 
-        task = process_document.apply_async(
+        process_document.apply_async(
             args=[
                 document_id,
-                file_path,
+                f"s3://{bucket}/{object_key}",
                 {
                     "filename": file.filename,
                     "content_type": content_type,
@@ -2471,11 +2461,12 @@ async def upload_document(
                     "uploaded_by": current_user.get("username"),
                     "user_id": current_user.get("user_id"),
                 },
-            ]
+            ],
+            task_id=task_id,
         )
 
         logger.info(
-            f"Document {document_id} uploaded by {current_user.get('username')}, task {task.id} queued"
+            f"Document {document_id} uploaded by {current_user.get('username')}, task {task_id} queued"
         )
 
         return {
@@ -2484,8 +2475,7 @@ async def upload_document(
             "file_size_bytes": file_size,
             "content_type": content_type,
             "upload_status": "accepted",
-            "processing_task_id": str(task.id),
-            "processing_queue_position": 1,  # Placeholder
+            "processing_task_id": task_id,
             "message": "Document uploaded successfully and queued for processing",
             "security_scan_status": "passed",
         }
@@ -2502,47 +2492,18 @@ async def upload_document(
 
 @app.post("/documents/upload/batch", status_code=201)
 async def upload_documents_batch(
-    files: List[UploadFile] = File(...), current_user: dict = Depends(get_current_user)
+    files: List[UploadFile] = File(...),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    """
-    Batch document upload endpoint - Upload multiple documents simultaneously.
-
-    Processes up to 20 files in parallel with individual validation and
-    status tracking for each file.
-
-    Args:
-        files: List of uploaded files (multipart/form-data)
-        current_user: Authenticated user
-
-    Returns:
-        dict: Batch upload confirmation with individual file results
-
-    Raises:
-        HTTPException:
-            - 400: Too many files or validation errors
-            - 500: Batch processing error
-
-    Example:
-        Request:
-            POST /documents/upload/batch
-            Content-Type: multipart/form-data
-            files: [file1.pdf, file2.docx, file3.txt]
-
-        Response (201):
-            {
-                "batch_upload_id": "batch_550e8400-...",
-                "total_files": 3,
-                "accepted_files": 2,
-                "rejected_files": 1,
-                "completion_percentage": 66.7,
-                "upload_results": [...]
-            }
-    """
+    """Batch document upload — up to 20 files with per-file validation."""
+    import io
     import mimetypes
     import uuid
 
+    from app.orm_models import UserDocument
+
     try:
-        # Validate batch size
         MAX_BATCH_SIZE = 20
         if len(files) > MAX_BATCH_SIZE:
             raise HTTPException(
@@ -2553,19 +2514,20 @@ async def upload_documents_batch(
         if len(files) == 0:
             raise HTTPException(status_code=400, detail="No files provided")
 
-        # Generate batch ID
         batch_upload_id = f"batch_{uuid.uuid4()}"
+
+        bucket = settings.s3_bucket_name
+        if not minio_client.bucket_exists(bucket):
+            minio_client.make_bucket(bucket)
 
         upload_results = []
         accepted_count = 0
         rejected_count = 0
 
-        # Process each file
         for file in files:
             upload_id = f"doc_{uuid.uuid4()}"
             validation_errors = []
 
-            # Validate file type
             content_type = (
                 file.content_type
                 or mimetypes.guess_type(file.filename)[0]
@@ -2575,7 +2537,6 @@ async def upload_documents_batch(
             if content_type not in settings.allowed_document_types:
                 validation_errors.append(f"Unsupported file type: {content_type}")
 
-            # Read and validate file size
             file_content = await file.read()
             file_size = len(file_content)
             max_size_bytes = settings.max_file_size_mb * 1024 * 1024
@@ -2588,7 +2549,6 @@ async def upload_documents_batch(
             if file_size == 0:
                 validation_errors.append("File is empty")
 
-            # Determine status
             if len(validation_errors) > 0:
                 status = "rejected"
                 processing_task_id = None
@@ -2597,24 +2557,43 @@ async def upload_documents_batch(
                 status = "accepted"
                 accepted_count += 1
 
-                # Trigger Celery task
+                object_key = f"uploads/{upload_id}/{file.filename}"
+                minio_client.put_object(
+                    bucket, object_key, io.BytesIO(file_content), file_size,
+                    content_type=content_type,
+                )
+
+                task_id = str(uuid.uuid4())
+
+                doc_row = UserDocument(
+                    id=upload_id,
+                    user_id=current_user["user_id"],
+                    filename=file.filename,
+                    content_type=content_type,
+                    file_size_bytes=file_size,
+                    processing_status="pending",
+                    celery_task_id=task_id,
+                )
+                db.add(doc_row)
+
                 from app.tasks import process_document
 
-                file_path = f"/tmp/{upload_id}_{file.filename}"
-                task = process_document.apply_async(
+                process_document.apply_async(
                     args=[
                         upload_id,
-                        file_path,
+                        f"s3://{bucket}/{object_key}",
                         {
                             "filename": file.filename,
                             "content_type": content_type,
                             "file_size_bytes": file_size,
                             "batch_id": batch_upload_id,
                             "uploaded_by": current_user.get("username"),
+                            "user_id": current_user.get("user_id"),
                         },
-                    ]
+                    ],
+                    task_id=task_id,
                 )
-                processing_task_id = str(task.id)
+                processing_task_id = task_id
 
             upload_results.append(
                 {
@@ -2626,6 +2605,8 @@ async def upload_documents_batch(
                     "processing_task_id": processing_task_id,
                 }
             )
+
+        db.commit()
 
         completion_percentage = (
             (accepted_count / len(files)) * 100 if len(files) > 0 else 0
@@ -2653,6 +2634,91 @@ async def upload_documents_batch(
         raise HTTPException(
             status_code=500, detail="Internal error during batch upload"
         )
+
+
+@app.get("/documents")
+async def list_user_documents(
+    page: int = 1,
+    page_size: int = 25,
+    status: Optional[str] = None,
+    sort: str = "newest",
+    search: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List documents owned by the current user with pagination and filters."""
+    from app.orm_models import UserDocument
+
+    page_size = min(page_size, 100)
+
+    query = db.query(UserDocument).filter(
+        UserDocument.user_id == current_user["user_id"]
+    )
+
+    if status and status in ("pending", "processing", "completed", "failed"):
+        query = query.filter(UserDocument.processing_status == status)
+
+    if search:
+        query = query.filter(UserDocument.filename.ilike(f"%{search}%"))
+
+    sort_map = {
+        "newest": UserDocument.uploaded_at.desc(),
+        "oldest": UserDocument.uploaded_at.asc(),
+        "name": UserDocument.filename.asc(),
+        "size": UserDocument.file_size_bytes.desc(),
+    }
+    query = query.order_by(sort_map.get(sort, UserDocument.uploaded_at.desc()))
+
+    total_count = query.count()
+    documents = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "documents": [
+            {
+                "id": doc.id,
+                "filename": doc.filename,
+                "file_size": doc.file_size_bytes,
+                "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+                "processing_status": doc.processing_status,
+                "document_type": doc.content_type,
+                "chunk_count": doc.chunk_count,
+                "tags": [],
+            }
+            for doc in documents
+        ],
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@app.get("/documents/{document_id}")
+async def get_user_document(
+    document_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a single document owned by the current user."""
+    from app.orm_models import UserDocument
+
+    doc = db.query(UserDocument).filter(
+        UserDocument.id == document_id,
+        UserDocument.user_id == current_user["user_id"],
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return {
+        "id": doc.id,
+        "filename": doc.filename,
+        "file_size": doc.file_size_bytes,
+        "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+        "processing_status": doc.processing_status,
+        "document_type": doc.content_type,
+        "chunk_count": doc.chunk_count,
+        "error_message": doc.error_message,
+        "tags": [],
+    }
 
 
 @app.get("/documents/{document_id}/status")

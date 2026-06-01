@@ -16,7 +16,7 @@ from app.config import settings
 from app.database import Base
 
 # Import all ORM models so Alembic's autogenerate sees them
-from app.orm_models import User  # noqa: F401
+from app.orm_models import User, UserDocument  # noqa: F401
 
 # Alembic Config object, provides access to alembic.ini values
 config = context.config
