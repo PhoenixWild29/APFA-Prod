@@ -30,10 +30,12 @@ export default function DocumentsWidget({ onHide }: DocumentsWidgetProps) {
     queryKey: ['documents', { limit: 4 }],
     queryFn: async () => {
       try {
-        const res = await apiClient.get<DocumentSummary[]>('/documents', {
-          params: { limit: 4 },
+        const res = await apiClient.get('/documents', {
+          params: { page_size: 4, sort: 'newest' },
         });
-        return Array.isArray(res.data) ? res.data : [];
+        const data = res.data;
+        const docs = Array.isArray(data) ? data : Array.isArray(data?.documents) ? data.documents : [];
+        return docs as DocumentSummary[];
       } catch {
         return [];
       }

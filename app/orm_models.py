@@ -301,3 +301,32 @@ class ConversationMessage(Base):
         ),
         Index("idx_messages_conversation_seq", "conversation_id", "seq"),
     )
+
+
+class UserDocument(Base):
+    __tablename__ = "user_documents"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    filename = Column(String(500), nullable=False)
+    content_type = Column(String(100), nullable=False)
+    file_size_bytes = Column(Integer, nullable=False)
+    processing_status = Column(String(20), nullable=False, default="pending")
+    chunk_count = Column(Integer, nullable=True)
+    error_message = Column(Text, nullable=True)
+    celery_task_id = Column(String(50), nullable=True)
+    uploaded_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "processing_status IN ('pending', 'processing', 'completed', 'failed')",
+            name="ck_user_documents_status",
+        ),
+        Index("idx_user_documents_user_id", "user_id"),
+        Index("idx_user_documents_user_status", "user_id", "processing_status"),
+    )

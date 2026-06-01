@@ -86,27 +86,49 @@ def _get_redis():
 
 @celery_app.task(name="process_document", bind=True)
 def process_document(self: Task, document_id: str, file_path: str, metadata: dict):
-    """
-    Process uploaded document: extract text, chunk, embed, store in DeltaTable.
+    """Process uploaded document: download from MinIO, extract, chunk, embed, store."""
+    from datetime import datetime, timezone
 
-    Args:
-        document_id: Unique document identifier
-        file_path: Path to uploaded file (S3 or local)
-        metadata: Document metadata (filename, content_type, etc.)
-    """
+    from app.database import SessionLocal
+    from app.orm_models import UserDocument
+
     logger.info(f"Processing document {document_id} from {file_path}")
 
+    db = SessionLocal()
     try:
+        # Mark processing
+        doc = db.query(UserDocument).filter(UserDocument.id == document_id).first()
+        if doc:
+            doc.processing_status = "processing"
+            db.commit()
+        else:
+            logger.warning(f"UserDocument row not found for {document_id} — processing anyway")
+
+        self.update_state(
+            state="PROGRESS",
+            meta={"current": 5, "total": 100, "status": "Downloading file..."},
+        )
+
+        # Download from MinIO if path is an S3 URI
+        local_path = file_path
+        if file_path.startswith("s3://"):
+            local_path = _download_from_minio(file_path)
+
         self.update_state(
             state="PROGRESS",
             meta={"current": 10, "total": 100, "status": "Extracting text..."},
         )
 
-        # Step 1: Extract text based on content type
         content_type = metadata.get("content_type", "text/plain")
-        extracted_text = _extract_text_from_file(file_path, content_type)
+        extracted_text = _extract_text_from_file(local_path, content_type)
 
+        # W1: empty-text early return must update status to failed
         if not extracted_text:
+            if doc:
+                doc.processing_status = "failed"
+                doc.error_message = "Could not extract text from document"
+                doc.completed_at = datetime.now(timezone.utc)
+                db.commit()
             return {
                 "status": "failed",
                 "document_id": document_id,
@@ -118,7 +140,6 @@ def process_document(self: Task, document_id: str, file_path: str, metadata: dic
             meta={"current": 30, "total": 100, "status": "Chunking..."},
         )
 
-        # Step 2: Chunk the text
         from app.services.chunking import chunk_prose
 
         chunks = chunk_prose(
@@ -131,9 +152,6 @@ def process_document(self: Task, document_id: str, file_path: str, metadata: dic
             state="PROGRESS",
             meta={"current": 50, "total": 100, "status": "Embedding and storing..."},
         )
-
-        # Step 3: Build normalized records and ingest
-        from datetime import datetime, timezone
 
         now_iso = datetime.now(timezone.utc).isoformat()
         chunk_dicts = []
@@ -168,6 +186,12 @@ def process_document(self: Task, document_id: str, file_path: str, metadata: dic
             meta={"current": 100, "total": 100, "status": "Complete"},
         )
 
+        if doc:
+            doc.processing_status = "completed"
+            doc.chunk_count = len(chunks)
+            doc.completed_at = datetime.now(timezone.utc)
+            db.commit()
+
         logger.info(f"Document {document_id} processed: {stats}")
 
         return {
@@ -180,7 +204,62 @@ def process_document(self: Task, document_id: str, file_path: str, metadata: dic
 
     except Exception as e:
         logger.error(f"Error processing document {document_id}: {e}")
+        try:
+            doc = db.query(UserDocument).filter(UserDocument.id == document_id).first()
+            if doc:
+                doc.processing_status = "failed"
+                doc.error_message = str(e)[:500]
+                doc.completed_at = datetime.now(timezone.utc)
+                db.commit()
+        except Exception:
+            db.rollback()
         raise
+
+    finally:
+        db.close()
+        # Clean up temp file downloaded from MinIO
+        if file_path.startswith("s3://") and local_path != file_path:
+            import os
+            try:
+                os.remove(local_path)
+            except OSError:
+                pass
+
+
+def _download_from_minio(s3_uri: str) -> str:
+    """Download an s3://bucket/key URI from MinIO to a local temp file."""
+    import tempfile
+
+    from minio import Minio
+
+    parts = s3_uri.replace("s3://", "").split("/", 1)
+    bucket = parts[0]
+    object_key = parts[1]
+
+    mc = Minio(
+        settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        secure=False,
+    )
+
+    suffix = ""
+    if "." in object_key:
+        suffix = "." + object_key.rsplit(".", 1)[1]
+
+    fd, local_path = tempfile.mkstemp(suffix=suffix)
+    try:
+        mc.fget_object(bucket, object_key, local_path)
+    except Exception:
+        import os
+        os.close(fd)
+        os.remove(local_path)
+        raise
+    else:
+        import os
+        os.close(fd)
+
+    return local_path
 
 
 def _extract_text_from_file(file_path: str, content_type: str) -> str:
