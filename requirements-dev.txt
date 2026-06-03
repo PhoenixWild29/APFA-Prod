@@ -8,7 +8,7 @@ aiohappyeyeballs==2.6.2
     # via
     #   -r requirements.txt
     #   aiohttp
-aiohttp==3.13.5
+aiohttp==3.14.0
     # via -r requirements.txt
 aiosignal==1.4.0
     # via
@@ -651,6 +651,7 @@ typer==0.25.1
 typing-extensions==4.15.0
     # via
     #   -r requirements.txt
+    #   aiohttp
     #   aiosignal
     #   alembic
     #   anyio
