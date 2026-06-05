@@ -6,7 +6,7 @@
 #
 aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.13.5
+aiohttp==3.14.0
     # via -r requirements.in
 aiosignal==1.4.0
     # via aiohttp
@@ -39,9 +39,9 @@ bcrypt==5.0.0
     # via -r requirements.in
 billiard==4.2.4
     # via celery
-boto3==1.43.18
+boto3==1.43.23
     # via -r requirements.in
-botocore==1.43.18
+botocore==1.43.23
     # via
     #   boto3
     #   s3transfer
@@ -368,7 +368,7 @@ python-dotenv==1.2.2
     #   pydantic-settings
 python-magic==0.4.27
     # via -r requirements.in
-python-multipart==0.0.29
+python-multipart==0.0.32
     # via -r requirements.in
 pyyaml==6.0.3
     # via
@@ -445,6 +445,7 @@ typer==0.25.1
     # via huggingface-hub
 typing-extensions==4.15.0
     # via
+    #   aiohttp
     #   aiosignal
     #   alembic
     #   anyio
@@ -490,7 +491,7 @@ uuid-utils==0.16.0
     # via
     #   langchain-core
     #   langsmith
-uvicorn==0.48.0
+uvicorn==0.49.0
     # via -r requirements.in
 vine==5.1.0
     # via
