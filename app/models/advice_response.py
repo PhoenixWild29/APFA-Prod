@@ -8,7 +8,7 @@ Provides comprehensive response structures with:
 - Transparency and monitoring support
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -127,6 +127,10 @@ class OptimizedAdviceResponse(BaseModel):
     """
 
     advice: str = Field(..., description="Generated loan advice content", min_length=1)
+    sources: Optional[List[dict]] = Field(
+        default=None,
+        description="Source documents and citations used to generate the advice",
+    )
     confidence_score: float = Field(
         ..., description="Overall advice confidence (0.0-1.0)", ge=0.0, le=1.0
     )
