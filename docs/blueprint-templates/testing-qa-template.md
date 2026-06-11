@@ -17,7 +17,7 @@ to continuous testing with chaos engineering (Phase 3-5).
 ```python
 # Unit tests
 def test_embed_document():
-    result = embedder.encode(["test doc"])
+    result = np.array(list(embedder.embed(["test doc"])), dtype=np.float32)
     assert result.shape == (1, 384)
 
 # Manual integration tests

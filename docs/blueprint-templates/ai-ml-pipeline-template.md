@@ -76,32 +76,44 @@ User Query
 
 **Implementation:**
 ```python
-from langgraph.graph import StateGraph, END
-from langchain.agents import create_tool_calling_agent
+from langgraph.graph import StateGraph, END, START
 
-# Define agent state
-class AgentState(typing.TypedDict):
-    messages: typing.List[str]
+# Define agent state — each agent returns a subset of these fields
+class AgentState(typing.TypedDict, total=False):
+    messages: typing.List[Any]
     query: str
+    retrieval_confidence: float
+    perplexity_context: str
+    sources: typing.List[dict]
 
-# Create agents
+# Each agent is a plain function — no AgentExecutor needed.
+# create_tool_calling_agent was removed in langchain 1.x (pinned: 1.2.12);
+# APFA uses plain-function LangGraph nodes instead.
 @trace.get_tracer(__name__).start_as_current_span("Retriever Agent")
 def retriever_agent(state):
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "Retrieve context for loan query."),
-        ("human", "{query}")
-    ])
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    executor = AgentExecutor(agent=agent, tools=tools)
-    result = executor.invoke({"query": state["query"]})
-    return {"messages": state["messages"] + [result["output"]]}
+    """Retrieve relevant financial context via RAG/FAISS."""
+    context, confidence, retrieval_sources = retrieve_context(state["query"])
+    augmented_content = (
+        f"Based on the following context, answer the user's question.\n\n"
+        f"[CURATED] Context from research corpus:\n{context}\n\n"
+        f"User question: {state['query']}"
+    )
+    return {
+        "messages": [HumanMessage(content=augmented_content)],
+        "query": state["query"],
+        "retrieval_confidence": confidence,
+        "sources": retrieval_sources,
+    }
 
-# Build graph
+# Build graph — linear pipeline: retriever → perplexity → analyzer → orchestrator
 graph = StateGraph(AgentState)
 graph.add_node("retriever", retriever_agent)
+graph.add_node("perplexity", perplexity_researcher)
 graph.add_node("analyzer", analyzer_agent)
 graph.add_node("orchestrator", orchestrator_agent)
-graph.add_edge("retriever", "analyzer")
+graph.add_edge(START, "retriever")
+graph.add_edge("retriever", "perplexity")
+graph.add_edge("perplexity", "analyzer")
 graph.add_edge("analyzer", "orchestrator")
 graph.add_edge("orchestrator", END)
 

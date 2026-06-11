@@ -174,7 +174,7 @@ dt = await asyncio.to_thread(load_rag_index)  # 10-100s blocking!
    ```python
    @app.task(queue='embedding', max_retries=3)
    def embed_document_batch(document_batch, batch_id):
-       embeddings = embedder.encode(document_batch, batch_size=32)
+       embeddings = np.array(list(embedder.embed(document_batch)), dtype=np.float32)
        faiss.normalize_L2(embeddings)
        upload_to_minio(embeddings, batch_id)
        return (minio_path, len(embeddings))
@@ -341,34 +341,37 @@ async def trigger_embedding_job(
 
 **Documentation Reference:** [docs/architecture.md](../architecture.md) section "Resilience & Performance"
 
-**Implementation:**
+**Implementation:** In-house circuit breaker service at `app/services/circuit_breaker.py`.
 ```python
-from tenacity import retry, stop_after_attempt, wait_exponential, circuit_breaker
+from tenacity import retry, stop_after_attempt, wait_exponential
+from app.services.circuit_breaker import get_breaker, CircuitBreakerOpen
 
-@circuit_breaker(failure_threshold=5, recovery_timeout=60)
+_rag_breaker = get_breaker("rag_retrieval", failure_threshold=5, recovery_timeout=60)
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def retrieve_loan_data(query: str) -> str:
-    """RAG retrieval with circuit breaker."""
+    """RAG retrieval with circuit breaker + retry."""
+    def _inner():
+        query_emb = np.array(list(embedder.embed([query])), dtype=np.float32)
+        faiss.normalize_L2(query_emb)
+        scores, indices = faiss_index.search(query_emb, k=5)
+        return [rag_df.iloc[i]["profile"] for i in indices[0] if i >= 0]
     try:
-        # FAISS search
-        query_emb = embedder.encode([query])
-        _, indices = faiss_index.search(query_emb, k=5)
-        return results
+        return _rag_breaker.call(_inner)
+    except CircuitBreakerOpen:
+        logger.warning("RAG circuit breaker OPEN — returning fallback")
+        return "Service temporarily unavailable."
     except Exception as e:
         logger.error(f"RAG retrieval error: {e}")
         return "Error retrieving loan data."
 
-@circuit_breaker(failure_threshold=5, recovery_timeout=60)
-def simulate_risk(input_data: str) -> str:
-    """Call AWS Bedrock with circuit breaker."""
-    try:
-        response = bedrock.invoke_agent(...)
-        return response['completion']
-    except Exception as e:
-        logger.error(f"Bedrock error: {e}")
-        return "Error simulating risk."
+# NOTE: AWS Bedrock is initialized but not currently in use for risk simulation.
+# LLM inference uses OpenAI GPT-4o via langchain_openai.ChatOpenAI.
+# If Bedrock is adopted, wrap calls with get_breaker("bedrock") following
+# the same pattern above.
 ```
 
-**Reference:** Circuit breaker pattern in `app/main.py`
+**Reference:** Circuit breaker: `app/services/circuit_breaker.py`, usage in `app/connectors/finnhub_connector.py`
 
 **Behavior:**
 - After 5 consecutive failures → Circuit OPEN (fail fast for 60s)

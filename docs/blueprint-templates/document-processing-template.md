@@ -24,7 +24,7 @@ def load_rag_index():
     df = dt.to_pandas()
     
     # Generate embeddings (BLOCKS 10-100s)
-    embeddings = embedder.encode(df['profile'].tolist())
+    embeddings = np.array(list(embedder.embed(df['profile'].tolist())), dtype=np.float32)
     faiss.normalize_L2(embeddings)
     
     # Build index

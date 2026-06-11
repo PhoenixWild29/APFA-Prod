@@ -15,19 +15,14 @@ with circuit breakers and retries (Phase 2) to enterprise service mesh (Phase 3-
 ## 13.2 Phase 1: Basic Integration
 
 ```python
-# Simple boto3 call (NO error handling)
+# NOTE: AWS Bedrock is initialized but not currently in use for risk simulation.
+# LLM inference uses OpenAI GPT-4o via langchain_openai.ChatOpenAI.
+# The boto3 bedrock-agent-runtime client exists in app/main.py but no
+# production code calls invoke_agent(). Example retained for reference only.
 bedrock = boto3.client('bedrock-agent-runtime', region_name=AWS_REGION)
-
-def simulate_risk(input_data: str) -> str:
-    response = bedrock.invoke_agent(
-        agentId='loan-risk-agent',
-        sessionId='session-123',
-        inputText=input_data
-    )
-    return response['completion']
 ```
 
-**Limitations:**
+**Limitations of Phase 1 pattern (no error handling):**
 - ❌ No retry logic
 - ❌ No timeout
 - ❌ No circuit breaker
@@ -39,38 +34,44 @@ def simulate_risk(input_data: str) -> str:
 
 ### Circuit Breaker Pattern
 
-**Reference:** `app/main.py` lines 102-126, [docs/architecture.md](../architecture.md)
+**Reference:** `app/services/circuit_breaker.py`, usage in `app/connectors/finnhub_connector.py`
 
 ```python
-from tenacity import retry, stop_after_attempt, wait_exponential, circuit_breaker
+from tenacity import retry, stop_after_attempt, wait_exponential
+from app.services.circuit_breaker import get_breaker, CircuitBreakerOpen
 
-@circuit_breaker(failure_threshold=5, recovery_timeout=60)
+# In-house circuit breaker (not a third-party library).
+# See app/services/circuit_breaker.py for implementation.
+_finnhub_breaker = get_breaker("finnhub", failure_threshold=5, recovery_timeout=60)
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=4, max=10))
-def simulate_risk(input_data: str) -> str:
-    """AWS Bedrock with circuit breaker + retry."""
+def fetch_market_data(ticker: str) -> dict:
+    """Finnhub market data with circuit breaker + retry."""
+    def _inner():
+        return finnhub_client.quote(ticker)
     try:
-        response = bedrock.invoke_agent(
-            agentId='loan-risk-agent',
-            sessionId='session-123',
-            inputText=input_data
-        )
-        return response['completion']
+        return _finnhub_breaker.call(_inner)
+    except CircuitBreakerOpen:
+        logger.warning("Finnhub circuit breaker OPEN — returning cached data")
+        return get_cached_quote(ticker)
     except Exception as e:
-        logger.error(f"Bedrock error: {e}")
-        return "Error simulating risk."  # Graceful degradation
+        logger.error(f"Finnhub error: {e}")
+        raise
 ```
 
 **Behavior:**
 - Retry: 3 attempts with exponential backoff (4s, 8s, 10s)
 - Circuit Breaker: After 5 failures → OPEN for 60s (fail fast)
 - Timeout: 30s per request
-- Fallback: Return error message (don't crash)
+- Fallback: Return cached data or error message (don't crash)
 
 **Integrated Services:**
-- AWS Bedrock (risk simulation)
+- OpenAI GPT-4o (LLM inference via langchain_openai)
 - MinIO/S3 (object storage)
 - Delta Lake (data lakehouse)
 - Redis (caching, message broker)
+- Finnhub (market data)
+- Perplexity (research augmentation)
 
 ---
 
@@ -105,12 +106,14 @@ async def call_external_api(url, data):
 ### Istio Resilience
 
 ```yaml
+# Example Istio resilience config for an external API (e.g., Finnhub, Perplexity).
+# Bedrock is not currently in production use — LLM is OpenAI GPT-4o.
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: bedrock-api
+  name: external-api
 spec:
-  host: bedrock.amazonaws.com
+  host: api.example.com
   trafficPolicy:
     connectionPool:
       tcp:
