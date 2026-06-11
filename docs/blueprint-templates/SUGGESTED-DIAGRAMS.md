@@ -44,7 +44,9 @@ graph TB
     end
     
     subgraph "External Services"
-        BEDROCK[AWS Bedrock<br/>Risk Analysis]
+        OPENAI[OpenAI GPT-4o<br/>LLM Inference]
+        FINNHUB[Finnhub<br/>Market Data]
+        PPLX[Perplexity<br/>Research]
     end
     
     UI -->|HTTPS| API
@@ -52,7 +54,8 @@ graph TB
     API --> RAG
     API --> LLM
     API --> CELERY
-    API --> BEDROCK
+    API --> OPENAI
+    API --> PPLX
     RAG --> EMB
     RAG --> MINIO
     CELERY --> REDIS
@@ -97,8 +100,8 @@ graph TB
       │    └────────────────────────────────────────────┘
       │
 ┌─────▼──────────────┐     ┌──────────────────┐
-│   RAG Pipeline     │────▶│  AWS Bedrock     │
-│   FAISS + LLM      │     │  Risk Analysis   │
+│   RAG Pipeline     │────▶│  OpenAI GPT-4o   │
+│   FAISS + LLM      │     │  LLM Inference   │
 └────────────────────┘     └──────────────────┘
       │
       │
