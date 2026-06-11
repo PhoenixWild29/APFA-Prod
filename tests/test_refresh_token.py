@@ -64,10 +64,14 @@ TestSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    """Create fresh tables for every test."""
-    TestBase.metadata.create_all(bind=engine)
+    """Create only SQLite-compatible tables (skip JSONB columns)."""
+    tables = [
+        RefreshToken.__table__,
+        User.__table__,
+    ]
+    TestBase.metadata.create_all(bind=engine, tables=tables)
     yield
-    TestBase.metadata.drop_all(bind=engine)
+    TestBase.metadata.drop_all(bind=engine, tables=tables)
 
 
 @pytest.fixture
@@ -218,6 +222,69 @@ class TestRotateRefreshToken:
         assert user_id == test_user.id
         # Should be in the same family
         assert grace_row.family_id == old_row.family_id
+
+    def test_grace_window_leaves_successor_alive(self, db, test_user):
+        """B1 regression: after a grace-window hit, the original successor
+        (held by another tab) must still rotate normally even after the
+        grace window expires."""
+        raw_t0, row_t0 = create_refresh_token(db, test_user.id)
+        db.commit()
+
+        # Tab A rotates T0 → T1
+        raw_t1, row_t1, _ = rotate_refresh_token(db, raw_t0)
+        db.commit()
+        assert raw_t1 is not None
+
+        # Tab B presents T0 within grace window → gets T2
+        raw_t2, row_t2, _ = rotate_refresh_token(db, raw_t0)
+        db.commit()
+        assert raw_t2 is not None
+        assert row_t2.family_id == row_t0.family_id
+
+        # T1 must still be alive (not revoked, not replaced)
+        db.refresh(row_t1)
+        assert row_t1.revoked_at is None
+        assert row_t1.replaced_by_id is None
+
+        # Push T2 outside grace window to simulate time passing
+        row_t2.created_at = datetime.now(timezone.utc) - timedelta(seconds=30)
+        db.commit()
+
+        # Tab A presents T1 long after grace expires → normal rotation
+        raw_t3, row_t3, uid = rotate_refresh_token(db, raw_t1)
+        db.commit()
+        assert raw_t3 is not None
+        assert uid == test_user.id
+        assert row_t3.family_id == row_t0.family_id
+
+    def test_stolen_token_after_grace_still_revokes_family(self, db, test_user):
+        """B1 regression: theft detection still works after grace-window hits.
+        An attacker presenting T0 outside the grace window revokes the family."""
+        raw_t0, row_t0 = create_refresh_token(db, test_user.id)
+        db.commit()
+
+        # Normal rotation T0 → T1
+        raw_t1, row_t1, _ = rotate_refresh_token(db, raw_t0)
+        db.commit()
+
+        # Grace-window hit: T0 presented again → gets T2
+        raw_t2, row_t2, _ = rotate_refresh_token(db, raw_t0)
+        db.commit()
+
+        # Push T2 outside grace window
+        row_t2.created_at = datetime.now(timezone.utc) - timedelta(seconds=30)
+        db.commit()
+
+        # Attacker presents stolen T0 outside grace → theft detection
+        result = rotate_refresh_token(db, raw_t0)
+        db.commit()
+        assert result == (None, None, None)
+
+        # Entire family revoked — including T1 and T2
+        db.refresh(row_t1)
+        db.refresh(row_t2)
+        assert row_t1.revoked_at is not None
+        assert row_t2.revoked_at is not None
 
     def test_double_rotation_chain(self, db, test_user):
         """Multiple sequential rotations work correctly."""

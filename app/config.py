@@ -62,8 +62,7 @@ class Settings(BaseSettings):
     csrf_secret: str = "your-csrf-secret-change-in-production"
     csrf_token_expire_hours: int = 24
 
-    # Cookie Configuration
-    cookie_domain: str = "localhost"
+    # Cookie Configuration — host-only cookies (no domain= passed to set_cookie)
     # Defaults True (production-safe). Override to False in dev .env over HTTP.
     cookie_secure: bool = True
     cookie_samesite: str = "strict"  # strict, lax, or none
