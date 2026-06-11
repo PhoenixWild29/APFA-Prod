@@ -15,10 +15,16 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from prometheus_client import Counter
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.orm_models import RefreshToken
+
+TOKEN_THEFT_DETECTED = Counter(
+    "apfa_token_theft_detected_total",
+    "Refresh token theft detection events (family revoked)",
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +120,9 @@ def rotate_refresh_token(
             .first()
         )
         if successor and (now - _ensure_aware(successor.created_at)).total_seconds() <= grace_seconds:
-            # Within grace window — return the existing successor.
-            # Re-issue the raw token for the successor so the client gets
-            # a usable value. But we can't — we only store hashes.
-            # Instead, create a NEW successor in the same family and
-            # mark the old successor as replaced.
+            # Within grace window — issue a new token for this tab.
+            # Leave the prior successor fully alive (no replaced_by_id,
+            # no revoked_at) so the other tab can rotate it normally.
             logger.info(
                 f"Grace window hit for family={old_row.family_id}, "
                 f"issuing new successor"
@@ -126,8 +130,7 @@ def rotate_refresh_token(
             new_raw, new_row = create_refresh_token(
                 db, old_row.user_id, old_row.family_id
             )
-            successor.replaced_by_id = new_row.id
-            successor.revoked_at = now
+            old_row.replaced_by_id = new_row.id
             return new_raw, new_row, old_row.user_id
 
         # Outside grace window — theft detected
@@ -135,6 +138,7 @@ def rotate_refresh_token(
             f"Token reuse outside grace window! "
             f"Revoking family={old_row.family_id} user_id={old_row.user_id}"
         )
+        TOKEN_THEFT_DETECTED.inc()
         _revoke_family(db, old_row.family_id, now)
         return None, None, None
 
@@ -143,6 +147,7 @@ def rotate_refresh_token(
         logger.warning(
             f"Revoked refresh token presented for family={old_row.family_id}"
         )
+        TOKEN_THEFT_DETECTED.inc()
         _revoke_family(db, old_row.family_id, now)
         return None, None, None
 

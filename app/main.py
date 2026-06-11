@@ -2008,30 +2008,34 @@ async def refresh_access_token(
     new_raw, new_row, user_id = rotate_refresh_token(db, refresh_token)
     if new_raw is None:
         # Rotation failed (expired, revoked, or theft detected)
-        # Clear the stale cookie
-        response.delete_cookie(
+        db.commit()
+        resp = JSONResponse(
+            status_code=401,
+            content={"detail": "Refresh token invalid or revoked"},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        resp.delete_cookie(
             key="refresh_token", path="/token",
             secure=settings.cookie_secure,
             samesite=settings.cookie_samesite,
         )
-        db.commit()
-        raise HTTPException(
-            status_code=401,
-            detail="Refresh token invalid or revoked",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        return resp
 
     db.commit()
 
     # Look up user to build access token
-    user = get_user_by_id(user_id)
+    user = get_user_by_id(user_id, db)
     if user is None or user.get("disabled"):
-        response.delete_cookie(
+        resp = JSONResponse(
+            status_code=401,
+            content={"detail": "User not found or disabled"},
+        )
+        resp.delete_cookie(
             key="refresh_token", path="/token",
             secure=settings.cookie_secure,
             samesite=settings.cookie_samesite,
         )
-        raise HTTPException(status_code=401, detail="User not found or disabled")
+        return resp
 
     # Issue new JWT access token
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
@@ -2247,18 +2251,8 @@ async def register_user(
 
 
 @app.post("/logout")
-async def logout(
-    response: Response,
-    db: Session = Depends(get_db),
-    refresh_token: Optional[str] = Cookie(None, alias="refresh_token"),
-):
-    """Logout — revoke refresh token family and clear cookies."""
-    if refresh_token:
-        family_id = find_family_by_token(db, refresh_token)
-        if family_id:
-            revoke_token_family(db, family_id)
-            db.commit()
-
+async def logout(response: Response):
+    """Logout — clear cookies. Prefer /token/revoke for refresh token revocation."""
     response.delete_cookie(
         key="refresh_token", path="/token",
         secure=settings.cookie_secure,
