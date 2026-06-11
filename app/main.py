@@ -386,7 +386,7 @@ rag_df, faiss_index = None, None
 
 
 # Tools (MCP-compatible)
-def retrieve_context(query: str) -> tuple[str, float]:
+def retrieve_context(query: str) -> tuple[str, float, list[dict]]:
     """RAG retrieval with optional cross-encoder reranking and freshness weighting.
 
     Pipeline (reranker enabled):
@@ -400,7 +400,7 @@ def retrieve_context(query: str) -> tuple[str, float]:
       - archive/static: 1095 days (3 years — regulations, evergreen content)
     """
     if faiss_index is None or rag_df is None:
-        return "RAG index not available — no data has been ingested yet.", 0.0
+        return "RAG index not available — no data has been ingested yet.", 0.0, []
     try:
         query_emb = _as_faiss_array(
             np.array(list(embedder.embed([query])), dtype=np.float32)
@@ -503,10 +503,24 @@ def retrieve_context(query: str) -> tuple[str, float]:
         context = "\n".join(text for _, _, _, _, text in top_results)
         avg_confidence = sum(score for _, score, _, _, _ in top_results) / len(top_results) if top_results else 0.0
 
-        return context, avg_confidence
+        retrieval_sources = []
+        for doc_idx, final_score, base_score, freshness_factor, text in top_results:
+            row = rag_df.iloc[doc_idx]
+            raw_title = str(row.get("filename", ""))
+            display_title = os.path.basename(raw_title) if raw_title else f"Document {doc_idx}"
+            retrieval_sources.append({
+                "document_id": str(row.get("document_id", f"doc_{doc_idx}")),
+                "title": display_title[:200],
+                "section": str(row.get("content_kind", "")),
+                "excerpt": text[:200],
+                "relevance_score": round(max(0.0, min(1.0, float(final_score))), 4),
+                "source_type": "curated",
+            })
+
+        return context, avg_confidence, retrieval_sources
     except Exception as e:
         logger.error(f"RAG retrieval error: {e}")
-        return "Error retrieving financial data.", 0.0
+        return "Error retrieving financial data.", 0.0, []
 
 
 def get_market_quote(ticker: str) -> str:
@@ -623,7 +637,7 @@ def get_rate_trend(indicator: str, days: int = 30) -> str:
 
 def _retrieve_context_text_only(query: str) -> str:
     """Wrapper for Tool registration — returns context text only (no confidence score)."""
-    context, _ = retrieve_context(query)
+    context, *_ = retrieve_context(query)
     return context
 
 
@@ -679,13 +693,14 @@ class AgentState(typing.TypedDict, total=False):
     query: str
     retrieval_confidence: float  # avg FAISS cosine score from retriever
     perplexity_context: str  # live web context from Perplexity (Phase 3)
+    sources: typing.List[dict]  # structured source attribution for API response
 
 
 @trace.get_tracer(__name__).start_as_current_span("Retriever Agent")
 def retriever_agent(state):
     """Retrieve relevant financial context via RAG/FAISS."""
     query = state["query"]
-    context, confidence = retrieve_context(query)
+    context, confidence, retrieval_sources = retrieve_context(query)
 
     below_threshold = confidence < settings.perplexity_confidence_threshold
     has_credentials = len(settings.perplexity_api_key) > 0
@@ -710,6 +725,7 @@ def retriever_agent(state):
         "messages": [HumanMessage(content=augmented_content)],
         "query": state["query"],
         "retrieval_confidence": confidence,
+        "sources": retrieval_sources,
     }
 
 
@@ -805,6 +821,20 @@ def perplexity_researcher(state):
         state["messages"] = state.get("messages", []) + [
             HumanMessage(content=live_context)
         ]
+
+        perplexity_sources = []
+        for i, url in enumerate(citations[:5]):
+            perplexity_sources.append({
+                "document_id": f"pplx_{cache_key}_{i}",
+                "title": url,
+                "section": "",
+                "excerpt": content[:200] if i == 0 else "",
+                "relevance_score": round(max(0.0, min(1.0, 1.0 - confidence)), 4),
+                "source_type": "live",
+                "url": url,
+            })
+        existing_sources = state.get("sources", [])
+        state["sources"] = existing_sources + perplexity_sources
 
         _log_outcome("augmented",
                      chars=len(content),
@@ -1408,36 +1438,38 @@ def load_embedder():
     return embedder
 
 
-def _run_advice_graph(q):
-    """
-    Generate financial advice using the multi-agent graph.
-
-    Uses the global app_graph (LangGraph) which internally calls the
-    retriever, analyzer, and orchestrator agents. All dependencies
-    (llm, embedder, faiss_index, rag_df) are module-level globals
-    accessed by the agent nodes directly.
-
-    Args:
-        q: Query object containing the user query (.query attribute).
+def _run_advice_graph(q) -> dict:
+    """Generate financial advice using the multi-agent graph.
 
     Returns:
-        str: Generated advice content from the agent graph.
+        dict with keys: advice (str), sources (list[dict]), confidence (float)
     """
-    result = app_graph.invoke({"messages": [], "query": q.query})
+    _empty = {"advice": "", "sources": [], "confidence": 0.0}
+    try:
+        result = app_graph.invoke({"messages": [], "query": q.query})
+    except Exception as e:
+        logger.error(f"Advice graph invocation failed: {e}")
+        _empty["advice"] = "I'm sorry, I encountered an error generating your advice. Please try again."
+        return _empty
+
     last_message = result["messages"][-1]
-    # The graph nodes return LangChain message objects (AIMessage/HumanMessage);
-    # extract `.content` so the downstream Pydantic response model (which
-    # requires `advice: str`) validates successfully.
     if hasattr(last_message, "content"):
         content = last_message.content
-        # Some LLM providers return content as a list of content blocks.
         if isinstance(content, list):
-            return "".join(
+            advice_text = "".join(
                 block.get("text", "") if isinstance(block, dict) else str(block)
                 for block in content
             )
-        return str(content)
-    return str(last_message)
+        else:
+            advice_text = str(content)
+    else:
+        advice_text = str(last_message)
+
+    return {
+        "advice": advice_text,
+        "sources": result.get("sources", []),
+        "confidence": result.get("retrieval_confidence", 0.0),
+    }
 
 
 @app.get("/health", response_model=EnhancedHealthResponse)
@@ -4539,7 +4571,7 @@ async def test_retriever_agent(request: RetrieverTestRequest):
     try:
         # Perform retrieval
         search_start = time.time()
-        retrieved_docs, retrieval_confidence = retrieve_context(request.query_text)
+        retrieved_docs, retrieval_confidence, _ = retrieve_context(request.query_text)
         search_duration = (time.time() - search_start) * 1000
 
         # Calculate relevance scores
@@ -5234,14 +5266,14 @@ async def process_advice_async(request_id: str, q: LoanQuery, current_user: dict
         )
         await asyncio.sleep(1)
 
-        advice = await asyncio.to_thread(_run_advice_graph, q)
+        graph_result = await asyncio.to_thread(_run_advice_graph, q)
 
         await set_request_status(
             request_id,
             "completed",
             100.0,
             "completed",
-            result={"advice": advice, "user": current_user["username"]},
+            result={"advice": graph_result["advice"], "user": current_user["username"]},
         )
 
     except Exception as e:
@@ -6406,7 +6438,9 @@ async def generate_advice(
         agent_processing_start = time.time()
 
         # Use pre-loaded FAISS index and embedder (eliminates 10-100s bottleneck)
-        advice = await asyncio.to_thread(_run_advice_graph, q)
+        graph_result = await asyncio.to_thread(_run_advice_graph, q)
+        advice = graph_result["advice"]
+        sources = graph_result.get("sources", [])
 
         (time.time() - agent_processing_start) * 1000
 
@@ -6469,7 +6503,8 @@ async def generate_advice(
         # Build optimized response
         optimized_response = OptimizedAdviceResponse(
             advice=advice,
-            confidence_score=0.88,
+            sources=sources or None,
+            confidence_score=graph_result.get("confidence", 0.88),
             processing_time_ms=total_latency_ms,
             was_cached=False,
             cache_hit_rate=perf_metrics.cache_hit_rate,
@@ -6504,6 +6539,7 @@ async def generate_advice(
                     user_id=current_user["user_id"],
                     user_content=q.query,
                     assistant_content=advice,
+                    sources=sources or None,
                     db=db,
                 )
             except Exception as persist_err:
