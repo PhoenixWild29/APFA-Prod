@@ -6,13 +6,13 @@
 #
 aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.14.0
+aiohttp==3.14.1
     # via -r requirements.in
 aiosignal==1.4.0
     # via aiohttp
 alembic==1.18.4
     # via -r requirements.in
-alt-profanity-check==1.8.0
+alt-profanity-check==1.9.0
     # via -r requirements.in
 amqp==5.3.1
     # via kombu
@@ -39,9 +39,9 @@ bcrypt==5.0.0
     # via -r requirements.in
 billiard==4.2.4
     # via celery
-boto3==1.43.23
+boto3==1.43.27
     # via -r requirements.in
-botocore==1.43.23
+botocore==1.43.27
     # via
     #   boto3
     #   s3transfer
@@ -238,6 +238,8 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
+narwhals==2.22.1
+    # via scikit-learn
 nltk==3.9.4
     # via textblob
 numpy==2.4.6
@@ -353,7 +355,7 @@ pyjwt==2.13.0
     # via -r requirements.in
 pyparsing==3.3.2
     # via httplib2
-pypdf==6.12.2
+pypdf==6.13.2
     # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via
@@ -403,7 +405,7 @@ rich==15.0.0
     # via typer
 s3transfer==0.18.0
     # via boto3
-scikit-learn==1.8.0
+scikit-learn==1.9.0
     # via alt-profanity-check
 scipy==1.17.1
     # via scikit-learn
