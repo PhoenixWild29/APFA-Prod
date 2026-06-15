@@ -3,7 +3,13 @@ import logging
 
 import resend
 
+from app.services.circuit_breaker import CircuitBreakerOpen, get_breaker
+
 logger = logging.getLogger(__name__)
+
+# Resend email is fire-and-forget; back off longer (120s) since no user is
+# waiting on the retry.
+_resend_breaker = get_breaker("resend", failure_threshold=3, recovery_timeout=120.0)
 
 VERIFICATION_EMAIL_HTML = """<!DOCTYPE html>
 <html>
@@ -102,17 +108,22 @@ class EmailService:
             )
             return False
         try:
-            resend.Emails.send(
+            _resend_breaker.call(
+                resend.Emails.send,
                 {
                     "from": self.from_address,
                     "to": [to],
                     "subject": subject,
                     "html": html,
-                }
+                },
             )
             _clean = str(to).replace("\n", "").replace("\r", "")[:200]
             logger.info(f"Email sent: subject={subject!r} to={_clean}")
             return True
+        except CircuitBreakerOpen:
+            _clean = str(to).replace("\n", "").replace("\r", "")[:200]
+            logger.warning(f"Resend circuit breaker open — skipping email to {_clean}")
+            return False
         except Exception as e:
             _clean = str(to).replace("\n", "").replace("\r", "")[:200]
             logger.error(f"Failed to send email to {_clean}: {e}")

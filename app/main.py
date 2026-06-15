@@ -119,17 +119,19 @@ from app.services import conversation_service
 # safety AND static analysis.
 
 
-# Custom exception classes
-class RAGError(Exception):
-    """Raised when RAG index operations fail."""
-
-
-class LLMError(Exception):
-    """Raised when LLM operations fail."""
-
-
-class ExternalServiceError(Exception):
-    """Raised when external service calls fail."""
+# Custom exception classes — defined in app/exceptions.py and imported here.
+# RAGError / LLMError / ExternalServiceError keep their names and semantics,
+# so existing `except RAGError` (etc.) handlers are unaffected. The new
+# subclasses (RAGIndexUnavailableError, RAGRetrievalError, ToolExecutionError)
+# are caught by those same handlers because they inherit from them.
+from app.exceptions import (
+    RAGError,
+    RAGIndexUnavailableError,
+    RAGRetrievalError,
+    LLMError,
+    ExternalServiceError,
+    ToolExecutionError,
+)
 
 
 def detect_bias(text: str) -> float:
@@ -400,7 +402,9 @@ def retrieve_context(query: str) -> tuple[str, float, list[dict]]:
       - archive/static: 1095 days (3 years — regulations, evergreen content)
     """
     if faiss_index is None or rag_df is None:
-        return "RAG index not available — no data has been ingested yet.", 0.0, []
+        raise RAGIndexUnavailableError(
+            "RAG index not available — no data has been ingested yet."
+        )
     try:
         query_emb = _as_faiss_array(
             np.array(list(embedder.embed([query])), dtype=np.float32)
@@ -520,7 +524,7 @@ def retrieve_context(query: str) -> tuple[str, float, list[dict]]:
         return context, avg_confidence, retrieval_sources
     except Exception as e:
         logger.error(f"RAG retrieval error: {e}")
-        return "Error retrieving financial data.", 0.0, []
+        raise RAGRetrievalError("Error retrieving financial data.") from e
 
 
 def get_market_quote(ticker: str) -> str:
@@ -561,7 +565,9 @@ def get_market_quote(ticker: str) -> str:
         )
     except Exception as e:
         logger.error(f"Market quote error for {ticker}: {e}")
-        return f"Error retrieving quote for {ticker}."
+        raise ToolExecutionError(
+            "get_market_quote", f"Error retrieving quote for {ticker}.", e
+        ) from e
 
 
 def get_economic_indicator(indicator: str) -> str:
@@ -590,7 +596,9 @@ def get_economic_indicator(indicator: str) -> str:
         return f"{name}: {record.value}{record.unit} as of {record.timestamp}."
     except Exception as e:
         logger.error(f"Economic indicator error for {indicator}: {e}")
-        return f"Error retrieving indicator {indicator}."
+        raise ToolExecutionError(
+            "get_economic_indicator", f"Error retrieving indicator {indicator}.", e
+        ) from e
 
 
 def get_rate_trend(indicator: str, days: int = 30) -> str:
@@ -632,13 +640,49 @@ def get_rate_trend(indicator: str, days: int = 30) -> str:
         )
     except Exception as e:
         logger.error(f"Rate trend error for {indicator}: {e}")
-        return f"Error retrieving trend for {indicator}."
+        raise ToolExecutionError(
+            "get_rate_trend", f"Error retrieving trend for {indicator}.", e
+        ) from e
 
 
 def _retrieve_context_text_only(query: str) -> str:
-    """Wrapper for Tool registration — returns context text only (no confidence score)."""
-    context, *_ = retrieve_context(query)
-    return context
+    """Wrapper for Tool registration — returns context text only (no confidence score).
+
+    LangChain tools must return a string for the LLM, never raise — so the
+    structured RAG exceptions are converted back to the original sentinel
+    messages here (the exact strings the LLM saw before this refactor).
+    """
+    try:
+        context, *_ = retrieve_context(query)
+        return context
+    except RAGIndexUnavailableError:
+        return "RAG index not available — no data has been ingested yet."
+    except RAGRetrievalError:
+        return "Error retrieving financial data."
+
+
+def _safe_get_market_quote(ticker: str) -> str:
+    """LLM-safe wrapper — converts ToolExecutionError back to its detail string."""
+    try:
+        return get_market_quote(ticker)
+    except ToolExecutionError as e:
+        return e.detail
+
+
+def _safe_get_economic_indicator(indicator: str) -> str:
+    """LLM-safe wrapper — converts ToolExecutionError back to its detail string."""
+    try:
+        return get_economic_indicator(indicator)
+    except ToolExecutionError as e:
+        return e.detail
+
+
+def _safe_get_rate_trend(indicator: str, days: int = 30) -> str:
+    """LLM-safe wrapper — converts ToolExecutionError back to its detail string."""
+    try:
+        return get_rate_trend(indicator, days)
+    except ToolExecutionError as e:
+        return e.detail
 
 
 tools = [
@@ -648,7 +692,7 @@ tools = [
         description="RAG retrieval for financial research, market data, and investment documents.",
     ),
     Tool.from_function(
-        func=get_market_quote,
+        func=_safe_get_market_quote,
         name="get_market_quote",
         description=(
             "Get current stock or ETF price quote. "
@@ -657,7 +701,7 @@ tools = [
         ),
     ),
     Tool.from_function(
-        func=get_economic_indicator,
+        func=_safe_get_economic_indicator,
         name="get_economic_indicator",
         description=(
             "Get economic indicator value. "
@@ -667,7 +711,7 @@ tools = [
         ),
     ),
     Tool.from_function(
-        func=get_rate_trend,
+        func=_safe_get_rate_trend,
         name="get_rate_trend",
         description=(
             "Get historical trend for a rate or economic indicator. "
@@ -700,7 +744,18 @@ class AgentState(typing.TypedDict, total=False):
 def retriever_agent(state):
     """Retrieve relevant financial context via RAG/FAISS."""
     query = state["query"]
-    context, confidence, retrieval_sources = retrieve_context(query)
+    try:
+        context, confidence, retrieval_sources = retrieve_context(query)
+    except RAGIndexUnavailableError:
+        logger.warning("retriever_agent: RAG index unavailable — degrading to empty context")
+        context = "No curated research data is available yet."
+        confidence = 0.0
+        retrieval_sources = []
+    except RAGRetrievalError as e:
+        logger.error(f"retriever_agent: RAG retrieval failed: {e}")
+        context = "Financial data retrieval encountered an error."
+        confidence = 0.0
+        retrieval_sources = []
 
     below_threshold = confidence < settings.perplexity_confidence_threshold
     has_credentials = len(settings.perplexity_api_key) > 0
@@ -736,6 +791,17 @@ from cachetools import TTLCache
 # Prevents redundant API calls for similar queries within 5 minutes.
 _perplexity_rt_cache = TTLCache(maxsize=100, ttl=300)
 _perplexity_rt_lock = threading.Lock()
+
+
+# --- Circuit breakers for external services (Plan C) ---
+# Module-level singletons. get_breaker() returns the same instance per name
+# within a process, so the 'openai' breaker is shared by analyzer_agent and
+# orchestrator_agent (same OpenAI backend). All breakers auto-register and
+# surface in /health via get_all_breaker_states().
+from app.services.circuit_breaker import CircuitBreakerOpen, get_breaker
+
+_openai_breaker = get_breaker("openai", failure_threshold=3, recovery_timeout=30.0)
+_minio_breaker = get_breaker("minio", failure_threshold=5, recovery_timeout=60.0)
 
 
 def perplexity_researcher(state):
@@ -841,6 +907,11 @@ def perplexity_researcher(state):
                      citations=len(citations),
                      latency_ms=result["latency_ms"])
 
+    except CircuitBreakerOpen:
+        # Inner 'perplexity' breaker (in PerplexityClient) tripped — log
+        # distinctly instead of as a generic error, then fall through to
+        # return state (FAISS-only answer).
+        _log_outcome("circuit_breaker_open")
     except Exception as e:
         _log_outcome("error", error=f"{type(e).__name__}: {e}")
 
@@ -867,8 +938,24 @@ def analyzer_agent(state):
         llm_input = [SystemMessage(content=ANALYZER_SYSTEM_PROMPT)] + state[
             "messages"
         ]
-        response = llm.invoke(llm_input)
+        response = _openai_breaker.call(llm.invoke, llm_input)
         return {"messages": state["messages"] + [response]}
+    except CircuitBreakerOpen:
+        # MUST return non-empty messages: _run_advice_graph reads
+        # result["messages"][-1] unconditionally, so a bare `return state`
+        # (which can carry an empty messages list) would IndexError.
+        logger.warning("OpenAI circuit breaker open — returning degraded analyzer response")
+        return {
+            "messages": state["messages"]
+            + [
+                AIMessage(
+                    content=(
+                        "Our analysis service is temporarily unavailable. "
+                        "Please try again in a few moments."
+                    )
+                )
+            ]
+        }
     except AuthenticationError:
         logger.error("OpenAI auth failed — check OPENAI_API_KEY")
         raise HTTPException(503, "LLM service configuration error")
@@ -920,13 +1007,18 @@ def orchestrator_agent(state):
     # Orchestrator refines the response
     try:
         llm_input = [SystemMessage(content=ORCHESTRATOR_SYSTEM_PROMPT)] + messages
-        response = llm.invoke(llm_input)
+        response = _openai_breaker.call(llm.invoke, llm_input)
         return {
             "messages": state["messages"] + [response],
             "query": state["query"],
             "bias_detected": state.get("bias_detected", False),
             "bias_score": state.get("bias_score", 0.0),
         }
+    except CircuitBreakerOpen:
+        # Analyzer already appended its message, so returning state as-is is
+        # safe here (unlike analyzer_agent) — the prior advice still stands.
+        logger.warning("OpenAI circuit breaker open — returning analyzer output as-is")
+        return state
     except (AuthenticationError, RateLimitError, APITimeoutError, APIError) as e:
         _clean_err = str(e).replace("\n", " ").replace("\r", " ")[:500]
         logger.warning(f"Orchestrator LLM call failed: {_clean_err}")
@@ -2454,7 +2546,8 @@ async def upload_document(
         if not minio_client.bucket_exists(bucket):
             minio_client.make_bucket(bucket)
         object_key = f"uploads/{document_id}/{file.filename}"
-        minio_client.put_object(
+        _minio_breaker.call(
+            minio_client.put_object,
             bucket, object_key, io.BytesIO(file_content), file_size,
             content_type=content_type,
         )
@@ -2508,6 +2601,12 @@ async def upload_document(
 
     except HTTPException:
         raise
+
+    except CircuitBreakerOpen:
+        logger.warning("MinIO circuit breaker open — storage temporarily unavailable")
+        raise HTTPException(
+            status_code=503, detail="Storage service temporarily unavailable"
+        )
 
     except Exception as e:
         logger.error(f"Error uploading document: {e}")
@@ -2584,10 +2683,34 @@ async def upload_documents_batch(
                 accepted_count += 1
 
                 object_key = f"uploads/{upload_id}/{file.filename}"
-                minio_client.put_object(
-                    bucket, object_key, io.BytesIO(file_content), file_size,
-                    content_type=content_type,
-                )
+                try:
+                    _minio_breaker.call(
+                        minio_client.put_object,
+                        bucket, object_key, io.BytesIO(file_content), file_size,
+                        content_type=content_type,
+                    )
+                except CircuitBreakerOpen:
+                    # Storage is down — reject THIS file and keep the batch going.
+                    # Undo the optimistic accept above; task_id is not generated
+                    # yet, so there is no orphaned Celery task. We must append the
+                    # result dict here before `continue`, or the file would vanish
+                    # from the response.
+                    _clean = str(file.filename).replace("\n", "").replace("\r", "")[:200]
+                    logger.warning(f"MinIO circuit breaker open — rejecting {_clean}")
+                    validation_errors.append("Storage service temporarily unavailable")
+                    accepted_count -= 1
+                    rejected_count += 1
+                    upload_results.append(
+                        {
+                            "filename": file.filename,
+                            "upload_id": upload_id,
+                            "status": "rejected",
+                            "file_size_bytes": file_size,
+                            "validation_errors": validation_errors,
+                            "processing_task_id": None,
+                        }
+                    )
+                    continue
 
                 task_id = str(uuid.uuid4())
 
@@ -4565,7 +4688,17 @@ async def test_retriever_agent(request: RetrieverTestRequest):
     try:
         # Perform retrieval
         search_start = time.time()
-        retrieved_docs, retrieval_confidence, _ = retrieve_context(request.query_text)
+        try:
+            context_text, retrieval_confidence, retrieval_sources = retrieve_context(
+                request.query_text
+            )
+        except RAGIndexUnavailableError:
+            raise HTTPException(
+                status_code=503,
+                detail="RAG index not available — no data has been ingested yet.",
+            )
+        except RAGRetrievalError as e:
+            raise HTTPException(status_code=500, detail=f"RAG retrieval failed: {e}")
         search_duration = (time.time() - search_start) * 1000
 
         # Calculate relevance scores
@@ -4579,8 +4712,8 @@ async def test_retriever_agent(request: RetrieverTestRequest):
             context_relevance_scores=relevance_scores,
             avg_relevance_score=avg_relevance,
             coverage_analysis={
-                "documents_retrieved": len(retrieved_docs),
-                "unique_sources": len(set(retrieved_docs)),
+                "documents_retrieved": len(retrieval_sources),
+                "unique_sources": len({s.get("document_id") for s in retrieval_sources}),
                 "coverage_completeness": 0.85,
             },
             precision=0.90,
@@ -4639,10 +4772,12 @@ async def test_retriever_agent(request: RetrieverTestRequest):
             quality_metrics=quality_metrics,
             performance_benchmark=performance,
             diagnostic_info=diagnostics,
-            retrieved_context=retrieved_docs[:3],  # First 3 snippets
-            context_count=len(retrieved_docs),
+            retrieved_context=[s.get("excerpt", "") for s in retrieval_sources[:3]],
+            context_count=len(retrieval_sources),
         )
 
+    except HTTPException:
+        raise  # propagate the 503/500 raised above with their correct status
     except Exception as e:
         logger.error(f"Error testing retriever agent: {e}")
         raise HTTPException(status_code=500, detail="Retriever agent test failed")

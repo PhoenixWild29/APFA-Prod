@@ -37,8 +37,14 @@ from app.services.pipeline_utils import (
     parse_iso,
     retry,
 )
+from app.services.circuit_breaker import CircuitBreakerOpen, get_breaker
 
 logger = logging.getLogger(__name__)
+
+# Shared per-process OpenAI breaker (same "openai" name as the API hot-path
+# breaker; in the Celery worker this is a separate instance). Guards the
+# optional LLM caption-cleaning pass.
+_openai_breaker = get_breaker("openai", failure_threshold=3, recovery_timeout=30.0)
 
 
 # ---------------------------------------------------------------------------
@@ -353,6 +359,7 @@ class YouTubeTranscriptConnector(RAGSource):
         self._openai_api_key = openai_api_key
         self._openai_model = openai_model
         self._finance_allowlist = finance_allowlist
+        self._breaker = get_breaker("youtube", failure_threshold=5, recovery_timeout=60.0)
 
     def fetch(
         self,
@@ -389,7 +396,9 @@ class YouTubeTranscriptConnector(RAGSource):
         for video_id in video_ids:
             try:
                 # Fetch transcript (prefer manual over auto-generated)
-                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                transcript_list = self._breaker.call(
+                    YouTubeTranscriptApi.list_transcripts, video_id
+                )
                 transcript = None
                 is_auto = False
 
@@ -438,6 +447,11 @@ class YouTubeTranscriptConnector(RAGSource):
                     }
                 )
 
+            except CircuitBreakerOpen:
+                logger.warning(
+                    "YouTube circuit breaker open — aborting remaining transcript fetches"
+                )
+                break
             except Exception as e:
                 logger.error(f"Failed transcript for {video_id}: {e}")
 
@@ -452,14 +466,19 @@ class YouTubeTranscriptConnector(RAGSource):
             "https://www.youtube.com/oembed?"
             f"url=https://www.youtube.com/watch?v={video_id}&format=json"
         )
-        try:
+        def _fetch():
             with urllib.request.urlopen(url, timeout=10) as resp:
-                data = json.loads(resp.read())
-                return {
-                    "title": data.get("title", ""),
-                    "channel": data.get("author_name", ""),
-                    "published_at": "",
-                }
+                return json.loads(resp.read())
+
+        try:
+            data = self._breaker.call(_fetch)
+            return {
+                "title": data.get("title", ""),
+                "channel": data.get("author_name", ""),
+                "published_at": "",
+            }
+        except CircuitBreakerOpen:
+            return {"title": "", "channel": ""}
         except Exception:
             return {"title": "", "channel": ""}
 
@@ -567,31 +586,39 @@ class YouTubeTranscriptConnector(RAGSource):
                 batch = segments[i: i + batch_size]
                 raw_text = " ".join(s.get("text", "") for s in batch)
 
-                response = client.chat.completions.create(
-                    model=self._openai_model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are correcting auto-generated YouTube captions "
-                                "from a finance/investment video. Fix ONLY factual "
-                                "errors in financial terminology:\n"
-                                "- Capitalize ticker symbols (spy→SPY, qqq→QQQ)\n"
-                                "- Fix percentage/rate values if clearly wrong\n"
-                                "- Correct regulatory terms (tiller→TILA)\n"
-                                "- Fix common terms (pee ratio→P/E ratio)\n"
-                                "Do NOT rephrase, summarize, or change meaning. "
-                                "Return corrected text only."
-                            ),
-                        },
-                        {
-                            "role": "user",
-                            "content": f"Video: {video_title}\n\n{raw_text}",
-                        },
-                    ],
-                    max_tokens=len(raw_text.split()) * 2,
-                    temperature=0.1,
-                )
+                try:
+                    response = _openai_breaker.call(
+                        client.chat.completions.create,
+                        model=self._openai_model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    "You are correcting auto-generated YouTube captions "
+                                    "from a finance/investment video. Fix ONLY factual "
+                                    "errors in financial terminology:\n"
+                                    "- Capitalize ticker symbols (spy→SPY, qqq→QQQ)\n"
+                                    "- Fix percentage/rate values if clearly wrong\n"
+                                    "- Correct regulatory terms (tiller→TILA)\n"
+                                    "- Fix common terms (pee ratio→P/E ratio)\n"
+                                    "Do NOT rephrase, summarize, or change meaning. "
+                                    "Return corrected text only."
+                                ),
+                            },
+                            {
+                                "role": "user",
+                                "content": f"Video: {video_title}\n\n{raw_text}",
+                            },
+                        ],
+                        max_tokens=len(raw_text.split()) * 2,
+                        temperature=0.1,
+                    )
+                except CircuitBreakerOpen:
+                    logger.warning(
+                        "OpenAI circuit breaker open — returning partially cleaned captions"
+                    )
+                    cleaned.extend(segments[i:])
+                    return cleaned
 
                 cleaned_text = response.choices[0].message.content.strip()
                 words = cleaned_text.split()

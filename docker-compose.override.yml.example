@@ -1,0 +1,25 @@
+# Local development overrides for docker-compose.yml.
+# Copy this file to docker-compose.override.yml (which is gitignored).
+# Docker Compose automatically merges it with docker-compose.yml.
+#
+# Usage:
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   docker compose up
+#
+# This override:
+#   - Mounts app/ for live code reload (no rebuild needed)
+#   - Enables uvicorn --reload for auto-restart on file changes
+#   - Sets DEBUG=true for verbose logging
+#
+# NOTE: the command below intentionally mirrors entrypoint.sh — it runs the
+# same Alembic migration and creates the /tmp/migrations_done sentinel that the
+# docker-compose.yml healthcheck waits on. If you change entrypoint.sh (e.g. add
+# DB-wait or warmup logic), update this command too, or the dev container will
+# never report healthy.
+services:
+  apfa:
+    volumes:
+      - ./app:/opt/apfa/app
+    command: ["/bin/sh", "-c", "python -m alembic -c app/alembic.ini upgrade head && touch /tmp/migrations_done && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
+    environment:
+      - DEBUG=true

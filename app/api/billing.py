@@ -10,8 +10,12 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user_hybrid
 from app.orm_models import User
+from app.services.circuit_breaker import CircuitBreakerOpen, get_breaker
 
 logger = logging.getLogger(__name__)
+
+# Stripe is payment-critical; trip after 3 failures, recover in 60s.
+_stripe_breaker = get_breaker("stripe", failure_threshold=3, recovery_timeout=60.0)
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
@@ -91,7 +95,9 @@ async def create_checkout_session(
     try:
         customer_id = current_user.get("stripe_customer_id")
         if not customer_id:
-            customer = stripe.Customer.create(email=current_user["email"])
+            customer = _stripe_breaker.call(
+                stripe.Customer.create, email=current_user["email"]
+            )
             customer_id = customer.id
             user_row = (
                 db.query(User)
@@ -102,7 +108,8 @@ async def create_checkout_session(
                 user_row.stripe_customer_id = customer_id
                 db.commit()
 
-        session = stripe.checkout.Session.create(
+        session = _stripe_breaker.call(
+            stripe.checkout.Session.create,
             customer=customer_id,
             payment_method_types=["card"],
             line_items=[{"price": price_id, "quantity": 1}],
@@ -111,6 +118,10 @@ async def create_checkout_session(
             cancel_url=f"{settings.frontend_url}/app/settings?tab=billing&checkout=cancel",
         )
         return {"checkout_url": session.url}
+    except CircuitBreakerOpen:
+        raise HTTPException(
+            status_code=503, detail="Payment service temporarily unavailable"
+        )
     except stripe.StripeError as e:
         logger.error("Stripe checkout error: %s", e)
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
@@ -128,11 +139,16 @@ async def create_portal_session(
         raise HTTPException(status_code=400, detail="No active subscription")
 
     try:
-        session = stripe.billing_portal.Session.create(
+        session = _stripe_breaker.call(
+            stripe.billing_portal.Session.create,
             customer=customer_id,
             return_url=f"{settings.frontend_url}/app/settings?tab=billing",
         )
         return {"portal_url": session.url}
+    except CircuitBreakerOpen:
+        raise HTTPException(
+            status_code=503, detail="Payment service temporarily unavailable"
+        )
     except stripe.StripeError as e:
         logger.error("Stripe portal error: %s", e)
         raise HTTPException(status_code=500, detail="Failed to create portal session")
@@ -184,9 +200,11 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         tier = "pro"
         if subscription_id:
             try:
-                sub = stripe.Subscription.retrieve(subscription_id)
+                sub = _stripe_breaker.call(stripe.Subscription.retrieve, subscription_id)
                 price_id = sub["items"]["data"][0]["price"]["id"]
                 tier = _get_price_to_tier().get(price_id, "pro")
+            except CircuitBreakerOpen:
+                logger.warning("Stripe circuit breaker open — defaulting tier to 'pro'")
             except Exception as e:
                 logger.warning("Could not resolve tier from subscription: %s", e)
 
