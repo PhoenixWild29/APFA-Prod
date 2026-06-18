@@ -112,7 +112,7 @@ click-repl==0.3.0
     # via
     #   -r requirements.txt
     #   celery
-cryptography==48.0.0
+cryptography==48.0.1
     # via
     #   -r requirements.txt
     #   google-auth
