@@ -355,7 +355,7 @@ pyjwt==2.13.0
     # via -r requirements.in
 pyparsing==3.3.2
     # via httplib2
-pypdf==6.13.2
+pypdf==6.13.3
     # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via
