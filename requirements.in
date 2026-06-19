@@ -16,15 +16,15 @@ langgraph-sdk>=0.3.14,<1.0
 # Drops Docker image from ~10GB to ~3.5GB. bge-small-en-v1.5 is 384-dim like
 # the previous all-MiniLM-L6-v2 — no validator changes needed.
 fastembed>=0.4.0
-faiss-cpu>=1.14.2
+faiss-cpu>=1.14.3
 deltalake==1.6.0
 # pyarrow is required by deltalake.write_deltalake() to serialize pandas
 # DataFrames through the Arrow format. Not a transitive dep — must be explicit.
 pyarrow>=14.0
 pandas>=2.0
-boto3==1.43.28
+boto3==1.43.33
 minio==7.2.20
-fastapi==0.136.3
+fastapi==0.137.2
 python-multipart>=0.0.32
 pydantic-settings==2.14.1
 email-validator>=2.3.0
@@ -46,21 +46,21 @@ alt-profanity-check==1.9.0
 celery==5.6.3
 redis==8.0.0
 python-magic==0.4.27
-stripe==15.2.0
-SQLAlchemy>=2.0.50
+stripe==15.2.1
+SQLAlchemy>=2.0.51
 psycopg2-binary>=2.9.12
 alembic>=1.13
 # --- Data Pipeline Connectors ---
 # Google Drive: service account auth + Drive API
 google-api-python-client>=2.196.0
-google-auth>=2.53.0
+google-auth>=2.55.0
 google-auth-oauthlib>=1.4.0
 # Document extraction (PDFs, DOCX)
-pypdf>=6.13.2
+pypdf>=6.13.3
 python-docx>=1.2.0
 # Finnhub market data
 finnhub-python>=2.4.28
 # YouTube transcript extraction
 youtube-transcript-api>=0.6.1
 # Email delivery via Resend API
-resend>=2.0.0
+resend>=2.32.2
