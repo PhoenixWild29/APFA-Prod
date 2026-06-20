@@ -512,7 +512,7 @@ pydantic-core==2.46.4
     # via
     #   -r requirements.txt
     #   pydantic
-pydantic-settings==2.14.1
+pydantic-settings==2.14.2
     # via -r requirements.txt
 pygments==2.20.0
     # via
