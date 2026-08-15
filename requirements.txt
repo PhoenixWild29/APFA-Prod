@@ -305,7 +305,7 @@ packaging==26.2
     #   onnxruntime
 pandas==3.0.5
     # via -r requirements.in
-pillow==12.2.0
+pillow==12.3.0
     # via fastembed
 prometheus-client==0.26.0
     # via -r requirements.in
