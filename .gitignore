@@ -67,3 +67,6 @@ Thumbs.db
 .aegis_handoff.md
 credentials/*.json
 !credentials/README.md
+
+# Docker Compose local overrides (see docker-compose.override.yml.example)
+docker-compose.override.yml

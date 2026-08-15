@@ -47,7 +47,13 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      # CMD-SHELL (not CMD) so we can use shell operators. The sentinel
+      # /tmp/migrations_done is created by entrypoint.sh after Alembic
+      # finishes; until then `test -f` fails fast (exit 1) without wasting
+      # retries — failures during start_period don't count against retries.
+      # curl -sf: silent, and fail (exit 22) on HTTP >=400 so a 503 from
+      # /health (any unhealthy component) is correctly reported unhealthy.
+      test: ["CMD-SHELL", "test -f /tmp/migrations_done && curl -sf http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -90,8 +96,8 @@ services:
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -111,7 +117,7 @@ services:
       - GF_SERVER_ROOT_URL=http://localhost:3001
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
     depends_on:
       - prometheus
     restart: unless-stopped

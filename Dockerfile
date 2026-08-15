@@ -39,10 +39,8 @@ USER apfa
 # instantiation site that forgets the explicit cache_dir parameter)
 ENV FASTEMBED_CACHE_PATH=/opt/apfa/models
 
-# Models are pre-cached — startup cost is Alembic migrations + FAISS
-# index load. 90s start-period covers steady-state deploys.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# Healthcheck defined in docker-compose.yml (not here) to avoid
+# conflicting start_period values. Compose settings take precedence.
 
 EXPOSE 8000
 
