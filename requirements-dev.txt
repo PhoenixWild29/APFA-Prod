@@ -119,6 +119,7 @@ cryptography==48.0.0
 defusedxml==0.7.1
     # via
     #   -r requirements.txt
+    #   nltk
     #   youtube-transcript-api
 deltalake==1.6.2
     # via -r requirements.txt
@@ -354,7 +355,7 @@ narwhals==2.22.1
     # via
     #   -r requirements.txt
     #   scikit-learn
-nltk==3.9.4
+nltk==3.10.0
     # via
     #   -r requirements.txt
     #   textblob
