@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "description": "Deterministic retrieval quality gate seed corpus.",
+  "total_queries": 14,
+  "queries": [
+    {
+      "query": "What target mix does the investment policy use?",
+      "expected_source_doc": "investment_policy.md",
+      "answer_span": "60 percent equities and 40 percent investment-grade bonds",
+      "category": "portfolio_management",
+      "difficulty": "easy"
+    },
+    {
+      "query": "How often should the portfolio be rebalanced?",
+      "expected_source_doc": "investment_policy.md",
+      "answer_span": "annual review",
+      "category": "portfolio_management",
+      "difficulty": "easy"
+    },
+    {
+      "query": "Which holdings are used to reduce concentration risk?",
+      "expected_source_doc": "investment_policy.md",
+      "answer_span": "diversified index funds",
+      "category": "portfolio_management",
+      "difficulty": "medium"
+    },
+    {
+      "query": "What is the tax-loss harvesting rule for realized losses?",
+      "expected_source_doc": "tax_planning.md",
+      "answer_span": "realized capital gains",
+      "category": "tax_planning",
+      "difficulty": "easy"
+    },
+    {
+      "query": "How many days does the wash-sale rule cover?",
+      "expected_source_doc": "tax_planning.md",
+      "answer_span": "30 days before or after the sale",
+      "category": "tax_planning",
+      "difficulty": "easy"
+    },
+    {
+      "query": "How are traditional IRA withdrawals treated for income tax?",
+      "expected_source_doc": "tax_planning.md",
+      "answer_span": "ordinary taxable income",
+      "category": "tax_planning",
+      "difficulty": "medium"
+    },
+    {
+      "query": "Who can act if the client becomes unable to manage finances?",
+      "expected_source_doc": "estate_planning.md",
+      "answer_span": "durable power of attorney",
+      "category": "financial_planning",
+      "difficulty": "easy"
+    },
+    {
+      "query": "Why should beneficiary designations be reviewed after major life events?",
+      "expected_source_doc": "estate_planning.md",
+      "answer_span": "beneficiary designations transfer outside the will",
+      "category": "financial_planning",
+      "difficulty": "medium"
+    },
+    {
+      "query": "At what age does the retirement distribution plan begin required minimum distributions?",
+      "expected_source_doc": "retirement_income.md",
+      "answer_span": "age 73",
+      "category": "financial_planning",
+      "difficulty": "easy"
+    },
+    {
+      "query": "Which account is used first for flexible retirement spending?",
+      "expected_source_doc": "retirement_income.md",
+      "answer_span": "taxable brokerage account",
+      "category": "financial_planning",
+      "difficulty": "medium"
+    },
+    {
+      "query": "What withdrawals from a 529 plan qualify for tax-free treatment?",
+      "expected_source_doc": "education_funding.md",
+      "answer_span": "qualified education expenses",
+      "category": "financial_planning",
+      "difficulty": "easy"
+    },
+    {
+      "query": "How much cash should the emergency reserve cover?",
+      "expected_source_doc": "cash_flow.md",
+      "answer_span": "six months of essential spending",
+      "category": "financial_planning",
+      "difficulty": "easy"
+    },
+    {
+      "query": "What kind of policy provides extra liability coverage above home and auto insurance?",
+      "expected_source_doc": "insurance_review.md",
+      "answer_span": "umbrella liability policy",
+      "category": "financial_planning",
+      "difficulty": "easy"
+    },
+    {
+      "query": "What event should trigger a review of disability coverage?",
+      "expected_source_doc": "insurance_review.md",
+      "answer_span": "material change in income or employment",
+      "category": "financial_planning",
+      "difficulty": "medium"
+    }
+  ]
+}
