@@ -13,7 +13,11 @@ os.environ["API_KEY"] = "test_key"
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    body = response.json()
+    # Enhanced health response contract (see EnhancedHealthResponse schema).
+    assert "overall_status" in body
+    assert body["overall_status"] in {"healthy", "degraded", "unhealthy"}
+    assert isinstance(body.get("components"), list)
 
 
 def test_generate_advice_unauthorized():

@@ -1660,25 +1660,77 @@ async def health_check():
         )
         failed.append("redis_cache")
 
-    # Check Celery (not yet wired for health checks). Reporting "unknown"
-    # here is deliberately honest: the endpoint doesn't actually ping Celery,
-    # so we must not claim it's healthy. It's surfaced via `unknown_components`
-    # at the response root so callers can distinguish "checked & passing"
-    # from "never actually checked."
-    components.append(
-        ComponentHealthStatus(
-            component="celery_workers",
-            status="unknown",
-            metadata={
-                "note": (
-                    "Health check not implemented — Celery runs in a separate "
-                    "container and is not pinged by this endpoint."
-                ),
-                "check_performed": False,
-            },
+    # Check Celery workers via broker-side ping. Runs in a threadpool with a
+    # strict timeout so the endpoint stays fast even when the broker is slow
+    # or workers are unreachable. Three-way outcome:
+    #   - workers respond           → healthy
+    #   - broker up, no responders  → degraded (broker reachable, no workers)
+    #   - broker unreachable / error → unhealthy
+    celery_start = time.time()
+    celery_timeout_s = 0.5
+    try:
+        from app.tasks import celery_app
+
+        def _ping_workers():
+            # inspect().ping() is a blocking broker roundtrip. Returns a dict
+            # keyed by worker name, or None if no workers reply within timeout.
+            insp = celery_app.control.inspect(timeout=celery_timeout_s)
+            return insp.ping() or {}
+
+        ping_result = await asyncio.wait_for(
+            asyncio.to_thread(_ping_workers),
+            timeout=celery_timeout_s + 0.5,
         )
-    )
-    unknown.append("celery_workers")
+        celery_latency = (time.time() - celery_start) * 1000
+        worker_count = len(ping_result)
+        if worker_count > 0:
+            components.append(
+                ComponentHealthStatus(
+                    component="celery_workers",
+                    status="healthy",
+                    latency_ms=celery_latency,
+                    metadata={
+                        "worker_count": worker_count,
+                        "workers": sorted(ping_result.keys()),
+                        "check_performed": True,
+                    },
+                )
+            )
+        else:
+            components.append(
+                ComponentHealthStatus(
+                    component="celery_workers",
+                    status="degraded",
+                    latency_ms=celery_latency,
+                    error_message="Broker reachable but no workers responded to ping",
+                    metadata={"worker_count": 0, "check_performed": True},
+                )
+            )
+            degraded.append("celery_workers")
+    except asyncio.TimeoutError:
+        celery_latency = (time.time() - celery_start) * 1000
+        components.append(
+            ComponentHealthStatus(
+                component="celery_workers",
+                status="degraded",
+                latency_ms=celery_latency,
+                error_message=f"Ping timed out after {celery_timeout_s + 0.5:.1f}s",
+                metadata={"check_performed": True, "timeout": True},
+            )
+        )
+        degraded.append("celery_workers")
+    except Exception as e:
+        celery_latency = (time.time() - celery_start) * 1000
+        components.append(
+            ComponentHealthStatus(
+                component="celery_workers",
+                status="unhealthy",
+                latency_ms=celery_latency,
+                error_message=str(e),
+                metadata={"check_performed": True},
+            )
+        )
+        failed.append("celery_workers")
 
     # AWS Bedrock — intentionally not in use. Reported as "not_configured"
     # (not "healthy") so operators can see at a glance that this deployment
