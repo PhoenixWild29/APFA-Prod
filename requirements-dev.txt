@@ -481,7 +481,7 @@ py-rust-stemmers==0.1.8
     # via
     #   -r requirements.txt
     #   fastembed
-pyarrow==24.0.0
+pyarrow==25.0.1
     # via -r requirements.txt
 pyasn1==0.6.4
     # via
