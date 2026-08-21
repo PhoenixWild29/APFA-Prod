@@ -20,7 +20,7 @@ faiss-cpu>=1.14.3
 deltalake==1.6.2
 # pyarrow is required by deltalake.write_deltalake() to serialize pandas
 # DataFrames through the Arrow format. Not a transitive dep — must be explicit.
-pyarrow>=14.0
+pyarrow>=25.0.1
 pandas>=3.0.5
 boto3==1.43.57
 minio==7.2.20

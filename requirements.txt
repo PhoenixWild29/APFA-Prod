@@ -328,7 +328,7 @@ psycopg2-binary==2.9.12
     # via -r requirements.in
 py-rust-stemmers==0.1.8
     # via fastembed
-pyarrow==24.0.0
+pyarrow==25.0.1
     # via -r requirements.in
 pyasn1==0.6.4
     # via pyasn1-modules
