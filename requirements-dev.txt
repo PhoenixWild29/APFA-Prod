@@ -526,7 +526,7 @@ pyparsing==3.3.2
     # via
     #   -r requirements.txt
     #   httplib2
-pypdf==6.15.0
+pypdf==6.19.0
     # via -r requirements.txt
 pytest==9.1.1
     # via -r requirements-dev.in
