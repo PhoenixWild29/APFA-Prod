@@ -38,7 +38,7 @@ cachetools==7.1.6
 slowapi
 numpy>=2.4.6,<3.0
 prometheus-client==0.26.0
-PyJWT==2.13.0
+PyJWT==2.15.0
 bcrypt>=5.0.0,<6.0
 textblob==0.20.1
 aiohttp==3.14.3
