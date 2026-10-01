@@ -353,7 +353,7 @@ pydantic-settings==2.14.2
     # via -r requirements.in
 pygments==2.20.0
     # via rich
-pyjwt==2.13.0
+pyjwt==2.15.0
     # via -r requirements.in
 pyparsing==3.3.2
     # via httplib2

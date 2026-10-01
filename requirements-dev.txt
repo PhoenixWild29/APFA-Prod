@@ -520,7 +520,7 @@ pygments==2.20.0
     #   -r requirements.txt
     #   pytest
     #   rich
-pyjwt==2.13.0
+pyjwt==2.15.0
     # via -r requirements.txt
 pyparsing==3.3.2
     # via
