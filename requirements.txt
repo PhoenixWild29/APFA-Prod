@@ -6,7 +6,7 @@
 #
 aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.14.3
+aiohttp==3.14.4
     # via -r requirements.in
 aiosignal==1.4.0
     # via aiohttp
@@ -512,7 +512,7 @@ xxhash==3.7.0
     # via
     #   langgraph
     #   langsmith
-yarl==1.24.2
+yarl==1.25.1
     # via aiohttp
 youtube-transcript-api==1.2.4
     # via -r requirements.in
