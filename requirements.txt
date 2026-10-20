@@ -224,7 +224,7 @@ loguru==0.7.3
     # via fastembed
 lxml==6.1.1
     # via python-docx
-mako==1.3.12
+mako==1.4.2
     # via alembic
 markdown-it-py==4.2.0
     # via rich
