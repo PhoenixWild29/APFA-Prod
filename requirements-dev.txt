@@ -8,7 +8,7 @@ aiohappyeyeballs==2.6.2
     # via
     #   -r requirements.txt
     #   aiohttp
-aiohttp==3.14.3
+aiohttp==3.14.4
     # via -r requirements.txt
 aiosignal==1.4.0
     # via
@@ -737,7 +737,7 @@ xxhash==3.7.0
     #   -r requirements.txt
     #   langgraph
     #   langsmith
-yarl==1.24.2
+yarl==1.25.1
     # via
     #   -r requirements.txt
     #   aiohttp
