@@ -59,7 +59,7 @@ billiard==4.2.4
     # via
     #   -r requirements.txt
     #   celery
-black==26.5.1
+black==26.10.1
     # via -r requirements-dev.in
 boto3==1.43.57
     # via -r requirements.txt
