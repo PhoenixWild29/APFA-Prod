@@ -4,4 +4,4 @@
 -r requirements.txt
 pytest>=9.1.1
 mypy>=1.20
-black>=26.5
+black>=26.10.1
