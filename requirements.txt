@@ -242,7 +242,7 @@ multidict==6.7.1
     #   yarl
 narwhals==2.22.1
     # via scikit-learn
-nltk==3.10.0
+nltk==3.10.4
     # via textblob
 numpy==2.4.6
     # via
