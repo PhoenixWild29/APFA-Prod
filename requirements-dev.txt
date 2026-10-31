@@ -483,7 +483,7 @@ py-rust-stemmers==0.1.8
     #   fastembed
 pyarrow==24.0.0
     # via -r requirements.txt
-pyasn1==0.6.4
+pyasn1==0.6.5
     # via
     #   -r requirements.txt
     #   pyasn1-modules
